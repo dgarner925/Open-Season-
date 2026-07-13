@@ -1,5 +1,50 @@
 # Edge Functions
 
+## `send-alerts` — daily push notifications
+
+Calls `notifications_due()` (which finds every published opener/deadline landing
+exactly 30/7/1 days out for a user who follows it and opted into that offset, and
+excludes anything already in `sent_notifications`), sends each message to the
+user's Expo push tokens, and records the send so nobody is double-notified.
+
+### Deploy
+
+```powershell
+npx supabase functions deploy send-alerts
+```
+
+### Schedule daily (SQL Editor)
+
+`pg_cron` + `pg_net` are already enabled. Run once, substituting your service-role key:
+
+```sql
+select cron.schedule(
+  'send-alerts-daily',
+  '0 13 * * *',  -- 13:00 UTC ~ early morning US
+  $$
+  select net.http_post(
+    url     := 'https://soxglmgbhmpuxhngcsvx.supabase.co/functions/v1/send-alerts',
+    headers := jsonb_build_object(
+      'Content-Type', 'application/json',
+      'Authorization', 'Bearer <YOUR_SERVICE_ROLE_KEY>'
+    ),
+    body    := '{}'::jsonb
+  );
+  $$
+);
+-- Unschedule: select cron.unschedule('send-alerts-daily');
+```
+
+### Notes
+
+- Requires the `20260713101000_notifications.sql` migration (`notifications_due()`).
+- Push only reaches **real devices** — the app registers a token on launch
+  (`src/lib/push.ts`); the web preview and simulators don't get one.
+- Idempotency is enforced by `sent_notifications`' unique key — re-running the job
+  the same day sends nothing new.
+
+---
+
 ## `extract-source` — automated refresh (Phase 2 PoC)
 
 Fetches one official source, asks Claude (`claude-opus-4-8`) to extract structured

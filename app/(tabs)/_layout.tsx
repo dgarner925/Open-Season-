@@ -1,11 +1,19 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Redirect, Tabs } from 'expo-router';
+import { useEffect } from 'react';
 import { ActivityIndicator, View } from 'react-native';
 import { useAuth } from '@/providers/AuthProvider';
+import { registerForPushNotifications } from '@/lib/push';
 import { theme } from '@/theme';
 
 export default function TabsLayout() {
   const { loading, session, isOnboarded, isAdmin } = useAuth();
+
+  // Register this device for push notifications once signed in (no-op on web).
+  const userId = session?.user.id;
+  useEffect(() => {
+    if (userId) registerForPushNotifications(userId);
+  }, [userId]);
 
   // This layout owns "/" — it's the app's entry gate.
   if (loading) {
