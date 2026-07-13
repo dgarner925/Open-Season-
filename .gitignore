@@ -1,0 +1,44 @@
+# dependencies
+node_modules/
+
+# Expo
+.expo/
+dist/
+web-build/
+expo-env.d.ts
+
+# Native
+*.orig.*
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+ios/
+android/
+
+# Metro
+.metro-health-check*
+
+# Env / secrets
+.env
+.env.local
+.env*.local
+!.env.example
+
+# Supabase
+supabase/.branches/
+supabase/.temp/
+supabase/.env
+
+# Debug / OS
+npm-debug.*
+*.log
+.DS_Store
+Thumbs.db
+
+# EAS
+credentials.json
+
+# Claude Code local settings
+.claude/settings.local.json
