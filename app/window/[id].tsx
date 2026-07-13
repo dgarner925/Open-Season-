@@ -1,7 +1,7 @@
 import { Linking } from 'react-native';
 import { Stack, useLocalSearchParams } from 'expo-router';
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
-import { AppText, Button, Card, Divider, Pill, Screen } from '@/components/ui';
+import { AppText, Button, Card, Divider, GlassChip, Screen } from '@/components/ui';
 import { ProvenanceBlock } from '@/components/Provenance';
 import { useWindowById } from '@/features/reference/queries';
 import { countdownLabel, daysUntil, formatDate } from '@/lib/date';
@@ -45,7 +45,7 @@ export default function WindowDetail() {
 
       <Card accentColor={theme.color.danger}>
         <View style={styles.row}>
-          <Pill label="Application deadline" color={theme.color.danger} />
+          <GlassChip label="Application deadline" />
           <AppText variant="bodyStrong" color={urgency}>
             {countdownLabel(d)}
           </AppText>

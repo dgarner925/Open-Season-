@@ -12,7 +12,7 @@ import {
   type ViewStyle,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { radius, spacing, theme, type } from '@/theme';
+import { radius, spacing, theme, type, withAlpha } from '@/theme';
 
 /** Screen wrapper with safe-area + ink background. */
 export function Screen({
@@ -156,6 +156,24 @@ export function Dot({ color, size = 8 }: { color: string; size?: number }) {
   return <View style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: color }} />;
 }
 
+/**
+ * Frosted-glass chip — translucent tinted fill + soft light border. Reads as
+ * "glass" on the dark cards without needing a native blur dependency.
+ */
+export function GlassChip({ label, tint }: { label: string; tint?: string }) {
+  const base = tint ?? theme.color.accent;
+  return (
+    <View
+      style={[
+        styles.glassChip,
+        { backgroundColor: withAlpha(base, 0.16), borderColor: 'rgba(255,255,255,0.18)' },
+      ]}
+    >
+      <Text style={[type.overline, { color: theme.color.accentSoft }]}>{label.toUpperCase()}</Text>
+    </View>
+  );
+}
+
 export function Divider() {
   return <View style={styles.divider} />;
 }
@@ -189,6 +207,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     paddingVertical: 5,
     borderRadius: radius.pill,
+  },
+  glassChip: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: spacing.md,
+    paddingVertical: 5,
+    borderRadius: radius.pill,
+    borderWidth: 1,
   },
   divider: { height: StyleSheet.hairlineWidth, backgroundColor: theme.color.border, marginVertical: spacing.sm },
 });

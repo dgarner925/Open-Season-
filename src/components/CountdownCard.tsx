@@ -2,7 +2,7 @@ import { StyleSheet, View } from 'react-native';
 import { countdownLabel, formatDate } from '@/lib/date';
 import { spacing, speciesColors, theme, urgencyColor, type SpeciesKey } from '@/theme';
 import type { CountdownItem } from '@/features/reference/types';
-import { AppText, Card, Dot } from './ui';
+import { AppText, Card, Dot, GlassChip } from './ui';
 
 /**
  * Home hero. Editorial layout: a quiet meta row, a serif title, and one large
@@ -16,10 +16,9 @@ export function CountdownCard({ item, onPress }: { item: CountdownItem; onPress?
     <Card onPress={onPress}>
       <View style={styles.metaRow}>
         <View style={styles.metaLeft}>
-          <Dot color={speciesColor} />
+          {item.kind === 'deadline' ? <GlassChip label="Deadline" /> : <Dot color={speciesColor} />}
           <AppText variant="overline" color={theme.color.textMuted}>
-            {(item.kind === 'deadline' ? 'Deadline' : 'Opener').toUpperCase()}
-            {item.stateCode ? `  ·  ${item.stateCode}` : ''}
+            {item.kind === 'deadline' ? item.stateCode : `OPENER${item.stateCode ? `  ·  ${item.stateCode}` : ''}`}
           </AppText>
         </View>
         <AppText variant="caption" color={theme.color.textMuted}>

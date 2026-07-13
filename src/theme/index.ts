@@ -1,4 +1,4 @@
-export { theme, palette, speciesColors, urgencyColor } from './colors';
+export { theme, palette, speciesColors, urgencyColor, withAlpha } from './colors';
 export type { SpeciesKey } from './colors';
 export { fontFamily, fontSize, type, spacing, radius } from './typography';
 

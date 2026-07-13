@@ -1,7 +1,7 @@
 import { useRouter } from 'expo-router';
 import { ActivityIndicator, FlatList, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { AppText, Card, Pill } from '@/components/ui';
+import { AppText, Card, GlassChip } from '@/components/ui';
 import { useFollowedWindows } from '@/features/reference/queries';
 import type { ApplicationWindowWithRefs } from '@/features/reference/types';
 import { countdownLabel, daysUntil, formatDate } from '@/lib/date';
@@ -56,7 +56,7 @@ function WindowRow({ window: w, onPress }: { window: ApplicationWindowWithRefs; 
         <AppText variant="h3" numberOfLines={1} style={{ flex: 1 }}>
           {w.state?.code} {w.species?.name} {w.name ?? ''}
         </AppText>
-        <Pill label="Deadline" color={theme.color.danger} />
+        <GlassChip label="Deadline" />
       </View>
       <AppText variant="body" color={theme.color.textSecondary}>
         Closes {formatDate(w.closes_at)}
