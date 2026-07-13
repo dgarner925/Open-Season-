@@ -176,7 +176,10 @@ export type Database = {
       seasons: Table<SeasonRow, Omit<SeasonRow, Gen> & { id?: string }>;
       application_windows: Table<ApplicationWindowRow, Omit<ApplicationWindowRow, Gen> & { id?: string }>;
       regulation_summaries: Table<RegulationSummaryRow, Omit<RegulationSummaryRow, Gen> & { id?: string }>;
-      profiles: Table<ProfileRow, Omit<ProfileRow, 'created_at' | 'updated_at'>>;
+      profiles: Table<
+        ProfileRow,
+        { id: string; display_name?: string | null; is_admin?: boolean; onboarded_at?: string | null }
+      >;
       follows: Table<FollowRow, Omit<FollowRow, 'id' | 'created_at'> & { id?: string }>;
       alert_preferences: Table<AlertPreferenceRow, Omit<AlertPreferenceRow, 'created_at' | 'updated_at'>>;
       device_push_tokens: Table<DevicePushTokenRow, Omit<DevicePushTokenRow, Gen> & { id?: string }>;

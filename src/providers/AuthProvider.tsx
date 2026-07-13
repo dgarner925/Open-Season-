@@ -31,7 +31,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [profile, setProfile] = useState<ProfileRow | null>(null);
 
   async function loadProfile(userId: string | undefined) {
-    setProfile(userId ? await fetchProfile(userId) : null);
+    if (!userId) {
+      setProfile(null);
+      return;
+    }
+    let p = await fetchProfile(userId);
+    if (!p) {
+      // Self-heal: some users (e.g. dashboard-created) never got a profile row
+      // from the signup trigger. Create one so onboarding/admin checks work.
+      await supabase.from('profiles').upsert({ id: userId }, { onConflict: 'id', ignoreDuplicates: true });
+      p = await fetchProfile(userId);
+    }
+    setProfile(p);
   }
 
   useEffect(() => {

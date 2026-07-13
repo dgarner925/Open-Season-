@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Alert, Pressable, StyleSheet, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { AppText, Button, Screen } from '@/components/ui';
@@ -10,7 +10,14 @@ import { radius, spacing, theme } from '@/theme';
 
 export default function Onboarding() {
   const router = useRouter();
-  const { user } = useAuth();
+  const { user, isOnboarded } = useAuth();
+
+  // Reactively leave onboarding the instant the profile flips to onboarded.
+  // This avoids a race where a one-shot navigation fires before the auth
+  // state has propagated and the tabs gate bounces back here.
+  useEffect(() => {
+    if (isOnboarded) router.replace('/');
+  }, [isOnboarded, router]);
   const { data: states = [], isLoading: statesLoading } = useActiveStates();
   const { data: species = [], isLoading: speciesLoading } = useSpecies();
   const completeOnboarding = useCompleteOnboarding();

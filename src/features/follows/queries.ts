@@ -57,10 +57,10 @@ export function useCompleteOnboarding() {
   return useMutation({
     mutationFn: async () => {
       if (!user) throw new Error('Not signed in.');
+      // Upsert (not update) so this works even if the profile row is missing.
       const { error } = await supabase
         .from('profiles')
-        .update({ onboarded_at: new Date().toISOString() })
-        .eq('id', user.id);
+        .upsert({ id: user.id, onboarded_at: new Date().toISOString() }, { onConflict: 'id' });
       if (error) throw error;
     },
     onSuccess: () => refreshProfile(),
