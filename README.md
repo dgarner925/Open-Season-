@@ -70,7 +70,8 @@ the SQL Editor and run it.
 Copy-Item .env.example .env
 # then edit .env and set:
 #   EXPO_PUBLIC_SUPABASE_URL       (Project Settings > API > Project URL)
-#   EXPO_PUBLIC_SUPABASE_ANON_KEY  (Project Settings > API > anon public key)
+#   EXPO_PUBLIC_SUPABASE_ANON_KEY  (Project Settings > API > publishable key,
+#                                   sb_publishable_...; or the legacy anon key)
 ```
 
 ### 3. Make yourself an admin (for the review tab)
