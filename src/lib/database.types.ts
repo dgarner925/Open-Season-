@@ -189,6 +189,7 @@ export type Database = {
     Views: Record<string, never>;
     Functions: {
       is_admin: { Args: Record<string, never>; Returns: boolean };
+      apply_review_item: { Args: { p_review_id: string }; Returns: undefined };
     };
     Enums: {
       content_status: ContentStatus;

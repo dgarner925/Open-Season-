@@ -115,5 +115,5 @@ npm run typecheck   # tsc --noEmit
 5. ✅ Home countdown + calendar + detail views
 6. ✅ Tag windows + regs summaries
 7. ⏳ Alert prefs + pg_cron + Expo Push
-8. ⏳ Admin review screen + extraction Edge Function
+8. ✅ Admin review screen + extraction Edge Function (Georgia PoC; see `supabase/functions/`)
 9. ⏳ EAS build config + icons/splash
