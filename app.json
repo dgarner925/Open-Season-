@@ -11,7 +11,7 @@
     "splash": {
       "image": "./assets/splash.png",
       "resizeMode": "contain",
-      "backgroundColor": "#14261C"
+      "backgroundColor": "#0D0D14"
     },
     "assetBundlePatterns": [
       "**/*"
@@ -28,7 +28,7 @@
       "package": "com.openseason.app",
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#14261C"
+        "backgroundColor": "#0D0D14"
       }
     },
     "web": {
@@ -45,13 +45,13 @@
         "expo-notifications",
         {
           "icon": "./assets/notification-icon.png",
-          "color": "#B58A3E"
+          "color": "#E0794A"
         }
       ],
       [
         "expo-splash-screen",
         {
-          "backgroundColor": "#14261C",
+          "backgroundColor": "#0D0D14",
           "image": "./assets/splash.png",
           "imageWidth": 200
         }
@@ -62,11 +62,8 @@
     "experiments": {
       "typedRoutes": true
     },
-    "extra": {
-      "eas": {
-        "projectId": "REPLACE_WITH_EAS_PROJECT_ID"
-      }
-    },
-    "owner": "REPLACE_WITH_EXPO_USERNAME"
+    "runtimeVersion": {
+      "policy": "appVersion"
+    }
   }
 }
