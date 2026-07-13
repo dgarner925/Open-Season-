@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Alert, KeyboardAvoidingView, Platform, StyleSheet, TextInput, View } from 'react-native';
+import { KeyboardAvoidingView, Platform, StyleSheet, TextInput, View } from 'react-native';
 import { AppText, Button, Screen } from '@/components/ui';
 import {
   isAppleSignInSupported,
@@ -17,10 +17,13 @@ export default function SignIn() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState<null | 'email' | 'apple' | 'google'>(null);
+  // Inline feedback — Alert.alert is a no-op on web, so surface it on screen.
+  const [notice, setNotice] = useState<{ tone: 'error' | 'info'; text: string } | null>(null);
 
   async function handleEmail() {
+    setNotice(null);
     if (!email || !password) {
-      Alert.alert('Missing info', 'Enter your email and a password.');
+      setNotice({ tone: 'error', text: 'Enter your email and a password.' });
       return;
     }
     setBusy('email');
@@ -30,23 +33,24 @@ export default function SignIn() {
       } else {
         const { needsConfirmation } = await signUpWithEmail(email, password);
         if (needsConfirmation) {
-          Alert.alert('Check your email', 'Confirm your address to finish signing up.');
+          setNotice({ tone: 'info', text: 'Check your email to confirm your address, then sign in.' });
         }
       }
     } catch (e) {
-      Alert.alert('Sign-in failed', e instanceof Error ? e.message : 'Please try again.');
+      setNotice({ tone: 'error', text: e instanceof Error ? e.message : 'Something went wrong. Please try again.' });
     } finally {
       setBusy(null);
     }
   }
 
   async function handleProvider(provider: 'apple' | 'google') {
+    setNotice(null);
     setBusy(provider);
     try {
       await (provider === 'apple' ? signInWithApple() : signInWithGoogle());
     } catch (e) {
       if (e instanceof Error && !/canceled|cancelled/i.test(e.message)) {
-        Alert.alert('Sign-in failed', e.message);
+        setNotice({ tone: 'error', text: e.message });
       }
     } finally {
       setBusy(null);
@@ -84,6 +88,14 @@ export default function SignIn() {
             onChangeText={setPassword}
             style={styles.input}
           />
+          {notice ? (
+            <AppText
+              variant="bodyStrong"
+              color={notice.tone === 'error' ? theme.color.danger : theme.color.accentStrong}
+            >
+              {notice.text}
+            </AppText>
+          ) : null}
           <Button
             title={mode === 'sign-in' ? 'Sign in' : 'Create account'}
             onPress={handleEmail}
@@ -92,7 +104,10 @@ export default function SignIn() {
           <Button
             variant="ghost"
             title={mode === 'sign-in' ? "New here? Create an account" : 'Have an account? Sign in'}
-            onPress={() => setMode(mode === 'sign-in' ? 'sign-up' : 'sign-in')}
+            onPress={() => {
+              setNotice(null);
+              setMode(mode === 'sign-in' ? 'sign-up' : 'sign-in');
+            }}
           />
         </View>
 
