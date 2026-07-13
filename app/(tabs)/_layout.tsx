@@ -1,12 +1,20 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Redirect, Tabs } from 'expo-router';
+import { ActivityIndicator, View } from 'react-native';
 import { useAuth } from '@/providers/AuthProvider';
 import { theme } from '@/theme';
 
 export default function TabsLayout() {
   const { loading, session, isOnboarded, isAdmin } = useAuth();
 
-  if (loading) return null;
+  // This layout owns "/" — it's the app's entry gate.
+  if (loading) {
+    return (
+      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: theme.color.background }}>
+        <ActivityIndicator color={theme.color.accent} size="large" />
+      </View>
+    );
+  }
   if (!session) return <Redirect href="/(auth)/sign-in" />;
   if (!isOnboarded) return <Redirect href="/onboarding" />;
 

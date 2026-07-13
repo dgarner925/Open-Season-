@@ -19,6 +19,8 @@ export default function Onboarding() {
   const [stateIds, setStateIds] = useState<Set<string>>(new Set());
   const [speciesIds, setSpeciesIds] = useState<Set<string>>(new Set());
   const [saving, setSaving] = useState(false);
+  // Inline error — Alert.alert is a no-op on web, so surface failures on screen.
+  const [notice, setNotice] = useState<string | null>(null);
 
   function toggle(set: Set<string>, id: string, setter: (s: Set<string>) => void) {
     const next = new Set(set);
@@ -27,8 +29,9 @@ export default function Onboarding() {
   }
 
   async function handleContinue() {
+    setNotice(null);
     if (!user || stateIds.size === 0 || speciesIds.size === 0) {
-      Alert.alert('Pick at least one', 'Choose one or more states and one or more species.');
+      setNotice('Pick at least one state and one species first.');
       return;
     }
     setSaving(true);
@@ -42,9 +45,12 @@ export default function Onboarding() {
         .upsert(rows, { onConflict: 'user_id,state_id,species_id', ignoreDuplicates: true });
       if (error) throw error;
       await completeOnboarding.mutateAsync();
-      router.replace('/(tabs)');
+      router.replace('/');
     } catch (e) {
-      Alert.alert('Could not save', e instanceof Error ? e.message : 'Please try again.');
+      const msg = e instanceof Error ? e.message : 'Please try again.';
+      console.error('[onboarding] save failed:', e);
+      setNotice(`Could not save: ${msg}`);
+      Alert.alert('Could not save', msg);
     } finally {
       setSaving(false);
     }
@@ -96,6 +102,11 @@ export default function Onboarding() {
         )}
       </View>
 
+      {notice ? (
+        <AppText variant="bodyStrong" color={theme.color.danger} style={{ marginTop: spacing.md }}>
+          {notice}
+        </AppText>
+      ) : null}
       <Button title="Continue" onPress={handleContinue} loading={saving} style={{ marginTop: spacing.lg }} />
     </Screen>
   );
