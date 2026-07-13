@@ -110,7 +110,7 @@ npm run typecheck   # tsc --noEmit
 
 1. ✅ Scaffold + config
 2. ✅ Schema migrations + RLS
-3. ⏳ Seed data (GA, AL, CO, MT, WY — draft, sourced)
+3. ✅ Seed data (GA, AL, CO, MT, WY — draft, sourced; see `supabase/seed-data/`)
 4. ✅ Auth + onboarding
 5. ✅ Home countdown + calendar + detail views
 6. ✅ Tag windows + regs summaries
