@@ -1,30 +1,33 @@
 import { StyleSheet, View } from 'react-native';
 import { countdownLabel, formatDate } from '@/lib/date';
-import { radius, spacing, speciesColors, theme, urgencyColor, type SpeciesKey } from '@/theme';
+import { spacing, speciesColors, theme, urgencyColor, type SpeciesKey } from '@/theme';
 import type { CountdownItem } from '@/features/reference/types';
-import { AppText, Card, Pill } from './ui';
+import { AppText, Card, Dot } from './ui';
 
 /**
- * The hero of the home screen. Glanceable: big day count, urgency color,
- * species stripe. A hunter should know in 3 seconds what's next.
+ * Home hero. Editorial layout: a quiet meta row, a serif title, and one large
+ * countdown number as the focal point. Species is a single small dot, not a fill.
  */
 export function CountdownCard({ item, onPress }: { item: CountdownItem; onPress?: () => void }) {
   const speciesColor = speciesColors[item.speciesKey as SpeciesKey] ?? speciesColors.default;
   const urgency = urgencyColor(item.daysUntil);
 
   return (
-    <Card onPress={onPress} accentColor={speciesColor}>
-      <View style={styles.header}>
-        <Pill
-          label={item.kind === 'deadline' ? 'Deadline' : 'Opener'}
-          color={item.kind === 'deadline' ? theme.color.danger : speciesColor}
-        />
+    <Card onPress={onPress}>
+      <View style={styles.metaRow}>
+        <View style={styles.metaLeft}>
+          <Dot color={speciesColor} />
+          <AppText variant="overline" color={theme.color.textMuted}>
+            {(item.kind === 'deadline' ? 'Deadline' : 'Opener').toUpperCase()}
+            {item.stateCode ? `  ·  ${item.stateCode}` : ''}
+          </AppText>
+        </View>
         <AppText variant="caption" color={theme.color.textMuted}>
           {formatDate(item.date)}
         </AppText>
       </View>
 
-      <AppText variant="h3" numberOfLines={2}>
+      <AppText variant="h2" numberOfLines={2}>
         {item.title}
       </AppText>
       <AppText variant="caption" color={theme.color.textSecondary}>
@@ -32,14 +35,13 @@ export function CountdownCard({ item, onPress }: { item: CountdownItem; onPress?
       </AppText>
 
       <View style={styles.countRow}>
-        <AppText variant="display" color={urgency} style={styles.count}>
+        <AppText variant="display" color={urgency}>
           {Math.max(item.daysUntil, 0)}
         </AppText>
-        <AppText variant="body" color={theme.color.textSecondary} style={styles.countUnit}>
-          {item.daysUntil === 1 ? 'day' : 'days'}
-        </AppText>
-        <View style={styles.spacer} />
-        <View style={[styles.urgencyChip, { borderColor: urgency }]}>
+        <View style={styles.countMeta}>
+          <AppText variant="bodyStrong" color={theme.color.textSecondary}>
+            {item.daysUntil === 1 ? 'day' : 'days'}
+          </AppText>
           <AppText variant="caption" color={urgency}>
             {countdownLabel(item.daysUntil)}
           </AppText>
@@ -50,16 +52,8 @@ export function CountdownCard({ item, onPress }: { item: CountdownItem; onPress?
 }
 
 const styles = StyleSheet.create({
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  countRow: { flexDirection: 'row', alignItems: 'baseline', marginTop: spacing.sm },
-  count: { lineHeight: 44 },
-  countUnit: { marginLeft: spacing.sm },
-  spacer: { flex: 1 },
-  urgencyChip: {
-    alignSelf: 'center',
-    borderWidth: 1,
-    borderRadius: radius.pill,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.xs,
-  },
+  metaRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  metaLeft: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  countRow: { flexDirection: 'row', alignItems: 'flex-end', gap: spacing.md, marginTop: spacing.sm },
+  countMeta: { paddingBottom: 8, gap: 2 },
 });

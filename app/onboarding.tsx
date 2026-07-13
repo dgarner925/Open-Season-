@@ -7,7 +7,6 @@ import { useCompleteOnboarding } from '@/features/follows/queries';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/providers/AuthProvider';
 import { radius, spacing, theme } from '@/theme';
-import { speciesColors, type SpeciesKey } from '@/theme';
 
 export default function Onboarding() {
   const router = useRouter();
@@ -22,10 +21,13 @@ export default function Onboarding() {
   // Inline error — Alert.alert is a no-op on web, so surface failures on screen.
   const [notice, setNotice] = useState<string | null>(null);
 
-  function toggle(set: Set<string>, id: string, setter: (s: Set<string>) => void) {
-    const next = new Set(set);
-    next.has(id) ? next.delete(id) : next.add(id);
-    setter(next);
+  // Functional update so rapid taps don't clobber each other (stale-closure safe).
+  function toggle(id: string, setter: React.Dispatch<React.SetStateAction<Set<string>>>) {
+    setter((prev) => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
   }
 
   async function handleContinue() {
@@ -77,7 +79,7 @@ export default function Onboarding() {
               key={s.id}
               label={s.name}
               selected={stateIds.has(s.id)}
-              onPress={() => toggle(stateIds, s.id, setStateIds)}
+              onPress={() => toggle(s.id, setStateIds)}
             />
           ))
         )}
@@ -94,9 +96,8 @@ export default function Onboarding() {
             <Chip
               key={sp.id}
               label={sp.name}
-              color={speciesColors[sp.key as SpeciesKey] ?? theme.color.accent}
               selected={speciesIds.has(sp.id)}
-              onPress={() => toggle(speciesIds, sp.id, setSpeciesIds)}
+              onPress={() => toggle(sp.id, setSpeciesIds)}
             />
           ))
         )}
@@ -112,27 +113,18 @@ export default function Onboarding() {
   );
 }
 
-function Chip({
-  label,
-  selected,
-  onPress,
-  color,
-}: {
-  label: string;
-  selected: boolean;
-  onPress: () => void;
-  color?: string;
-}) {
-  const accent = color ?? theme.color.accent;
+function Chip({ label, selected, onPress }: { label: string; selected: boolean; onPress: () => void }) {
   return (
     <Pressable
       onPress={onPress}
       style={[
         styles.chip,
-        { borderColor: selected ? accent : theme.color.border, backgroundColor: selected ? accent : 'transparent' },
+        selected
+          ? { borderColor: theme.color.accent, backgroundColor: theme.color.accent }
+          : { borderColor: theme.color.border, backgroundColor: 'transparent' },
       ]}
     >
-      <AppText variant="bodyStrong" color={selected ? theme.color.onAccent : theme.color.textPrimary}>
+      <AppText variant="bodyStrong" color={selected ? theme.color.onAccent : theme.color.textSecondary}>
         {label}
       </AppText>
     </Pressable>
@@ -143,8 +135,8 @@ const styles = StyleSheet.create({
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
   chip: {
     paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
+    paddingVertical: 11,
     borderRadius: radius.pill,
-    borderWidth: 1.5,
+    borderWidth: StyleSheet.hairlineWidth,
   },
 });

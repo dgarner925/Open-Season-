@@ -14,7 +14,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { radius, spacing, theme, type } from '@/theme';
 
-/** Screen wrapper with safe-area + forest background. */
+/** Screen wrapper with safe-area + ink background. */
 export function Screen({
   children,
   scroll = false,
@@ -61,6 +61,7 @@ export function AppText({
   );
 }
 
+/** Elevated card — hairline border + soft surface. Refined, not loud. */
 export function Card({
   children,
   onPress,
@@ -73,13 +74,8 @@ export function Card({
   accentColor?: string;
 }) {
   const content = (
-    <View
-      style={[
-        styles.card,
-        accentColor ? { borderLeftWidth: 4, borderLeftColor: accentColor } : null,
-        style,
-      ]}
-    >
+    <View style={[styles.card, style]}>
+      {accentColor ? <View style={[styles.accentBar, { backgroundColor: accentColor }]} /> : null}
       {children}
     </View>
   );
@@ -108,9 +104,9 @@ export function Button({
   style?: StyleProp<ViewStyle>;
 } & Omit<PressableProps, 'style' | 'children'>) {
   const isDisabled = disabled || loading;
-  const palette = {
+  const p = {
     primary: { bg: theme.color.accent, fg: theme.color.onAccent, border: 'transparent' },
-    secondary: { bg: 'transparent', fg: theme.color.accentStrong, border: theme.color.accentStrong },
+    secondary: { bg: 'transparent', fg: theme.color.textPrimary, border: theme.color.border },
     ghost: { bg: 'transparent', fg: theme.color.textSecondary, border: 'transparent' },
   }[variant];
 
@@ -120,29 +116,44 @@ export function Button({
       disabled={isDisabled}
       style={({ pressed }) => [
         styles.button,
-        { backgroundColor: palette.bg, borderColor: palette.border },
+        { backgroundColor: p.bg, borderColor: p.border },
         variant !== 'primary' && styles.buttonBordered,
-        (pressed || isDisabled) && { opacity: isDisabled ? 0.5 : 0.8 },
+        (pressed || isDisabled) && { opacity: isDisabled ? 0.45 : 0.82 },
         style,
       ]}
       {...rest}
     >
       {loading ? (
-        <ActivityIndicator color={palette.fg} />
+        <ActivityIndicator color={p.fg} />
       ) : (
-        <Text style={[type.bodyStrong, { color: palette.fg }]}>{title}</Text>
+        <Text style={[type.bodyStrong, styles.buttonLabel, { color: p.fg }]}>{title}</Text>
       )}
     </Pressable>
   );
 }
 
-/** Small colored pill — species tags, method labels, urgency chips. */
-export function Pill({ label, color, textColor }: { label: string; color: string; textColor?: string }) {
+/** Small label — subtle by default, or filled when `color` is given. */
+export function Pill({ label, color, textColor }: { label: string; color?: string; textColor?: string }) {
+  const filled = Boolean(color);
   return (
-    <View style={[styles.pill, { backgroundColor: color }]}>
-      <Text style={[type.overline, { color: textColor ?? theme.color.onAccent }]}>{label.toUpperCase()}</Text>
+    <View
+      style={[
+        styles.pill,
+        filled
+          ? { backgroundColor: color }
+          : { borderWidth: StyleSheet.hairlineWidth, borderColor: theme.color.border },
+      ]}
+    >
+      <Text style={[type.overline, { color: textColor ?? (filled ? theme.color.onAccent : theme.color.textSecondary) }]}>
+        {label.toUpperCase()}
+      </Text>
     </View>
   );
+}
+
+/** Small species/status dot. */
+export function Dot({ color, size = 8 }: { color: string; size?: number }) {
+  return <View style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: color }} />;
 }
 
 export function Divider() {
@@ -152,26 +163,31 @@ export function Divider() {
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: theme.color.background },
   flex: { flex: 1 },
-  screenContent: { padding: spacing.lg, gap: spacing.lg },
+  screenContent: { padding: spacing.xl, gap: spacing.lg },
   card: {
     backgroundColor: theme.color.surface,
     borderRadius: radius.lg,
-    padding: spacing.lg,
+    padding: spacing.xl,
     gap: spacing.sm,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: theme.color.border,
+    overflow: 'hidden',
   },
-  pressed: { opacity: 0.85 },
+  accentBar: { position: 'absolute', left: 0, top: 0, bottom: 0, width: 3 },
+  pressed: { opacity: 0.9, transform: [{ scale: 0.994 }] },
   button: {
-    minHeight: 50,
+    minHeight: 54,
     borderRadius: radius.md,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: spacing.lg,
+    paddingHorizontal: spacing.xl,
   },
-  buttonBordered: { borderWidth: 1.5 },
+  buttonBordered: { borderWidth: StyleSheet.hairlineWidth },
+  buttonLabel: { letterSpacing: 0.3 },
   pill: {
     alignSelf: 'flex-start',
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 5,
     borderRadius: radius.pill,
   },
   divider: { height: StyleSheet.hairlineWidth, backgroundColor: theme.color.border, marginVertical: spacing.sm },

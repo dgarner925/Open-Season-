@@ -1,72 +1,70 @@
 /**
- * OpenSeason palette — dark forest green / bone / brass.
- * Outdoorsy but modern. Not camo.
- *
- * The app is dark-first (a hunter checking the app pre-dawn). A light set is
- * defined so we can add a light mode later without re-plumbing components.
+ * OpenSeason — "Nocturne" palette.
+ * Quiet-luxury, editorial dark: warm near-black, ivory, and a single restrained
+ * copper accent. No rainbow of species colors in the chrome — species get one
+ * small, muted dot, never a full fill. Beauty through restraint, type, and space.
  */
 
 export const palette = {
-  // Forest greens (backgrounds, surfaces)
-  forest900: '#0F1C15',
-  forest800: '#14261C', // app background
-  forest700: '#1C3226', // card / surface
-  forest600: '#24402F', // elevated surface / pressed
-  forest500: '#2F5240', // borders on dark
+  // Warm near-black ink scale (backgrounds, surfaces, hairlines)
+  ink900: '#0B0B0C', // app background
+  ink800: '#121213',
+  ink700: '#161618', // card surface
+  ink600: '#1E1E21', // elevated surface / pressed
+  ink500: '#2A2A2E', // hairline border
+  ink400: '#3A3A40',
 
-  // Bone / paper (text + light surfaces)
-  bone100: '#FBF8F0',
-  bone200: '#F5F0E3',
-  bone300: '#EDE6D6', // primary text on dark
-  bone400: '#CFC7B4', // secondary text on dark
-  bone500: '#A79E88', // muted / captions
+  // Ivory / paper (text)
+  ivory100: '#FBFAF6',
+  ivory200: '#F1EEE7', // primary text
+  ivory300: '#D8D4CB',
+  ivory400: '#A6A29A', // secondary text
+  ivory500: '#76736C', // muted / captions
 
-  // Brass (accent, CTAs, highlights)
-  brass300: '#D9BA7E',
-  brass400: '#C9A25A',
-  brass500: '#B58A3E', // primary accent
-  brass600: '#8F6B2C',
+  // Single accent — warm copper. Refined, not gold.
+  copper300: '#E4A585',
+  copper400: '#D68C68',
+  copper500: '#C4744E', // primary accent
+  copper600: '#9E5738',
 
-  // Urgency — deadlines are the highest-stakes data in the app
-  danger: '#C4462F', // <= 7 days / passed-soon
-  danger200: '#E88C79',
-  warning: '#D98A2B', // 8–30 days
-  success: '#4E8C5A', // open now / plenty of time
+  // Status — used sparingly, tuned to sit in the palette
+  danger: '#D65C4E',
+  warning: '#CD955C',
+  calm: '#7E9B8C', // muted sage-teal, only for "open now" / relaxed timing
 
-  // Utility
-  overlay: 'rgba(0,0,0,0.5)',
+  overlay: 'rgba(0,0,0,0.62)',
   transparent: 'transparent',
 } as const;
 
 /**
- * Species colors — used to color-code seasons across calendar + cards.
- * Chosen for distinct hue separation while staying in the earthy family.
+ * Species colors — muted, harmonious. Used ONLY as a small dot/marker, never a
+ * full fill. Desaturated so they read as one family.
  */
 export const speciesColors = {
-  deer: '#C88A4A', // tan
-  elk: '#A65A3C', // rust
-  bear: '#6E5138', // dark brown
-  duck: '#3E7C8C', // mallard teal
-  default: palette.brass500,
+  deer: '#C39A73', // warm sand
+  elk: '#B87A57', // clay
+  bear: '#8C7059', // taupe
+  duck: '#6E9B99', // muted teal
+  default: palette.copper500,
 } as const;
 
 export type SpeciesKey = keyof typeof speciesColors;
 
 export const theme = {
   color: {
-    background: palette.forest800,
-    surface: palette.forest700,
-    surfaceElevated: palette.forest600,
-    border: palette.forest500,
-    textPrimary: palette.bone300,
-    textSecondary: palette.bone400,
-    textMuted: palette.bone500,
-    accent: palette.brass500,
-    accentStrong: palette.brass400,
-    onAccent: palette.forest900,
+    background: palette.ink900,
+    surface: palette.ink700,
+    surfaceElevated: palette.ink600,
+    border: palette.ink500,
+    textPrimary: palette.ivory200,
+    textSecondary: palette.ivory400,
+    textMuted: palette.ivory500,
+    accent: palette.copper500,
+    accentStrong: palette.copper400,
+    onAccent: palette.ink900,
     danger: palette.danger,
     warning: palette.warning,
-    success: palette.success,
+    success: palette.calm,
   },
   species: speciesColors,
 } as const;
