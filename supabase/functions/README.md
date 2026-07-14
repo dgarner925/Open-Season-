@@ -2,10 +2,19 @@
 
 ## `send-alerts` — daily push notifications
 
-Calls `notifications_due()` (which finds every published opener/deadline landing
-exactly 30/7/1 days out for a user who follows it and opted into that offset, and
-excludes anything already in `sent_notifications`), sends each message to the
-user's Expo push tokens, and records the send so nobody is double-notified.
+Calls `notifications_due()`, sends each message to the user's Expo push tokens,
+and records the send so nobody is double-notified. `notifications_due()` returns
+three kinds of alert, all deduped via `sent_notifications`:
+
+1. **Opener countdown** — a followed season opens in exactly 30/7/1 days (per the
+   user's `opener_offsets`).
+2. **Deadline countdown** — a followed application window closes in 30/7/1 days
+   (per `deadline_offsets`).
+3. **New draw posted** — a followed application window has just become
+   `published` and is still open (`closes_at >= today`). Fires once per user per
+   window, regardless of offset prefs, so hunters hear about a draw the moment
+   it's available. Deduped with a sentinel `offset_days = -1`. Because it's gated
+   on `closes_at >= today`, publishing already-passed windows sends nothing.
 
 ### Deploy
 
