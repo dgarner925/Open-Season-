@@ -64,6 +64,16 @@
     },
     "runtimeVersion": {
       "policy": "appVersion"
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "6aa724d9-bcc5-4f93-aded-b00c316c392c"
+      }
+    },
+    "owner": "dgarner925",
+    "updates": {
+      "url": "https://u.expo.dev/6aa724d9-bcc5-4f93-aded-b00c316c392c"
     }
   }
 }
