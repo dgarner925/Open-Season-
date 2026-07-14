@@ -1,7 +1,7 @@
 import { Stack } from 'expo-router';
 import { View } from 'react-native';
 import { AppText, Screen } from '@/components/ui';
-import { FollowSelector } from '@/features/follows/FollowSelector';
+import { HuntPicker } from '@/features/follows/HuntPicker';
 import { spacing, theme } from '@/theme';
 
 export default function ManageFollows() {
@@ -11,10 +11,11 @@ export default function ManageFollows() {
       <View style={{ gap: spacing.xs }}>
         <AppText variant="h1">What you follow</AppText>
         <AppText variant="body" color={theme.color.textSecondary}>
-          Tap a species under each state to follow or unfollow it. Changes save instantly.
+          Pick a state, then tap the animals you hunt. Your hunts show up top — tap one to drop it. Changes save
+          instantly.
         </AppText>
       </View>
-      <FollowSelector />
+      <HuntPicker />
     </Screen>
   );
 }

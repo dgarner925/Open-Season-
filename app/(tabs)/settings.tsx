@@ -31,7 +31,7 @@ export default function Settings() {
         </AppText>
       </Card>
 
-      <Card onPress={() => router.push('/applications')}>
+      <Card onPress={() => router.push('/tracker')}>
         <AppText variant="h3">My Applications</AppText>
         <AppText variant="body" color={theme.color.textSecondary}>
           Track what you've applied for — link, username, dates, and results.

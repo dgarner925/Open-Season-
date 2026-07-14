@@ -1,23 +1,44 @@
+import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import { FlatList, RefreshControl, StyleSheet, View } from 'react-native';
+import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { CountdownCard } from '@/components/CountdownCard';
-import { AppText } from '@/components/ui';
-import { FollowSelector } from '@/features/follows/FollowSelector';
+import { AppText, Dot, GlassChip } from '@/components/ui';
+import { HuntPicker } from '@/features/follows/HuntPicker';
+import { useApplications } from '@/features/applications/queries';
 import { useUpcomingCountdown } from '@/features/reference/queries';
+import type { CountdownItem } from '@/features/reference/types';
+import { countdownLabel, formatDate } from '@/lib/date';
 import { queryClient } from '@/lib/queryClient';
-import { spacing, theme } from '@/theme';
+import { fontFamily, radius, spacing, speciesColors, theme, urgencyColor, withAlpha, type SpeciesKey } from '@/theme';
+
+const WEEKDAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+function timeGreeting(now: Date): string {
+  const h = now.getHours();
+  if (h < 5) return 'Still up';
+  if (h < 12) return 'Good morning';
+  if (h < 17) return 'Good afternoon';
+  return 'Good evening';
+}
 
 /**
- * Home hub — the app's landing. Pick your states + species up top, see your
- * soonest openers and tag deadlines below. This is where you come back to
- * change what you follow.
+ * Home dashboard — the app's landing. A warm greeting, the single most-imminent
+ * hunt as a hero, quick stats, then your hunt picker and everything on the
+ * horizon. This is where you come back to change what you follow.
  */
 export default function Home() {
   const router = useRouter();
-  const { isLoading, items } = useUpcomingCountdown();
+  const { items } = useUpcomingCountdown();
+  const { data: apps = [] } = useApplications();
   const [refreshing, setRefreshing] = useState(false);
+
+  const now = new Date();
+  const hero = items[0];
+  const rest = items.slice(1);
+  const openers = items.filter((i) => i.kind === 'opener').length;
+  const deadlines = items.filter((i) => i.kind === 'deadline').length;
 
   async function onRefresh() {
     setRefreshing(true);
@@ -27,54 +48,233 @@ export default function Home() {
 
   return (
     <SafeAreaView style={styles.screen} edges={['top', 'left', 'right']}>
-      <FlatList
-        data={items}
-        keyExtractor={(i) => `${i.kind}:${i.id}`}
+      <ScrollView
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.color.accent} />
         }
-        ListHeaderComponent={
-          <View style={styles.header}>
-            <AppText variant="display" color={theme.color.accent}>
-              OpenSeason
+      >
+        {/* Greeting */}
+        <View style={styles.greeting}>
+          <AppText variant="overline" color={theme.color.accent}>
+            OPENSEASON
+          </AppText>
+          <AppText variant="display" style={styles.greetingTitle}>
+            {timeGreeting(now)}
+          </AppText>
+          <AppText variant="body" color={theme.color.textSecondary}>
+            {WEEKDAYS[now.getDay()]}, {MONTHS[now.getMonth()]} {now.getDate()} — here's what's on the horizon.
+          </AppText>
+        </View>
+
+        {/* Hero — the next thing that matters */}
+        {hero ? (
+          <Hero
+            item={hero}
+            onPress={() => router.push(hero.kind === 'deadline' ? `/window/${hero.id}` : `/season/${hero.id}`)}
+          />
+        ) : (
+          <View style={styles.emptyHero}>
+            <Ionicons name="trail-sign-outline" size={30} color={theme.color.accent} />
+            <AppText variant="h2" style={{ marginTop: spacing.sm }}>
+              The woods are quiet — for now.
             </AppText>
             <AppText variant="body" color={theme.color.textSecondary}>
-              Pick your states and species — your openers and tag deadlines follow below.
+              Add a state and an animal below to start your first countdown.
             </AppText>
-
-            <AppText variant="overline" color={theme.color.textMuted} style={styles.sectionLabel}>
-              YOUR STATES & SPECIES
-            </AppText>
-            <FollowSelector />
-
-            <AppText variant="overline" color={theme.color.textMuted} style={styles.sectionLabel}>
-              COMING UP
-            </AppText>
-            {!isLoading && items.length === 0 ? (
-              <AppText variant="body" color={theme.color.textSecondary} style={{ marginBottom: spacing.md }}>
-                Nothing upcoming for your picks yet. Colorado and Montana have live 2026 dates if you want to see
-                countdowns right away.
-              </AppText>
-            ) : null}
           </View>
-        }
-        renderItem={({ item }) => (
-          <CountdownCard
-            item={item}
-            onPress={() => router.push(item.kind === 'deadline' ? `/window/${item.id}` : `/season/${item.id}`)}
-          />
         )}
-        ItemSeparatorComponent={() => <View style={{ height: spacing.md }} />}
-      />
+
+        {/* Quick stats */}
+        <View style={styles.tiles}>
+          <StatTile value={openers} label="OPENERS" onPress={() => router.push('/calendar')} />
+          <StatTile value={deadlines} label="DEADLINES" onPress={() => router.push('/applications')} />
+          <StatTile value={apps.length} label="TRACKED" onPress={() => router.push('/tracker')} />
+        </View>
+
+        {/* Hunt picker */}
+        <Section label="YOUR HUNTS">
+          <HuntPicker />
+        </Section>
+
+        {/* Everything else coming up */}
+        <Section label="ON THE HORIZON">
+          {rest.length > 0 ? (
+            <View style={{ gap: spacing.sm }}>
+              {rest.map((item) => (
+                <ComingRow
+                  key={`${item.kind}:${item.id}`}
+                  item={item}
+                  onPress={() => router.push(item.kind === 'deadline' ? `/window/${item.id}` : `/season/${item.id}`)}
+                />
+              ))}
+            </View>
+          ) : (
+            <AppText variant="body" color={theme.color.textMuted}>
+              {hero ? "That's everything on your radar for now." : 'Nothing yet — add a hunt above.'}
+            </AppText>
+          )}
+        </Section>
+      </ScrollView>
     </SafeAreaView>
+  );
+}
+
+function Hero({ item, onPress }: { item: CountdownItem; onPress: () => void }) {
+  const speciesColor = speciesColors[item.speciesKey as SpeciesKey] ?? speciesColors.default;
+  const urgency = urgencyColor(item.daysUntil);
+  const days = Math.max(item.daysUntil, 0);
+  return (
+    <Pressable onPress={onPress} style={({ pressed }) => [styles.hero, pressed && styles.pressed]}>
+      <View style={[styles.accentBar, { backgroundColor: speciesColor }]} />
+      <View style={styles.heroMeta}>
+        <View style={styles.metaLeft}>
+          {item.kind === 'deadline' ? <GlassChip label="Deadline" /> : <Dot color={speciesColor} />}
+          <AppText variant="overline" color={theme.color.textMuted}>
+            {item.kind === 'deadline' ? 'NEXT DEADLINE' : 'NEXT OPENER'}
+            {item.stateCode ? `  ·  ${item.stateCode}` : ''}
+          </AppText>
+        </View>
+        <AppText variant="caption" color={theme.color.textMuted}>
+          {formatDate(item.date)}
+        </AppText>
+      </View>
+
+      <AppText variant="h1" numberOfLines={2} style={{ marginTop: spacing.xs }}>
+        {item.title}
+      </AppText>
+      <AppText variant="caption" color={theme.color.textSecondary}>
+        {item.subtitle}
+      </AppText>
+
+      <View style={styles.heroCount}>
+        <Text style={[styles.heroNumber, { color: urgency }]}>{days}</Text>
+        <View style={styles.heroCountMeta}>
+          <AppText variant="bodyStrong" color={theme.color.textSecondary}>
+            {days === 1 ? 'day' : 'days'} away
+          </AppText>
+          <AppText variant="caption" color={urgency}>
+            {countdownLabel(item.daysUntil)}
+          </AppText>
+        </View>
+      </View>
+    </Pressable>
+  );
+}
+
+function StatTile({ value, label, onPress }: { value: number; label: string; onPress: () => void }) {
+  return (
+    <Pressable onPress={onPress} style={({ pressed }) => [styles.tile, pressed && styles.pressed]}>
+      <Text style={styles.tileValue}>{value}</Text>
+      <AppText variant="overline" color={theme.color.textMuted}>
+        {label}
+      </AppText>
+    </Pressable>
+  );
+}
+
+function ComingRow({ item, onPress }: { item: CountdownItem; onPress: () => void }) {
+  const speciesColor = speciesColors[item.speciesKey as SpeciesKey] ?? speciesColors.default;
+  const urgency = urgencyColor(item.daysUntil);
+  const days = Math.max(item.daysUntil, 0);
+  return (
+    <Pressable onPress={onPress} style={({ pressed }) => [styles.row, pressed && styles.pressed]}>
+      <Dot color={speciesColor} size={10} />
+      <View style={{ flex: 1, gap: 2 }}>
+        <AppText variant="bodyStrong" numberOfLines={1}>
+          {item.title}
+        </AppText>
+        <AppText variant="caption" color={theme.color.textMuted}>
+          {formatDate(item.date)} · {item.kind === 'deadline' ? 'Deadline' : 'Opener'}
+        </AppText>
+      </View>
+      <View style={styles.rowCount}>
+        <AppText variant="h3" color={urgency}>
+          {days}
+        </AppText>
+        <AppText variant="overline" color={theme.color.textMuted}>
+          {days === 1 ? 'DAY' : 'DAYS'}
+        </AppText>
+      </View>
+    </Pressable>
+  );
+}
+
+function Section({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <View style={{ gap: spacing.md }}>
+      <AppText variant="overline" color={theme.color.textMuted}>
+        {label}
+      </AppText>
+      {children}
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: theme.color.background },
-  content: { padding: spacing.xl },
-  header: { gap: spacing.sm },
-  sectionLabel: { marginTop: spacing.xl, marginBottom: spacing.md },
+  content: { padding: spacing.xl, gap: spacing.xl },
+  greeting: { gap: spacing.xs },
+  greetingTitle: { fontSize: 44, lineHeight: 48, letterSpacing: -1.5 },
+
+  hero: {
+    backgroundColor: withAlpha(theme.color.accent, 0.05),
+    borderRadius: radius.lg,
+    padding: spacing.xl,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: withAlpha(theme.color.accent, 0.28),
+    overflow: 'hidden',
+    gap: spacing.xs,
+  },
+  accentBar: { position: 'absolute', left: 0, top: 0, bottom: 0, width: 3 },
+  heroMeta: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  metaLeft: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  heroCount: { flexDirection: 'row', alignItems: 'flex-end', gap: spacing.md, marginTop: spacing.md },
+  heroNumber: { fontFamily: fontFamily.serif, fontSize: 76, lineHeight: 76, letterSpacing: -2.5, fontWeight: '600' },
+  heroCountMeta: { paddingBottom: 12, gap: 2 },
+
+  emptyHero: {
+    backgroundColor: theme.color.surface,
+    borderRadius: radius.lg,
+    padding: spacing.xl,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: theme.color.border,
+    gap: spacing.xs,
+  },
+
+  tiles: { flexDirection: 'row', gap: spacing.sm },
+  tile: {
+    flex: 1,
+    backgroundColor: theme.color.surface,
+    borderRadius: radius.md,
+    paddingVertical: spacing.lg,
+    paddingHorizontal: spacing.md,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: theme.color.border,
+    gap: 2,
+    alignItems: 'flex-start',
+  },
+  tileValue: {
+    fontFamily: fontFamily.serif,
+    fontSize: 30,
+    lineHeight: 34,
+    letterSpacing: -0.5,
+    fontWeight: '600',
+    color: theme.color.accentStrong,
+  },
+
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    backgroundColor: theme.color.surface,
+    borderRadius: radius.md,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.lg,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: theme.color.border,
+  },
+  rowCount: { alignItems: 'flex-end', minWidth: 40 },
+  pressed: { opacity: 0.9, transform: [{ scale: 0.994 }] },
 });
