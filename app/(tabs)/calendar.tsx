@@ -5,7 +5,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { AppText, Card, Pill } from '@/components/ui';
 import { useFollowedSeasons } from '@/features/reference/queries';
 import type { SeasonWithRefs } from '@/features/reference/types';
-import { formatDateRange, isOpenNow, parseDateOnly } from '@/lib/date';
+import { formatDateRange, isOpenNow, parseDateOnly, today } from '@/lib/date';
 import { spacing, speciesColors, theme, type SpeciesKey } from '@/theme';
 
 const MONTH_NAMES = [
@@ -17,23 +17,32 @@ export default function Calendar() {
   const router = useRouter();
   const { data: seasons = [], isLoading } = useFollowedSeasons();
 
-  // Group published seasons by open-month for a scannable list.
+  // Group by open-month. Lead with current + upcoming (a full year forward),
+  // then past seasons below an "Earlier" divider.
   const sections = useMemo(() => {
-    const buckets = new Map<string, { title: string; sortKey: number; data: SeasonWithRefs[] }>();
+    const now = today().getTime();
+    const buckets = new Map<string, { title: string; month: number; past: boolean; data: SeasonWithRefs[] }>();
     for (const s of seasons) {
       if (!s.open_date) continue;
       const d = parseDateOnly(s.open_date);
-      const key = `${d.getFullYear()}-${d.getMonth()}`;
+      const endsAt = parseDateOnly(s.close_date ?? s.open_date).getTime();
+      const past = endsAt < now; // the season has fully ended
+      const key = `${past ? 'p' : 'u'}-${d.getFullYear()}-${d.getMonth()}`;
       if (!buckets.has(key)) {
         buckets.set(key, {
           title: `${MONTH_NAMES[d.getMonth()]} ${d.getFullYear()}`,
-          sortKey: d.getFullYear() * 12 + d.getMonth(),
+          month: d.getFullYear() * 12 + d.getMonth(),
+          past,
           data: [],
         });
       }
       buckets.get(key)!.data.push(s);
     }
-    return [...buckets.values()].sort((a, b) => a.sortKey - b.sortKey);
+    const all = [...buckets.values()];
+    const upcoming = all.filter((b) => !b.past).sort((a, b) => a.month - b.month);
+    const pastSecs = all.filter((b) => b.past).sort((a, b) => b.month - a.month); // most recent first
+    // Mark the first past section so we can draw an "Earlier" divider above it.
+    return [...upcoming, ...pastSecs].map((s, i) => ({ ...s, firstPast: s.past && i === upcoming.length }));
   }, [seasons]);
 
   if (isLoading) {
@@ -53,9 +62,18 @@ export default function Calendar() {
         showsVerticalScrollIndicator={false}
         stickySectionHeadersEnabled={false}
         renderSectionHeader={({ section }) => (
-          <AppText variant="overline" color={theme.color.textMuted} style={styles.sectionHeader}>
-            {section.title.toUpperCase()}
-          </AppText>
+          <View>
+            {section.firstPast ? (
+              <View style={styles.pastDivider}>
+                <AppText variant="overline" color={theme.color.textMuted}>
+                  EARLIER SEASONS
+                </AppText>
+              </View>
+            ) : null}
+            <AppText variant="overline" color={theme.color.textMuted} style={styles.sectionHeader}>
+              {section.title.toUpperCase()}
+            </AppText>
+          </View>
         )}
         renderItem={({ item }) => <SeasonRow season={item} onPress={() => router.push(`/season/${item.id}`)} />}
         ItemSeparatorComponent={() => <View style={{ height: spacing.sm }} />}
@@ -98,6 +116,12 @@ const styles = StyleSheet.create({
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: theme.color.background },
   content: { padding: spacing.lg },
   sectionHeader: { marginTop: spacing.lg, marginBottom: spacing.sm },
+  pastDivider: {
+    marginTop: spacing.xxl,
+    paddingTop: spacing.lg,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: theme.color.border,
+  },
   rowTop: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   tags: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginTop: spacing.xs },
 });

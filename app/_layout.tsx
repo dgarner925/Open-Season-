@@ -4,6 +4,7 @@ import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { queryClient } from '@/lib/queryClient';
 import { AuthProvider } from '@/providers/AuthProvider';
+import { HeaderBack } from '@/components/HeaderBack';
 import { theme } from '@/theme';
 
 export default function RootLayout() {
@@ -19,6 +20,9 @@ export default function RootLayout() {
               headerTitleStyle: { color: theme.color.textPrimary },
               contentStyle: { backgroundColor: theme.color.background },
               headerShadowVisible: false,
+              // Consistent "‹ Back" on every stacked (non-tab) screen.
+              headerLeft: () => <HeaderBack />,
+              headerBackVisible: false,
             }}
           >
             <Stack.Screen name="(auth)" options={{ headerShown: false }} />
