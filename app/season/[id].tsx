@@ -1,6 +1,6 @@
 import { Stack, useLocalSearchParams } from 'expo-router';
-import { ActivityIndicator, StyleSheet, View } from 'react-native';
-import { AppText, Card, Divider, Pill, Screen } from '@/components/ui';
+import { ActivityIndicator, Linking, StyleSheet, View } from 'react-native';
+import { AppText, Button, Card, Divider, Pill, Screen } from '@/components/ui';
 import { ProvenanceBlock } from '@/components/Provenance';
 import { useSeasonById } from '@/features/reference/queries';
 import { formatDateRange, isOpenNow } from '@/lib/date';
@@ -71,6 +71,14 @@ export default function SeasonDetail() {
           </>
         ) : null}
       </Card>
+
+      {season.state?.license_url ? (
+        <Button
+          variant="secondary"
+          title="Buy a license / tag"
+          onPress={() => Linking.openURL(season.state!.license_url!)}
+        />
+      ) : null}
 
       <ProvenanceBlock
         verifiedAt={season.last_verified_at}

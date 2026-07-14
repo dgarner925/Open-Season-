@@ -11,10 +11,10 @@ import type {
 } from './types';
 
 const SEASON_SELECT =
-  '*, state:states(id,code,name), species:species(id,key,name), zone:zones(id,name,type), source:sources(id,agency_name,url)';
+  '*, state:states(id,code,name,license_url), species:species(id,key,name), zone:zones(id,name,type), source:sources(id,agency_name,url)';
 const WINDOW_SELECT = SEASON_SELECT;
 const REG_SELECT =
-  '*, state:states(id,code,name), species:species(id,key,name), source:sources(id,agency_name,url)';
+  '*, state:states(id,code,name,license_url), species:species(id,key,name), source:sources(id,agency_name,url)';
 
 /** Active states (world-readable). */
 export function useActiveStates() {

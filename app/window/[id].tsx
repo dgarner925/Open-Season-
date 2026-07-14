@@ -1,5 +1,5 @@
 import { Linking } from 'react-native';
-import { Stack, useLocalSearchParams } from 'expo-router';
+import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
 import { AppText, Button, Card, Divider, GlassChip, Screen } from '@/components/ui';
 import { ProvenanceBlock } from '@/components/Provenance';
@@ -8,6 +8,7 @@ import { countdownLabel, daysUntil, formatDate } from '@/lib/date';
 import { spacing, speciesColors, theme, urgencyColor, type SpeciesKey } from '@/theme';
 
 export default function WindowDetail() {
+  const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { data: w, isLoading } = useWindowById(id);
 
@@ -64,6 +65,29 @@ export default function WindowDetail() {
       {w.application_url ? (
         <Button title="Apply on the official site" onPress={() => Linking.openURL(w.application_url!)} />
       ) : null}
+      {w.state?.license_url ? (
+        <Button
+          variant="secondary"
+          title="Buy a license / tag"
+          onPress={() => Linking.openURL(w.state!.license_url!)}
+        />
+      ) : null}
+      <Button
+        variant="secondary"
+        title="Track this application"
+        onPress={() =>
+          router.push({
+            pathname: '/application-edit',
+            params: {
+              title: `${w.state?.name ?? ''} ${w.species?.name ?? ''} ${w.name ?? 'Draw'}`.trim(),
+              stateId: w.state_id,
+              speciesId: w.species_id,
+              windowId: w.id,
+              ...(w.application_url ? { url: w.application_url } : {}),
+            },
+          })
+        }
+      />
 
       <ProvenanceBlock
         verifiedAt={w.last_verified_at}

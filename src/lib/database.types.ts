@@ -38,6 +38,26 @@ export type StateRow = Timestamps & {
   name: string;
   agency_name: string | null;
   is_active: boolean;
+  license_url: string | null;
+};
+
+export type ApplicationStatus = 'planned' | 'applied' | 'successful' | 'unsuccessful' | 'purchased';
+
+export type UserApplicationRow = Timestamps & {
+  id: string;
+  user_id: string;
+  state_id: string | null;
+  species_id: string | null;
+  window_id: string | null;
+  title: string;
+  application_url: string | null;
+  portal_username: string | null;
+  status: ApplicationStatus;
+  applied_on: string | null;
+  results_on: string | null;
+  fee_summary: string | null;
+  points: number | null;
+  notes: string | null;
 };
 
 export type SpeciesRow = {
@@ -185,6 +205,7 @@ export type Database = {
       device_push_tokens: Table<DevicePushTokenRow, Omit<DevicePushTokenRow, Gen> & { id?: string }>;
       sent_notifications: Table<SentNotificationRow, Omit<SentNotificationRow, 'id' | 'sent_at'> & { id?: string }>;
       review_queue: Table<ReviewQueueRow, Omit<ReviewQueueRow, Gen> & { id?: string }>;
+      user_applications: Table<UserApplicationRow, Omit<UserApplicationRow, Gen> & { id?: string }>;
     };
     Views: Record<string, never>;
     Functions: {

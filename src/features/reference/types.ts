@@ -10,21 +10,21 @@ import type {
 
 /** Rows enriched with their joined reference objects (from Supabase nested selects). */
 export type SeasonWithRefs = SeasonRow & {
-  state: Pick<StateRow, 'id' | 'code' | 'name'> | null;
+  state: Pick<StateRow, 'id' | 'code' | 'name' | 'license_url'> | null;
   species: Pick<SpeciesRow, 'id' | 'key' | 'name'> | null;
   zone: Pick<ZoneRow, 'id' | 'name' | 'type'> | null;
   source: Pick<SourceRow, 'id' | 'agency_name' | 'url'> | null;
 };
 
 export type ApplicationWindowWithRefs = ApplicationWindowRow & {
-  state: Pick<StateRow, 'id' | 'code' | 'name'> | null;
+  state: Pick<StateRow, 'id' | 'code' | 'name' | 'license_url'> | null;
   species: Pick<SpeciesRow, 'id' | 'key' | 'name'> | null;
   zone: Pick<ZoneRow, 'id' | 'name' | 'type'> | null;
   source: Pick<SourceRow, 'id' | 'agency_name' | 'url'> | null;
 };
 
 export type RegulationSummaryWithRefs = RegulationSummaryRow & {
-  state: Pick<StateRow, 'id' | 'code' | 'name'> | null;
+  state: Pick<StateRow, 'id' | 'code' | 'name' | 'license_url'> | null;
   species: Pick<SpeciesRow, 'id' | 'key' | 'name'> | null;
   source: Pick<SourceRow, 'id' | 'agency_name' | 'url'> | null;
 };

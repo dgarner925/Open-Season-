@@ -1,6 +1,6 @@
 import { Stack, useLocalSearchParams } from 'expo-router';
-import { ActivityIndicator } from 'react-native';
-import { AppText, Card, Screen } from '@/components/ui';
+import { ActivityIndicator, Linking } from 'react-native';
+import { AppText, Button, Card, Screen } from '@/components/ui';
 import { MiniMarkdown } from '@/components/MiniMarkdown';
 import { ProvenanceBlock } from '@/components/Provenance';
 import { useRegById } from '@/features/reference/queries';
@@ -34,6 +34,14 @@ export default function RegsDetail() {
       <Card>
         <MiniMarkdown body={reg.body} />
       </Card>
+      {reg.state?.license_url ? (
+        <Button
+          variant="secondary"
+          title="Buy a license / tag"
+          onPress={() => Linking.openURL(reg.state!.license_url!)}
+        />
+      ) : null}
+
       <ProvenanceBlock
         verifiedAt={reg.last_verified_at}
         agencyName={reg.source?.agency_name ?? reg.state?.name ?? null}

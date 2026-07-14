@@ -24,10 +24,17 @@ export default function Settings() {
         )}
       </Card>
 
-      <Card onPress={() => router.push('/onboarding')}>
+      <Card onPress={() => router.push('/follows')}>
         <AppText variant="h3">What you follow</AppText>
         <AppText variant="body" color={theme.color.textSecondary}>
-          Change your states and species.
+          Add or remove states and species.
+        </AppText>
+      </Card>
+
+      <Card onPress={() => router.push('/applications')}>
+        <AppText variant="h3">My Applications</AppText>
+        <AppText variant="body" color={theme.color.textSecondary}>
+          Track what you've applied for — link, username, dates, and results.
         </AppText>
       </Card>
 
