@@ -8,7 +8,7 @@ import { HuntPicker } from '@/features/follows/HuntPicker';
 import { useApplications } from '@/features/applications/queries';
 import { useUpcomingCountdown } from '@/features/reference/queries';
 import type { CountdownItem } from '@/features/reference/types';
-import { countdownLabel, formatDate } from '@/lib/date';
+import { formatDate } from '@/lib/date';
 import { queryClient } from '@/lib/queryClient';
 import { fontFamily, radius, spacing, speciesColors, theme, urgencyColor, withAlpha, type SpeciesKey } from '@/theme';
 
@@ -152,10 +152,10 @@ function Hero({ item, onPress }: { item: CountdownItem; onPress: () => void }) {
         <Text style={[styles.heroNumber, { color: urgency }]}>{days}</Text>
         <View style={styles.heroCountMeta}>
           <AppText variant="bodyStrong" color={theme.color.textSecondary}>
-            {days === 1 ? 'day' : 'days'} away
+            {days === 1 ? 'day' : 'days'}
           </AppText>
           <AppText variant="caption" color={urgency}>
-            {countdownLabel(item.daysUntil)}
+            {item.kind === 'deadline' ? 'until the deadline' : 'until opening day'}
           </AppText>
         </View>
       </View>
