@@ -1,14 +1,19 @@
 import { useRouter } from 'expo-router';
-import { ActivityIndicator, FlatList, RefreshControl, StyleSheet, View } from 'react-native';
 import { useState } from 'react';
+import { FlatList, RefreshControl, StyleSheet, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { CountdownCard } from '@/components/CountdownCard';
-import { AppText, Button } from '@/components/ui';
-import { Disclaimer } from '@/components/Provenance';
+import { AppText } from '@/components/ui';
+import { FollowSelector } from '@/features/follows/FollowSelector';
 import { useUpcomingCountdown } from '@/features/reference/queries';
 import { queryClient } from '@/lib/queryClient';
 import { spacing, theme } from '@/theme';
-import { SafeAreaView } from 'react-native-safe-area-context';
 
+/**
+ * Home hub — the app's landing. Pick your states + species up top, see your
+ * soonest openers and tag deadlines below. This is where you come back to
+ * change what you follow.
+ */
 export default function Home() {
   const router = useRouter();
   const { isLoading, items } = useUpcomingCountdown();
@@ -32,35 +37,36 @@ export default function Home() {
         }
         ListHeaderComponent={
           <View style={styles.header}>
-            <AppText variant="h1">Next Up</AppText>
-            <AppText variant="body" color={theme.color.textSecondary}>
-              Your soonest openers and tag deadlines.
+            <AppText variant="display" color={theme.color.accent}>
+              OpenSeason
             </AppText>
+            <AppText variant="body" color={theme.color.textSecondary}>
+              Pick your states and species — your openers and tag deadlines follow below.
+            </AppText>
+
+            <AppText variant="overline" color={theme.color.textMuted} style={styles.sectionLabel}>
+              YOUR STATES & SPECIES
+            </AppText>
+            <FollowSelector />
+
+            <AppText variant="overline" color={theme.color.textMuted} style={styles.sectionLabel}>
+              COMING UP
+            </AppText>
+            {!isLoading && items.length === 0 ? (
+              <AppText variant="body" color={theme.color.textSecondary} style={{ marginBottom: spacing.md }}>
+                Nothing upcoming for your picks yet. Colorado and Montana have live 2026 dates if you want to see
+                countdowns right away.
+              </AppText>
+            ) : null}
           </View>
         }
         renderItem={({ item }) => (
           <CountdownCard
             item={item}
-            onPress={() =>
-              router.push(item.kind === 'deadline' ? `/window/${item.id}` : `/season/${item.id}`)
-            }
+            onPress={() => router.push(item.kind === 'deadline' ? `/window/${item.id}` : `/season/${item.id}`)}
           />
         )}
         ItemSeparatorComponent={() => <View style={{ height: spacing.md }} />}
-        ListEmptyComponent={
-          isLoading ? (
-            <ActivityIndicator color={theme.color.accent} style={{ marginTop: spacing.xxl }} />
-          ) : (
-            <View style={styles.empty}>
-              <AppText variant="h3">Nothing on the horizon yet</AppText>
-              <AppText variant="body" color={theme.color.textSecondary}>
-                Once seasons and tag windows are published for what you follow, your countdowns show up here.
-              </AppText>
-              <Button variant="secondary" title="Edit what you follow" onPress={() => router.push('/onboarding')} />
-            </View>
-          )
-        }
-        ListFooterComponent={items.length > 0 ? <View style={{ marginTop: spacing.lg }}><Disclaimer /></View> : null}
       />
     </SafeAreaView>
   );
@@ -68,7 +74,7 @@ export default function Home() {
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: theme.color.background },
-  content: { padding: spacing.lg },
-  header: { gap: spacing.xs, marginBottom: spacing.lg },
-  empty: { gap: spacing.md, marginTop: spacing.xxl, alignItems: 'flex-start' },
+  content: { padding: spacing.xl },
+  header: { gap: spacing.sm },
+  sectionLabel: { marginTop: spacing.xl, marginBottom: spacing.md },
 });
