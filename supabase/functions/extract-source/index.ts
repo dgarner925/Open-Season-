@@ -1,12 +1,17 @@
-// extract-source — Phase 2 automated refresh (proof of concept).
+// extract-source — automated refresh.
 //
-// Fetches one official source, asks Claude to extract structured season data,
-// diffs it against the current rows, and enqueues proposed changes into
-// review_queue. NOTHING is published — an admin approves each item in-app.
+// Fetches an official source, asks Claude to extract structured seasons,
+// application windows (draw deadlines), and regulation summaries, diffs each
+// against the current rows, and enqueues proposed changes into review_queue.
+// NOTHING is published — an admin approves each item in-app, which calls
+// apply_review_item() (handles all three tables).
 //
 // Deploy:  supabase functions deploy extract-source
 // Secrets: ANTHROPIC_API_KEY (SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY are injected)
-// Invoke:  POST { "sourceId": "<uuid>" }   (defaults to the GA deer source)
+// Invoke:
+//   POST {}                    -> process the single stalest source (cron round-robin)
+//   POST { "max": 20 }         -> process the 20 stalest sources this run
+//   POST { "sourceId": "..." } -> process exactly that source
 //
 // deno-lint-ignore-file no-explicit-any
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
@@ -20,41 +25,76 @@ const admin = createClient(SUPABASE_URL, SERVICE_ROLE, { auth: { persistSession:
 
 // Structured-output schema. Constraints: additionalProperties:false, every key
 // in `required`, no min/max/length (unsupported by structured outputs).
+const SEASON_ITEM = {
+  type: 'object',
+  additionalProperties: false,
+  properties: {
+    species: { type: 'string', enum: ['deer', 'elk', 'bear', 'duck'] },
+    method: { type: 'string', enum: ['archery', 'muzzleloader', 'firearm', 'general'] },
+    zone: { type: 'string' },
+    label: { type: ['string', 'null'] },
+    season_year: { type: 'integer' },
+    open_date: { type: ['string', 'null'] },
+    close_date: { type: ['string', 'null'] },
+    bag_limit_summary: { type: ['string', 'null'] },
+    notes: { type: ['string', 'null'] },
+  },
+  required: ['species', 'method', 'zone', 'label', 'season_year', 'open_date', 'close_date', 'bag_limit_summary', 'notes'],
+};
+
+const WINDOW_ITEM = {
+  type: 'object',
+  additionalProperties: false,
+  properties: {
+    species: { type: 'string', enum: ['deer', 'elk', 'bear', 'duck'] },
+    zone: { type: ['string', 'null'] },
+    season_year: { type: 'integer' },
+    name: { type: ['string', 'null'] },
+    opens_at: { type: ['string', 'null'] },
+    closes_at: { type: ['string', 'null'] },
+    results_expected_at: { type: ['string', 'null'] },
+    fee_summary: { type: ['string', 'null'] },
+    application_url: { type: ['string', 'null'] },
+  },
+  required: ['species', 'zone', 'season_year', 'name', 'opens_at', 'closes_at', 'results_expected_at', 'fee_summary', 'application_url'],
+};
+
+const REG_ITEM = {
+  type: 'object',
+  additionalProperties: false,
+  properties: {
+    species: { type: 'string', enum: ['deer', 'elk', 'bear', 'duck'] },
+    body: { type: 'string' },
+  },
+  required: ['species', 'body'],
+};
+
 const EXTRACTION_SCHEMA = {
   type: 'object',
   additionalProperties: false,
   properties: {
-    seasons: {
-      type: 'array',
-      items: {
-        type: 'object',
-        additionalProperties: false,
-        properties: {
-          species: { type: 'string', enum: ['deer', 'elk', 'bear', 'duck'] },
-          method: { type: 'string', enum: ['archery', 'muzzleloader', 'firearm', 'general'] },
-          zone: { type: 'string' },
-          label: { type: ['string', 'null'] },
-          season_year: { type: 'integer' },
-          open_date: { type: ['string', 'null'] },
-          close_date: { type: ['string', 'null'] },
-          bag_limit_summary: { type: ['string', 'null'] },
-          notes: { type: ['string', 'null'] },
-        },
-        required: ['species', 'method', 'zone', 'label', 'season_year', 'open_date', 'close_date', 'bag_limit_summary', 'notes'],
-      },
-    },
+    seasons: { type: 'array', items: SEASON_ITEM },
+    application_windows: { type: 'array', items: WINDOW_ITEM },
+    regulation_summaries: { type: 'array', items: REG_ITEM },
   },
-  required: ['seasons'],
+  required: ['seasons', 'application_windows', 'regulation_summaries'],
 };
 
-const SYSTEM = `You extract U.S. hunting season data from official state wildlife-agency documents.
+const SYSTEM = `You extract U.S. hunting data from official state wildlife-agency documents.
 Rules:
-- Only report seasons you can read directly in the document. Never guess.
-- Dates must be ISO format YYYY-MM-DD, or null if the document does not state an exact date.
-- species must be one of: deer, elk, bear, duck. method one of: archery, muzzleloader, firearm, general.
-- zone is the geographic zone name (use "Statewide" if the season applies statewide).
-- season_year is the license/season year the dates belong to (e.g. 2026 for a 2026-27 season).
-- Prefer a concise label for the specific season variant (e.g. "1st Rifle", "Primitive Weapons").`;
+- Only report data you can read directly in the document. NEVER guess. If a document
+  is a season-dates chart with no draw/application info, return application_windows: [].
+  If it has no season tables, return seasons: []. Same for regulation_summaries.
+- Dates must be ISO YYYY-MM-DD, or null if the document does not state an exact date.
+- species must be one of: deer, elk, bear, duck.
+- seasons: method one of archery, muzzleloader, firearm, general. zone is the geographic
+  zone name ("Statewide" if statewide). season_year is the license year (2026 for a
+  2026-27 season). label is a concise variant name ("1st Rifle", "Primitive Weapons").
+- application_windows are tag/permit DRAW deadlines. closes_at is THE application deadline.
+  name is the draw's name ("Primary Draw", "Elk Limited"). zone null if not zone-specific.
+  application_url is the page where hunters apply, if the document states one.
+- regulation_summaries: a short markdown summary of the key rules for that species in
+  this state (bag limits, legal weapons, license requirements). Keep it factual and brief.`;
 
 async function fetchDocumentBlock(url: string): Promise<any> {
   const res = await fetch(url);
@@ -65,14 +105,13 @@ async function fetchDocumentBlock(url: string): Promise<any> {
     for (let i = 0; i < buf.length; i++) bin += String.fromCharCode(buf[i]);
     return { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: btoa(bin) } };
   }
-  // HTML → crude text strip (good enough for extraction; the model tolerates noise).
   const html = await res.text();
   const text = html.replace(/<script[\s\S]*?<\/script>/gi, ' ').replace(/<style[\s\S]*?<\/style>/gi, ' ')
     .replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').slice(0, 120_000);
   return { type: 'text', text };
 }
 
-async function extractSeasons(doc: any, agency: string): Promise<any[]> {
+async function extract(doc: any, agency: string): Promise<{ seasons: any[]; application_windows: any[]; regulation_summaries: any[] }> {
   const res = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
     headers: {
@@ -87,7 +126,7 @@ async function extractSeasons(doc: any, agency: string): Promise<any[]> {
       output_config: { format: { type: 'json_schema', schema: EXTRACTION_SCHEMA } },
       messages: [{
         role: 'user',
-        content: [doc, { type: 'text', text: `This document is from ${agency}. Extract every hunting season it lists.` }],
+        content: [doc, { type: 'text', text: `This document is from ${agency}. Extract everything it lists.` }],
       }],
     }),
   });
@@ -95,77 +134,167 @@ async function extractSeasons(doc: any, agency: string): Promise<any[]> {
   const data = await res.json();
   const textBlock = (data.content ?? []).find((b: any) => b.type === 'text');
   if (!textBlock) throw new Error('no text block in model response');
-  return JSON.parse(textBlock.text).seasons ?? [];
+  const parsed = JSON.parse(textBlock.text);
+  return {
+    seasons: parsed.seasons ?? [],
+    application_windows: parsed.application_windows ?? [],
+    regulation_summaries: parsed.regulation_summaries ?? [],
+  };
 }
 
-// Resolve a zone by name within a state, creating it if missing (service role).
-async function resolveZoneId(stateId: string, zoneName: string): Promise<string> {
-  const name = zoneName?.trim() || 'Statewide';
-  const { data: existing } = await admin.from('zones').select('id').eq('state_id', stateId).eq('name', name).maybeSingle();
+// Resolve a zone by name within a state, creating it if missing. Returns null
+// for statewide / unspecified (application_windows.zone_id is nullable).
+async function resolveZoneId(stateId: string, zoneName: string | null, allowNull: boolean): Promise<string | null> {
+  const name = (zoneName ?? '').trim();
+  if (!name || /^statewide$/i.test(name)) {
+    if (allowNull) return null;
+  }
+  const resolved = name || 'Statewide';
+  const { data: existing } = await admin.from('zones').select('id').eq('state_id', stateId).eq('name', resolved).maybeSingle();
   if (existing) return existing.id;
-  const type = /flyway|duck zone/i.test(name) ? 'flyway_zone' : /gmu|unit|hunt area/i.test(name) ? 'gmu' : name.toLowerCase() === 'statewide' ? 'statewide' : 'county_group';
-  const { data: created, error } = await admin.from('zones').insert({ state_id: stateId, name, type }).select('id').single();
+  const type = /flyway|duck zone/i.test(resolved) ? 'flyway_zone'
+    : /gmu|unit|hunt area/i.test(resolved) ? 'gmu'
+    : resolved.toLowerCase() === 'statewide' ? 'statewide' : 'county_group';
+  const { data: created, error } = await admin.from('zones').insert({ state_id: stateId, name: resolved, type }).select('id').single();
   if (error) throw error;
   return created.id;
 }
 
+// Is there already a pending review for this logical row? Keeps re-runs from
+// piling up duplicate proposals while the admin hasn't approved yet.
+async function pendingExists(targetTable: string, targetId: string | null, keys: Record<string, string | number | null>): Promise<boolean> {
+  let q = admin.from('review_queue').select('id').eq('status', 'pending').eq('target_table', targetTable);
+  if (targetId) {
+    q = q.eq('target_id', targetId);
+  } else {
+    for (const [k, v] of Object.entries(keys)) {
+      if (v === null || v === undefined) continue;
+      q = q.eq(`proposed_payload->>${k}`, String(v));
+    }
+  }
+  const { data } = await q.limit(1);
+  return (data?.length ?? 0) > 0;
+}
+
+type Tally = { created: number; updated: number; unchanged: number; skipped: number };
+const emptyTally = (): Tally => ({ created: 0, updated: 0, unchanged: 0, skipped: 0 });
+
+async function processSource(source: any, runId: string, speciesByKey: Record<string, string>) {
+  const doc = await fetchDocumentBlock(source.url);
+  const { seasons, application_windows, regulation_summaries } = await extract(doc, source.agency_name);
+  const t = emptyTally();
+
+  // --- seasons ---
+  for (const row of seasons) {
+    const species_id = speciesByKey[row.species];
+    if (!species_id) { t.skipped++; continue; }
+    const zone_id = await resolveZoneId(source.state_id, row.zone, false);
+    const { data: current } = await admin.from('seasons').select('*')
+      .eq('state_id', source.state_id).eq('species_id', species_id)
+      .eq('zone_id', zone_id!).eq('method', row.method).eq('season_year', row.season_year)
+      .maybeSingle();
+    const payload = {
+      state_id: source.state_id, species_id, zone_id, season_year: row.season_year,
+      method: row.method, label: row.label, open_date: row.open_date, close_date: row.close_date,
+      bag_limit_summary: row.bag_limit_summary, notes: row.notes, source_id: source.id,
+    };
+    if (!current) {
+      if (await pendingExists('seasons', null, { state_id: source.state_id, species_id, zone_id, method: row.method, season_year: row.season_year })) { t.skipped++; continue; }
+      await admin.from('review_queue').insert({ target_table: 'seasons', change_type: 'create', proposed_payload: payload, source_id: source.id, extraction_run_id: runId });
+      t.created++;
+    } else if (current.open_date !== row.open_date || current.close_date !== row.close_date) {
+      if (await pendingExists('seasons', current.id, {})) { t.skipped++; continue; }
+      await admin.from('review_queue').insert({ target_table: 'seasons', change_type: 'update', target_id: current.id, proposed_payload: payload, current_snapshot: current, source_id: source.id, extraction_run_id: runId });
+      t.updated++;
+    } else { t.unchanged++; }
+  }
+
+  // --- application windows (draw deadlines) ---
+  for (const row of application_windows) {
+    const species_id = speciesByKey[row.species];
+    if (!species_id) { t.skipped++; continue; }
+    const zone_id = await resolveZoneId(source.state_id, row.zone, true);
+    let match = admin.from('application_windows').select('*')
+      .eq('state_id', source.state_id).eq('species_id', species_id).eq('season_year', row.season_year);
+    match = zone_id ? match.eq('zone_id', zone_id) : match.is('zone_id', null);
+    match = row.name ? match.eq('name', row.name) : match.is('name', null);
+    const { data: current } = await match.maybeSingle();
+    const payload = {
+      state_id: source.state_id, species_id, zone_id, season_year: row.season_year,
+      name: row.name, opens_at: row.opens_at, closes_at: row.closes_at,
+      results_expected_at: row.results_expected_at, fee_summary: row.fee_summary,
+      application_url: row.application_url ?? source.url, source_id: source.id,
+    };
+    if (!current) {
+      if (await pendingExists('application_windows', null, { state_id: source.state_id, species_id, season_year: row.season_year, name: row.name })) { t.skipped++; continue; }
+      await admin.from('review_queue').insert({ target_table: 'application_windows', change_type: 'create', proposed_payload: payload, source_id: source.id, extraction_run_id: runId });
+      t.created++;
+    } else if (current.closes_at !== row.closes_at || current.opens_at !== row.opens_at) {
+      if (await pendingExists('application_windows', current.id, {})) { t.skipped++; continue; }
+      await admin.from('review_queue').insert({ target_table: 'application_windows', change_type: 'update', target_id: current.id, proposed_payload: payload, current_snapshot: current, source_id: source.id, extraction_run_id: runId });
+      t.updated++;
+    } else { t.unchanged++; }
+  }
+
+  // --- regulation summaries (one per state+species) ---
+  for (const row of regulation_summaries) {
+    const species_id = speciesByKey[row.species];
+    if (!species_id || !row.body) { t.skipped++; continue; }
+    const { data: current } = await admin.from('regulation_summaries').select('*')
+      .eq('state_id', source.state_id).eq('species_id', species_id).maybeSingle();
+    const payload = { state_id: source.state_id, species_id, body: row.body, source_id: source.id };
+    if (!current) {
+      if (await pendingExists('regulation_summaries', null, { state_id: source.state_id, species_id })) { t.skipped++; continue; }
+      await admin.from('review_queue').insert({ target_table: 'regulation_summaries', change_type: 'create', proposed_payload: payload, source_id: source.id, extraction_run_id: runId });
+      t.created++;
+    } else if (current.body !== row.body) {
+      if (await pendingExists('regulation_summaries', current.id, {})) { t.skipped++; continue; }
+      await admin.from('review_queue').insert({ target_table: 'regulation_summaries', change_type: 'update', target_id: current.id, proposed_payload: payload, current_snapshot: current, source_id: source.id, extraction_run_id: runId });
+      t.updated++;
+    } else { t.unchanged++; }
+  }
+
+  await admin.from('sources').update({ last_extracted_at: new Date().toISOString() }).eq('id', source.id);
+  return { source: source.agency_name, url: source.url, extracted: seasons.length + application_windows.length + regulation_summaries.length, ...t };
+}
+
 Deno.serve(async (req) => {
   try {
-    const { sourceId } = req.method === 'POST' ? await req.json().catch(() => ({})) : {};
+    const body = req.method === 'POST' ? await req.json().catch(() => ({})) : {};
+    const { sourceId, max } = body as { sourceId?: string; max?: number };
 
-    // Default to a Georgia deer source for the PoC.
-    let source;
+    // Pick the source(s) to process.
+    let sources: any[] = [];
     if (sourceId) {
-      ({ data: source } = await admin.from('sources').select('*').eq('id', sourceId).single());
+      const { data } = await admin.from('sources').select('*').eq('id', sourceId).single();
+      if (data) sources = [data];
     } else {
-      ({ data: source } = await admin.from('sources').select('*').ilike('url', '%Season%Dates%').limit(1).single());
+      // Round-robin: the stalest sources first, so hourly cron cycles through all.
+      const { data } = await admin.from('sources').select('*')
+        .not('state_id', 'is', null)
+        .order('last_extracted_at', { ascending: true, nullsFirst: true })
+        .limit(Math.min(Math.max(max ?? 1, 1), 25));
+      sources = data ?? [];
     }
-    if (!source) return json({ error: 'source not found' }, 404);
-    if (!source.state_id) return json({ error: 'source has no state_id; set it first' }, 400);
+    if (sources.length === 0) return json({ error: 'no source with a state_id to process' }, 404);
 
     const runId = crypto.randomUUID();
-    const doc = await fetchDocumentBlock(source.url);
-    const extracted = await extractSeasons(doc, source.agency_name);
-
     const { data: species } = await admin.from('species').select('id, key');
     const speciesByKey = Object.fromEntries((species ?? []).map((s: any) => [s.key, s.id]));
 
-    let created = 0, updated = 0, unchanged = 0;
-    for (const row of extracted) {
-      const species_id = speciesByKey[row.species];
-      if (!species_id) continue;
-      const zone_id = await resolveZoneId(source.state_id, row.zone);
-
-      // Find the current row for this exact (state, species, zone, method, year).
-      const { data: current } = await admin.from('seasons').select('*')
-        .eq('state_id', source.state_id).eq('species_id', species_id)
-        .eq('zone_id', zone_id).eq('method', row.method).eq('season_year', row.season_year)
-        .maybeSingle();
-
-      const payload = {
-        state_id: source.state_id, species_id, zone_id, season_year: row.season_year,
-        method: row.method, label: row.label, open_date: row.open_date, close_date: row.close_date,
-        bag_limit_summary: row.bag_limit_summary, notes: row.notes, source_id: source.id,
-      };
-
-      if (!current) {
-        await admin.from('review_queue').insert({
-          target_table: 'seasons', change_type: 'create', proposed_payload: payload,
-          source_id: source.id, extraction_run_id: runId,
-        });
-        created++;
-      } else if (current.open_date !== row.open_date || current.close_date !== row.close_date) {
-        await admin.from('review_queue').insert({
-          target_table: 'seasons', change_type: 'update', target_id: current.id,
-          proposed_payload: payload, current_snapshot: current, source_id: source.id, extraction_run_id: runId,
-        });
-        updated++;
-      } else {
-        unchanged++;
+    // Process sequentially; isolate per-source errors so one bad source doesn't
+    // abort the whole run.
+    const results = [];
+    for (const source of sources) {
+      try {
+        results.push(await processSource(source, runId, speciesByKey));
+      } catch (e) {
+        await admin.from('sources').update({ last_extracted_at: new Date().toISOString() }).eq('id', source.id);
+        results.push({ source: source.agency_name, url: source.url, error: e instanceof Error ? e.message : String(e) });
       }
     }
 
-    return json({ ok: true, source: source.agency_name, run_id: runId, extracted: extracted.length, created, updated, unchanged });
+    return json({ ok: true, run_id: runId, sources: results.length, results });
   } catch (e) {
     return json({ error: e instanceof Error ? e.message : String(e) }, 500);
   }

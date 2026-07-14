@@ -54,13 +54,15 @@ select cron.schedule(
 
 ---
 
-## `extract-source` — automated refresh (Phase 2 PoC)
+## `extract-source` — automated refresh
 
-Fetches one official source, asks Claude (`claude-opus-4-8`) to extract structured
-season data, diffs it against the current `seasons` rows, and enqueues proposed
-changes into `review_queue`. **Nothing is published** — you approve each item on
-the in-app **Admin** tab, which calls `apply_review_item()` to apply it and stamp
-`last_verified_at`.
+Fetches an official source, asks Claude (`claude-opus-4-8`) to extract structured
+**seasons, application windows (draw deadlines), and regulation summaries**, diffs
+each against the current rows, and enqueues proposed changes into `review_queue`.
+**Nothing is published** — you approve each item on the in-app **Admin** tab,
+which calls `apply_review_item()` (handles all three tables) to apply it and stamp
+`last_verified_at`. Re-runs are idempotent: a logical row that already has a
+pending proposal is skipped, so the queue never fills with duplicates.
 
 ### 1. Set the Anthropic key as a function secret (PowerShell)
 
@@ -75,27 +77,34 @@ npx supabase secrets set ANTHROPIC_API_KEY=sk-ant-...
 npx supabase functions deploy extract-source
 ```
 
-### 3. Invoke it manually (proof of concept)
+### 3. Invoke it
 
 ```powershell
-# Defaults to a Georgia deer source. Use the service_role key for a one-off test.
+# Process the single stalest source (what the cron does each tick).
 curl -X POST "https://soxglmgbhmpuxhngcsvx.supabase.co/functions/v1/extract-source" `
   -H "Authorization: Bearer <YOUR_SERVICE_ROLE_KEY>" `
   -H "content-type: application/json" -d '{}'
+
+# Kick off a bulk backfill: process the 25 stalest sources this run.
+#   -d '{ "max": 25 }'
+# Or target one exactly:
+#   -d '{ "sourceId": "<uuid>" }'
 ```
-It returns `{ ok, extracted, created, updated, unchanged }`. Then open the app's
-**Admin** tab (as your admin account) to review and approve the proposals.
+Returns `{ ok, run_id, sources, results:[{ source, extracted, created, updated,
+unchanged, skipped }] }`. Then open the app's **Admin** tab (as your admin
+account) to review and approve the proposals.
 
-### 4. Schedule it with pg_cron (optional, Phase 2)
+### 4. Schedule the round-robin refresh with pg_cron
 
-`pg_cron` and `pg_net` are already enabled. Run this once in the SQL Editor,
-substituting your service-role key, to fetch the Georgia deer source nightly at
-3am UTC:
+`pg_cron` and `pg_net` are already enabled. Each empty-body run processes the
+**stalest source** (ordered by `sources.last_extracted_at`), so an hourly job
+cycles through every source and keeps the whole catalog fresh. Run once in the
+SQL Editor, substituting your service-role key:
 
 ```sql
 select cron.schedule(
-  'refresh-ga-deer',
-  '0 3 * * *',
+  'refresh-sources-hourly',
+  '17 * * * *',  -- every hour at :17
   $$
   select net.http_post(
     url     := 'https://soxglmgbhmpuxhngcsvx.supabase.co/functions/v1/extract-source',
@@ -103,20 +112,23 @@ select cron.schedule(
       'Content-Type', 'application/json',
       'Authorization', 'Bearer <YOUR_SERVICE_ROLE_KEY>'
     ),
-    body    := jsonb_build_object('sourceId', (select id from public.sources where url like '%Season%Dates%' limit 1))
+    body    := '{}'::jsonb
   );
   $$
 );
--- Unschedule: select cron.unschedule('refresh-ga-deer');
+-- Unschedule: select cron.unschedule('refresh-sources-hourly');
 ```
 
 > The service-role key in a cron job is stored in the `cron.job` table (admin-only).
 > For production, store it in Supabase Vault and read it in the job instead.
 
-### Scope of the PoC
+### How it works
 
-- Handles the **seasons** table (create + date-change updates). Application
-  windows and regs summaries extend the same pattern.
-- Georgia's source is a PDF, sent to Claude as a base64 document; HTML sources are
-  fetched and stripped to text. State is resolved from `sources.state_id`.
-- The model is instructed never to guess — unconfirmed dates come back `null`.
+- Extracts **seasons, application windows, and regulation summaries** from each
+  source; a source that only lists one kind returns empty arrays for the rest.
+- PDF sources are sent to Claude as a base64 document; HTML sources are fetched
+  and stripped to text. State is resolved from `sources.state_id` (a source must
+  have one, or it's skipped).
+- The model is instructed **never to guess** — unconfirmed dates come back `null`.
+- Every proposal lands in `review_queue` as `draft`/pending; you approve in-app.
+  Approving is what publishes it and makes it eligible for countdowns and alerts.
