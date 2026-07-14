@@ -19,7 +19,11 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 const ANTHROPIC_API_KEY = Deno.env.get('ANTHROPIC_API_KEY')!;
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SERVICE_ROLE = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-const MODEL = 'claude-opus-4-8';
+// Sonnet 5: structured extraction from a document doesn't need Opus-tier
+// reasoning, and Sonnet is roughly 5x cheaper per call — meaningful for an
+// hourly cron over 13+ sources. Every extraction is still human-reviewed
+// before publishing (review_queue), so this doesn't change the safety net.
+const MODEL = 'claude-sonnet-5';
 
 const admin = createClient(SUPABASE_URL, SERVICE_ROLE, { auth: { persistSession: false } });
 
@@ -96,14 +100,30 @@ Rules:
 - regulation_summaries: a short markdown summary of the key rules for that species in
   this state (bag limits, legal weapons, license requirements). Keep it factual and brief.`;
 
+// ~9 MB cap — beyond this the in-worker base64 + model upload risks the edge
+// function's memory/CPU limits. Oversized PDFs are skipped (isolated per-source).
+const MAX_PDF_BYTES = 9_000_000;
+
+// Chunked base64 — spreading 32 KB slices into fromCharCode instead of looping
+// byte-by-byte keeps CPU well under the edge worker's limit on large PDFs.
+function bytesToBase64(bytes: Uint8Array): string {
+  let binary = '';
+  const chunk = 0x8000;
+  for (let i = 0; i < bytes.length; i += chunk) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + chunk));
+  }
+  return btoa(binary);
+}
+
 async function fetchDocumentBlock(url: string): Promise<any> {
   const res = await fetch(url);
   if (!res.ok) throw new Error(`fetch ${url} failed: ${res.status}`);
   if (url.toLowerCase().endsWith('.pdf') || res.headers.get('content-type')?.includes('pdf')) {
     const buf = new Uint8Array(await res.arrayBuffer());
-    let bin = '';
-    for (let i = 0; i < buf.length; i++) bin += String.fromCharCode(buf[i]);
-    return { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: btoa(bin) } };
+    if (buf.length > MAX_PDF_BYTES) {
+      throw new Error(`PDF too large to extract in-worker (${(buf.length / 1e6).toFixed(1)} MB)`);
+    }
+    return { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: bytesToBase64(buf) } };
   }
   const html = await res.text();
   const text = html.replace(/<script[\s\S]*?<\/script>/gi, ' ').replace(/<style[\s\S]*?<\/style>/gi, ' ')
