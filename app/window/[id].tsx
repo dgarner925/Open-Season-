@@ -1,10 +1,10 @@
-import { Linking } from 'react-native';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
 import { AppText, Button, Card, Divider, GlassChip, Screen } from '@/components/ui';
 import { ProvenanceBlock } from '@/components/Provenance';
 import { useWindowById } from '@/features/reference/queries';
 import { countdownLabel, daysUntil, formatDate } from '@/lib/date';
+import { openExternalUrl } from '@/lib/openUrl';
 import { spacing, speciesColors, theme, urgencyColor, type SpeciesKey } from '@/theme';
 
 export default function WindowDetail() {
@@ -63,13 +63,13 @@ export default function WindowDetail() {
       </Card>
 
       {w.application_url ? (
-        <Button title="Apply on the official site" onPress={() => Linking.openURL(w.application_url!)} />
+        <Button title="Apply on the official site" onPress={() => openExternalUrl(w.application_url)} />
       ) : null}
       {w.state?.license_url ? (
         <Button
           variant="secondary"
           title="Buy a license / tag"
-          onPress={() => Linking.openURL(w.state!.license_url!)}
+          onPress={() => openExternalUrl(w.state!.license_url)}
         />
       ) : null}
       <Button

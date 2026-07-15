@@ -1,9 +1,10 @@
 import { Stack, useLocalSearchParams } from 'expo-router';
-import { ActivityIndicator, Linking } from 'react-native';
+import { ActivityIndicator } from 'react-native';
 import { AppText, Button, Card, Screen } from '@/components/ui';
 import { MiniMarkdown } from '@/components/MiniMarkdown';
 import { ProvenanceBlock } from '@/components/Provenance';
 import { useRegById } from '@/features/reference/queries';
+import { openExternalUrl } from '@/lib/openUrl';
 import { spacing, theme } from '@/theme';
 
 export default function RegsDetail() {
@@ -38,7 +39,7 @@ export default function RegsDetail() {
         <Button
           variant="secondary"
           title="Buy a license / tag"
-          onPress={() => Linking.openURL(reg.state!.license_url!)}
+          onPress={() => openExternalUrl(reg.state!.license_url)}
         />
       ) : null}
 

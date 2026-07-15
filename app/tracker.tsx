@@ -1,9 +1,9 @@
-import { Linking } from 'react-native';
 import { Stack, useRouter } from 'expo-router';
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
 import { AppText, Button, Card, Pill, Screen } from '@/components/ui';
 import { useApplications, type ApplicationWithRefs } from '@/features/applications/queries';
 import { formatDate } from '@/lib/date';
+import { openExternalUrl } from '@/lib/openUrl';
 import { spacing, theme } from '@/theme';
 import type { ApplicationStatus } from '@/lib/database.types';
 
@@ -88,7 +88,7 @@ function AppRow({ app, onPress }: { app: ApplicationWithRefs; onPress: () => voi
         <Button
           variant="secondary"
           title="Open the portal"
-          onPress={() => Linking.openURL(app.application_url!)}
+          onPress={() => openExternalUrl(app.application_url)}
           style={{ marginTop: spacing.sm }}
         />
       ) : null}

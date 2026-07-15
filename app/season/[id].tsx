@@ -1,9 +1,10 @@
 import { Stack, useLocalSearchParams } from 'expo-router';
-import { ActivityIndicator, Linking, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, StyleSheet, View } from 'react-native';
 import { AppText, Button, Card, Divider, Pill, Screen } from '@/components/ui';
 import { ProvenanceBlock } from '@/components/Provenance';
 import { useSeasonById } from '@/features/reference/queries';
 import { formatDateRange, isOpenNow } from '@/lib/date';
+import { openExternalUrl } from '@/lib/openUrl';
 import { spacing, speciesColors, theme, type SpeciesKey } from '@/theme';
 
 export default function SeasonDetail() {
@@ -76,7 +77,7 @@ export default function SeasonDetail() {
         <Button
           variant="secondary"
           title="Buy a license / tag"
-          onPress={() => Linking.openURL(season.state!.license_url!)}
+          onPress={() => openExternalUrl(season.state!.license_url)}
         />
       ) : null}
 

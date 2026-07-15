@@ -7,6 +7,7 @@ import { AppText, Dot, GlassChip } from '@/components/ui';
 import { HuntPicker } from '@/features/follows/HuntPicker';
 import { useApplications } from '@/features/applications/queries';
 import { useUpcomingCountdown } from '@/features/reference/queries';
+import { useAuth } from '@/providers/AuthProvider';
 import type { CountdownItem } from '@/features/reference/types';
 import { formatDate } from '@/lib/date';
 import { queryClient } from '@/lib/queryClient';
@@ -30,11 +31,13 @@ function timeGreeting(now: Date): string {
  */
 export default function Home() {
   const router = useRouter();
+  const { profile } = useAuth();
   const { items } = useUpcomingCountdown();
   const { data: apps = [] } = useApplications();
   const [refreshing, setRefreshing] = useState(false);
 
   const now = new Date();
+  const firstName = profile?.display_name?.trim().split(/\s+/)[0];
   const hero = items[0];
   const rest = items.slice(1);
   const openers = items.filter((i) => i.kind === 'opener').length;
@@ -62,6 +65,7 @@ export default function Home() {
           </AppText>
           <AppText variant="display" style={styles.greetingTitle}>
             {timeGreeting(now)}
+            {firstName ? `, ${firstName}` : ''}
           </AppText>
           <AppText variant="body" color={theme.color.textSecondary}>
             {WEEKDAYS[now.getDay()]}, {MONTHS[now.getMonth()]} {now.getDate()} — here's what's on the horizon.
