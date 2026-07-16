@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'expo-router';
-import { StyleSheet, TextInput, View } from 'react-native';
+import { Alert, Pressable, StyleSheet, TextInput, View } from 'react-native';
 import { AppText, Button, Card, Screen } from '@/components/ui';
 import { useAuth } from '@/providers/AuthProvider';
 import { supabase } from '@/lib/supabase';
@@ -12,6 +12,7 @@ export default function Settings() {
 
   const [name, setName] = useState(profile?.display_name ?? '');
   const [savingName, setSavingName] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   useEffect(() => setName(profile?.display_name ?? ''), [profile?.display_name]);
 
   const trimmed = name.trim();
@@ -23,6 +24,29 @@ export default function Settings() {
     await supabase.from('profiles').update({ display_name: trimmed || null }).eq('id', user.id);
     await refreshProfile();
     setSavingName(false);
+  }
+
+  function confirmDeleteAccount() {
+    Alert.alert(
+      'Delete account?',
+      'This permanently deletes your account and all your data — your follows, alert settings, and tracked applications. This cannot be undone.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Delete', style: 'destructive', onPress: deleteAccount },
+      ],
+    );
+  }
+
+  async function deleteAccount() {
+    setDeleting(true);
+    const { error } = await supabase.functions.invoke('delete-account', { method: 'POST' });
+    if (error) {
+      setDeleting(false);
+      Alert.alert('Could not delete account', 'Please try again in a moment.');
+      return;
+    }
+    // Account is gone; clear the local session (redirects to sign-in).
+    await signOut();
   }
 
   return (
@@ -84,8 +108,17 @@ export default function Settings() {
         </AppText>
       </Card>
 
-      <View style={{ marginTop: spacing.lg }}>
+      <View style={{ marginTop: spacing.lg, gap: spacing.sm }}>
         <Button variant="ghost" title="Sign out" onPress={signOut} />
+        <Pressable
+          onPress={confirmDeleteAccount}
+          disabled={deleting}
+          style={({ pressed }) => [styles.deleteBtn, pressed && { opacity: 0.7 }]}
+        >
+          <AppText variant="bodyStrong" color={theme.color.danger}>
+            {deleting ? 'Deleting…' : 'Delete account'}
+          </AppText>
+        </Pressable>
       </View>
     </Screen>
   );
@@ -102,4 +135,5 @@ const styles = StyleSheet.create({
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: theme.color.border,
   },
+  deleteBtn: { minHeight: 44, alignItems: 'center', justifyContent: 'center' },
 });
