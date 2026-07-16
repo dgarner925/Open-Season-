@@ -115,8 +115,13 @@ function bytesToBase64(bytes: Uint8Array): string {
   return btoa(binary);
 }
 
+// Some agency sites (e.g. michigan.gov) 403 non-browser user agents, so send a
+// realistic desktop-browser UA.
+const BROWSER_UA =
+  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36';
+
 async function fetchDocumentBlock(url: string): Promise<any> {
-  const res = await fetch(url);
+  const res = await fetch(url, { headers: { 'user-agent': BROWSER_UA, accept: '*/*' } });
   if (!res.ok) throw new Error(`fetch ${url} failed: ${res.status}`);
   if (url.toLowerCase().endsWith('.pdf') || res.headers.get('content-type')?.includes('pdf')) {
     const buf = new Uint8Array(await res.arrayBuffer());
