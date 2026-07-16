@@ -205,6 +205,11 @@ type Tally = { created: number; updated: number; unchanged: number; skipped: num
 const emptyTally = (): Tally => ({ created: 0, updated: 0, unchanged: 0, skipped: 0 });
 
 async function processSource(source: any, runId: string, speciesByKey: Record<string, string>) {
+  // Stamp FIRST so the round-robin advances even if this source later kills the
+  // worker (a huge PDF hitting the memory/CPU limit, or a slow site hitting the
+  // 150s wall clock). Otherwise last_extracted_at stays null and the same poison
+  // source gets re-picked forever, stalling the sweep.
+  await admin.from('sources').update({ last_extracted_at: new Date().toISOString() }).eq('id', source.id);
   const doc = await fetchDocumentBlock(source.url);
   const { seasons, application_windows, regulation_summaries } = await extract(doc, source.agency_name);
   const t = emptyTally();
@@ -279,7 +284,6 @@ async function processSource(source: any, runId: string, speciesByKey: Record<st
     } else { t.unchanged++; }
   }
 
-  await admin.from('sources').update({ last_extracted_at: new Date().toISOString() }).eq('id', source.id);
   return { source: source.agency_name, url: source.url, extracted: seasons.length + application_windows.length + regulation_summaries.length, ...t };
 }
 
