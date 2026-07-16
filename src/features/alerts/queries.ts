@@ -12,7 +12,7 @@ export type AlertPref = {
   } | null;
 };
 
-const DEFAULT_OFFSETS = [30, 7, 1];
+const DEFAULT_OFFSETS = [365, 30, 7, 1];
 
 /**
  * One alert card per followed (state, species). We drive this off `follows`

@@ -4,7 +4,16 @@ import { AppText, Card, Screen } from '@/components/ui';
 import { useAlertPreferences, useToggleOffset, type AlertPref } from '@/features/alerts/queries';
 import { radius, spacing, theme } from '@/theme';
 
-const OFFSETS = [30, 7, 1] as const;
+// Cadence ladder from a year out down to the day of. Values must stay within the
+// alert_preferences check constraint (1/3/7/14/30/60/90/180/365).
+const OFFSETS: { days: number; label: string }[] = [
+  { days: 365, label: '1y' },
+  { days: 180, label: '6mo' },
+  { days: 90, label: '3mo' },
+  { days: 30, label: '1mo' },
+  { days: 7, label: '1w' },
+  { days: 1, label: '1d' },
+];
 
 export default function Alerts() {
   const { data: prefs = [], isLoading } = useAlertPreferences();
@@ -16,7 +25,8 @@ export default function Alerts() {
       <View style={{ gap: spacing.xs }}>
         <AppText variant="h1">Alerts</AppText>
         <AppText variant="body" color={theme.color.textSecondary}>
-          Choose how many days ahead you're notified. Tap to toggle. Push notifications require a real device.
+          Choose how far ahead you're notified — from a year out down to the day of. Tap to toggle. Push
+          notifications require a real device.
         </AppText>
       </View>
 
@@ -75,16 +85,16 @@ function OffsetRow({
 }) {
   return (
     <View style={styles.row}>
-      <AppText variant="caption" color={theme.color.textSecondary} style={{ flex: 1 }}>
+      <AppText variant="caption" color={theme.color.textSecondary}>
         {label}
       </AppText>
       <View style={styles.chips}>
         {OFFSETS.map((o) => {
-          const on = offsets.includes(o);
+          const on = offsets.includes(o.days);
           return (
             <Pressable
-              key={o}
-              onPress={() => onToggle(o)}
+              key={o.days}
+              onPress={() => onToggle(o.days)}
               style={[
                 styles.chip,
                 on
@@ -93,7 +103,7 @@ function OffsetRow({
               ]}
             >
               <AppText variant="caption" color={on ? theme.color.onAccent : theme.color.textSecondary}>
-                {o}d
+                {o.label}
               </AppText>
             </Pressable>
           );
@@ -104,8 +114,8 @@ function OffsetRow({
 }
 
 const styles = StyleSheet.create({
-  row: { flexDirection: 'row', alignItems: 'center', marginTop: spacing.md },
-  chips: { flexDirection: 'row', gap: spacing.sm },
+  row: { gap: spacing.sm, marginTop: spacing.md },
+  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
   chip: {
     minWidth: 44,
     alignItems: 'center',
