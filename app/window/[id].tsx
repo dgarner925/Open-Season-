@@ -5,6 +5,7 @@ import { ProvenanceBlock } from '@/components/Provenance';
 import { useWindowById } from '@/features/reference/queries';
 import { countdownLabel, daysUntil, formatDate } from '@/lib/date';
 import { openExternalUrl } from '@/lib/openUrl';
+import { drawTitle } from '@/lib/titles';
 import { spacing, speciesColors, theme, urgencyColor, type SpeciesKey } from '@/theme';
 
 export default function WindowDetail() {
@@ -36,9 +37,7 @@ export default function WindowDetail() {
       <Stack.Screen options={{ headerShown: true, title: `${w.state?.code ?? ''} ${w.species?.name ?? ''} Tag` }} />
 
       <View style={{ gap: spacing.xs }}>
-        <AppText variant="h1">
-          {w.species?.name} {w.name ?? 'Draw'}
-        </AppText>
+        <AppText variant="h1">{drawTitle(w.species?.name, w.name)}</AppText>
         <AppText variant="body" color={theme.color.textSecondary}>
           {w.state?.name} · {w.zone?.name ?? 'Statewide'}
         </AppText>
@@ -59,7 +58,16 @@ export default function WindowDetail() {
         <Row label="Opens" value={formatDate(w.opens_at)} />
         <Row label="Closes" value={formatDate(w.closes_at)} />
         <Row label="Results" value={formatDate(w.results_expected_at)} />
-        {w.fee_summary ? <Row label="Fees" value={w.fee_summary} /> : null}
+        {w.fee_summary ? (
+          <View style={styles.feeBlock}>
+            <AppText variant="overline" color={theme.color.textMuted}>
+              FEES
+            </AppText>
+            <AppText variant="body" color={theme.color.textSecondary}>
+              {w.fee_summary}
+            </AppText>
+          </View>
+        ) : null}
       </Card>
 
       {w.application_url ? (
@@ -79,7 +87,7 @@ export default function WindowDetail() {
           router.push({
             pathname: '/application-edit',
             params: {
-              title: `${w.state?.name ?? ''} ${w.species?.name ?? ''} ${w.name ?? 'Draw'}`.trim(),
+              title: `${w.state?.name ?? ''} ${drawTitle(w.species?.name, w.name)}`.trim(),
               stateId: w.state_id,
               speciesId: w.species_id,
               windowId: w.id,
@@ -104,12 +112,16 @@ function Row({ label, value }: { label: string; value: string }) {
       <AppText variant="body" color={theme.color.textMuted}>
         {label}
       </AppText>
-      <AppText variant="bodyStrong">{value}</AppText>
+      <AppText variant="bodyStrong" style={styles.dataValue}>
+        {value}
+      </AppText>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  dataRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: spacing.xs },
+  dataRow: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: spacing.md, paddingVertical: spacing.xs },
+  dataValue: { flex: 1, textAlign: 'right' },
+  feeBlock: { marginTop: spacing.sm, gap: 4 },
 });

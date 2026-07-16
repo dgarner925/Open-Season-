@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { daysUntil } from '@/lib/date';
+import { drawTitle } from '@/lib/titles';
 import type { SpeciesRow, StateRow } from '@/lib/database.types';
 import { useFollows } from '@/features/follows/queries';
 import type {
@@ -184,7 +185,7 @@ export function useUpcomingCountdown(limit = 12) {
       items.push({
         kind: 'deadline',
         id: w.id,
-        title: `${w.state?.code ?? ''} ${w.species?.name ?? ''} ${w.name ?? 'Draw'}`.trim(),
+        title: `${w.state?.code ?? ''} ${drawTitle(w.species?.name, w.name)}`.trim(),
         subtitle: 'Application deadline',
         speciesKey: w.species?.key ?? 'default',
         stateCode: w.state?.code ?? '',
