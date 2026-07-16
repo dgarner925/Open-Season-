@@ -115,13 +115,24 @@ function bytesToBase64(bytes: Uint8Array): string {
   return btoa(binary);
 }
 
-// Some agency sites (e.g. michigan.gov) 403 non-browser user agents, so send a
-// realistic desktop-browser UA.
-const BROWSER_UA =
-  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36';
+// Several agency sites block non-browser requests: michigan.gov 403s a bare UA,
+// and Georgia's eRegulations (415) / Kansas's ksoutdoors.gov (403) fingerprint
+// on the full header set. Send a realistic desktop-Chrome navigation. (No
+// accept-encoding — let Deno negotiate one it can transparently decompress.)
+const BROWSER_HEADERS: Record<string, string> = {
+  'user-agent':
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+  accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,application/pdf,image/avif,image/webp,*/*;q=0.8',
+  'accept-language': 'en-US,en;q=0.9',
+  'sec-fetch-dest': 'document',
+  'sec-fetch-mode': 'navigate',
+  'sec-fetch-site': 'none',
+  'sec-fetch-user': '?1',
+  'upgrade-insecure-requests': '1',
+};
 
 async function fetchDocumentBlock(url: string): Promise<any> {
-  const res = await fetch(url, { headers: { 'user-agent': BROWSER_UA, accept: '*/*' } });
+  const res = await fetch(url, { headers: BROWSER_HEADERS });
   if (!res.ok) throw new Error(`fetch ${url} failed: ${res.status}`);
   if (url.toLowerCase().endsWith('.pdf') || res.headers.get('content-type')?.includes('pdf')) {
     const buf = new Uint8Array(await res.arrayBuffer());
