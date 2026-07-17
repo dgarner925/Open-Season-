@@ -8,8 +8,18 @@
 --    recursing into the profiles table's own policies.
 
 create extension if not exists pgcrypto;      -- gen_random_uuid()
-create extension if not exists pg_cron;        -- scheduled notification job (Phase 6)
--- pg_net is used by Edge Function triggers to make HTTP calls (Phase 2 pipeline).
+
+-- NOTE: pg_cron (scheduled jobs) and pg_net (net.http_post, used by the cron
+-- jobs to call Edge Functions) are managed by Supabase at the platform level.
+-- These `create extension` lines are a NO-OP on a hosted project — they neither
+-- install the extensions nor error, so a migration alone leaves you with
+-- "schema cron does not exist". They MUST be toggled on in the Dashboard:
+--   Database -> Extensions -> enable `pg_net`, then `pg_cron`.
+-- Verify with:
+--   select name, installed_version from pg_available_extensions
+--   where name in ('pg_cron','pg_net');
+-- Kept here to document the dependency.
+create extension if not exists pg_cron;
 create extension if not exists pg_net;
 
 -- ---------------------------------------------------------------------------

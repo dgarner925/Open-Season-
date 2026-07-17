@@ -24,7 +24,17 @@ npx supabase functions deploy send-alerts
 
 ### Schedule daily (SQL Editor)
 
-`pg_cron` + `pg_net` are already enabled. Run once, substituting your service-role key:
+**First enable the extensions** — Supabase manages `pg_cron` and `pg_net` at the
+platform level, and the `create extension` lines in the init migration are a
+no-op on a hosted project (you'll get `schema "cron" does not exist`). Go to
+**Database -> Extensions** and toggle on `pg_net`, then `pg_cron`. Confirm with:
+
+```sql
+select name, installed_version from pg_available_extensions
+where name in ('pg_cron','pg_net');   -- installed_version must not be null
+```
+
+Then run once, substituting your service-role key:
 
 ```sql
 select cron.schedule(
