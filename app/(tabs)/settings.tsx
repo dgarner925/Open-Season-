@@ -111,6 +111,13 @@ export default function Settings() {
         </AppText>
       </Card>
 
+      <Card onPress={() => router.push('/how-to')}>
+        <AppText variant="h3">How it works</AppText>
+        <AppText variant="body" color={theme.color.textSecondary}>
+          A quick tour — from picking your states to opening day.
+        </AppText>
+      </Card>
+
       <Card onPress={() => openExternalUrl(PRIVACY_POLICY_URL)}>
         <AppText variant="h3">Privacy Policy</AppText>
         <AppText variant="body" color={theme.color.textSecondary}>

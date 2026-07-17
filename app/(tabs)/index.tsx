@@ -120,6 +120,14 @@ export default function Home() {
             </AppText>
           )}
         </Section>
+
+        {/* Help link — quiet, for anyone finding their feet */}
+        <Pressable onPress={() => router.push('/how-to')} style={styles.howTo}>
+          <Ionicons name="help-circle-outline" size={18} color={theme.color.textMuted} />
+          <AppText variant="caption" color={theme.color.textMuted}>
+            New here? How OpenSeason works
+          </AppText>
+        </Pressable>
       </ScrollView>
     </SafeAreaView>
   );
@@ -279,6 +287,7 @@ const styles = StyleSheet.create({
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: theme.color.border,
   },
+  howTo: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.xs, paddingVertical: spacing.sm },
   rowCount: { alignItems: 'flex-end', minWidth: 40 },
   pressed: { opacity: 0.9, transform: [{ scale: 0.994 }] },
 });
