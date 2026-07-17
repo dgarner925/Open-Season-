@@ -27,6 +27,26 @@ const MODEL = 'claude-sonnet-5';
 
 const admin = createClient(SUPABASE_URL, SERVICE_ROLE, { auth: { persistSession: false } });
 
+// This function spends money (each run calls Claude), and Supabase's gateway only
+// checks that the caller presents *some* valid key — the app's anon key ships
+// inside every build and is public, so without this guard anyone could trigger
+// extraction and drain the Anthropic balance. Only the service role (i.e. our
+// pg_cron job) may invoke it. Accept an exact match on the injected key OR any
+// token whose JWT role claim is service_role, so this works across Supabase's
+// legacy-JWT and newer secret-key formats.
+function isServiceRole(token: string): boolean {
+  if (!token) return false;
+  if (SERVICE_ROLE && token === SERVICE_ROLE) return true;
+  try {
+    const part = token.split('.')[1];
+    if (!part) return false;
+    const payload = JSON.parse(atob(part.replace(/-/g, '+').replace(/_/g, '/')));
+    return payload?.role === 'service_role';
+  } catch {
+    return false;
+  }
+}
+
 // Structured-output schema. Constraints: additionalProperties:false, every key
 // in `required`, no min/max/length (unsupported by structured outputs).
 const SEASON_ITEM = {
@@ -300,6 +320,11 @@ async function processSource(source: any, runId: string, speciesByKey: Record<st
 
 Deno.serve(async (req) => {
   try {
+    const token = (req.headers.get('Authorization') ?? '').replace(/^Bearer\s+/i, '').trim();
+    if (!isServiceRole(token)) {
+      return json({ error: 'forbidden: service role required' }, 403);
+    }
+
     const body = req.method === 'POST' ? await req.json().catch(() => ({})) : {};
     const { sourceId, max } = body as { sourceId?: string; max?: number };
 

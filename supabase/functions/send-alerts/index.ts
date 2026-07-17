@@ -16,6 +16,24 @@ const EXPO_PUSH_URL = 'https://exp.host/--/api/v2/push/send';
 
 const admin = createClient(SUPABASE_URL, SERVICE_ROLE, { auth: { persistSession: false } });
 
+// Supabase's gateway only checks that the caller presents *some* valid key, and
+// the app's anon key is public (it ships inside every build). Restrict this to
+// the service role (our pg_cron job) so nobody can spam users' notifications.
+// Accept an exact match on the injected key OR any token whose JWT role claim is
+// service_role, to work across Supabase's legacy-JWT and newer key formats.
+function isServiceRole(token: string): boolean {
+  if (!token) return false;
+  if (SERVICE_ROLE && token === SERVICE_ROLE) return true;
+  try {
+    const part = token.split('.')[1];
+    if (!part) return false;
+    const payload = JSON.parse(atob(part.replace(/-/g, '+').replace(/_/g, '/')));
+    return payload?.role === 'service_role';
+  } catch {
+    return false;
+  }
+}
+
 type Due = {
   user_id: string;
   subject_type: string;
@@ -40,8 +58,13 @@ async function sendExpoBatch(messages: any[]): Promise<void> {
   }
 }
 
-Deno.serve(async () => {
+Deno.serve(async (req) => {
   try {
+    const token = (req.headers.get('Authorization') ?? '').replace(/^Bearer\s+/i, '').trim();
+    if (!isServiceRole(token)) {
+      return json({ error: 'forbidden: service role required' }, 403);
+    }
+
     const { data: due, error } = await admin.rpc('notifications_due');
     if (error) throw error;
     const rows = (due ?? []) as Due[];
