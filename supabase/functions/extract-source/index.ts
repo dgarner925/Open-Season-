@@ -28,15 +28,24 @@ const MODEL = 'claude-sonnet-5';
 const admin = createClient(SUPABASE_URL, SERVICE_ROLE, { auth: { persistSession: false } });
 
 // This function spends money (each run calls Claude), and Supabase's gateway only
-// checks that the caller presents *some* valid key — the app's anon key ships
-// inside every build and is public, so without this guard anyone could trigger
-// extraction and drain the Anthropic balance. Only the service role (i.e. our
-// pg_cron job) may invoke it. Accept an exact match on the injected key OR any
-// token whose JWT role claim is service_role, so this works across Supabase's
-// legacy-JWT and newer secret-key formats.
+// checks that the caller presents *some* valid key — the app's anon/publishable
+// key ships inside every build and is public, so without this guard anyone could
+// trigger extraction and drain the Anthropic balance. Only privileged callers
+// (i.e. our pg_cron job) may invoke it.
+//
+// This project is on Supabase's NEW API key system: legacy JWT keys are disabled
+// (the gateway rejects them with UNAUTHORIZED_LEGACY_JWT), so the cron uses an
+// `sb_secret_...` key. We accept, in order:
+//   1. an exact match on the injected SUPABASE_SERVICE_ROLE_KEY,
+//   2. an `sb_secret_...` key that appears in the injected SUPABASE_SECRET_KEYS
+//      (substring match keeps this agnostic to that var's encoding), or
+//   3. a legacy JWT whose role claim is service_role (for projects still on it).
+const SECRET_KEYS_RAW = Deno.env.get('SUPABASE_SECRET_KEYS') ?? '';
+
 function isServiceRole(token: string): boolean {
   if (!token) return false;
   if (SERVICE_ROLE && token === SERVICE_ROLE) return true;
+  if (token.startsWith('sb_secret_') && SECRET_KEYS_RAW.includes(token)) return true;
   try {
     const part = token.split('.')[1];
     if (!part) return false;

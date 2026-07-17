@@ -4,7 +4,10 @@ import { Alert, Pressable, StyleSheet, TextInput, View } from 'react-native';
 import { AppText, Button, Card, Screen } from '@/components/ui';
 import { useAuth } from '@/providers/AuthProvider';
 import { supabase } from '@/lib/supabase';
+import { openExternalUrl } from '@/lib/openUrl';
 import { radius, spacing, theme } from '@/theme';
+
+const PRIVACY_POLICY_URL = 'https://dgarner925.github.io/OpenSeason-Legal/';
 
 export default function Settings() {
   const router = useRouter();
@@ -105,6 +108,13 @@ export default function Settings() {
         <AppText variant="h3">Alerts</AppText>
         <AppText variant="body" color={theme.color.textSecondary}>
           Choose when to be notified before openers and deadlines.
+        </AppText>
+      </Card>
+
+      <Card onPress={() => openExternalUrl(PRIVACY_POLICY_URL)}>
+        <AppText variant="h3">Privacy Policy</AppText>
+        <AppText variant="body" color={theme.color.textSecondary}>
+          What we collect, and what we don't.
         </AppText>
       </Card>
 
