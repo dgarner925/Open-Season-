@@ -25,7 +25,7 @@
         "ITSAppUsesNonExemptEncryption": false
       },
       "entitlements": {
-        "com.apple.security.application-groups": ["group.com.openseason.app"]
+        "com.apple.security.application-groups": ["group.com.openseason.shared"]
       },
       "buildNumber": "4"
     },

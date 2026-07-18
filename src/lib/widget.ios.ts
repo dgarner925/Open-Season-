@@ -1,6 +1,6 @@
 import type { CountdownItem } from '@/features/reference/types';
 
-const APP_GROUP = 'group.com.openseason.app';
+const APP_GROUP = 'group.com.openseason.shared';
 
 /**
  * Push the user's soonest opener/deadline into the shared App Group and refresh

@@ -1,7 +1,7 @@
 import WidgetKit
 import SwiftUI
 
-private let appGroup = "group.com.openseason.app"
+private let appGroup = "group.com.openseason.shared"
 
 // Slate + Ember palette (matches the app).
 private let slate = Color(red: 0.051, green: 0.051, blue: 0.078)
