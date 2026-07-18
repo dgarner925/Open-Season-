@@ -60,6 +60,18 @@ export type UserApplicationRow = Timestamps & {
   notes: string | null;
 };
 
+export type PointType = 'preference' | 'bonus';
+
+export type PointBalanceRow = Timestamps & {
+  id: string;
+  user_id: string;
+  state_id: string;
+  species_id: string;
+  point_type: PointType;
+  points: number;
+  notes: string | null;
+};
+
 export type SpeciesRow = {
   id: string;
   key: string;
@@ -206,6 +218,7 @@ export type Database = {
       sent_notifications: Table<SentNotificationRow, Omit<SentNotificationRow, 'id' | 'sent_at'> & { id?: string }>;
       review_queue: Table<ReviewQueueRow, Omit<ReviewQueueRow, Gen> & { id?: string }>;
       user_applications: Table<UserApplicationRow, Omit<UserApplicationRow, Gen> & { id?: string }>;
+      user_point_balances: Table<PointBalanceRow, Omit<PointBalanceRow, Gen> & { id?: string }>;
     };
     Views: Record<string, never>;
     Functions: {

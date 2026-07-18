@@ -104,6 +104,13 @@ export default function Settings() {
         </AppText>
       </Card>
 
+      <Card onPress={() => router.push('/points')}>
+        <AppText variant="h3">Preference points</AppText>
+        <AppText variant="body" color={theme.color.textSecondary}>
+          Bank the points you're building toward each draw, year over year.
+        </AppText>
+      </Card>
+
       <Card onPress={() => router.push('/alerts')}>
         <AppText variant="h3">Alerts</AppText>
         <AppText variant="body" color={theme.color.textSecondary}>
