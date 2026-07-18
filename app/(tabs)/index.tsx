@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AppText, Dot, GlassChip } from '@/components/ui';
@@ -11,6 +11,7 @@ import { useAuth } from '@/providers/AuthProvider';
 import type { CountdownItem } from '@/features/reference/types';
 import { formatDate } from '@/lib/date';
 import { queryClient } from '@/lib/queryClient';
+import { pushWidgetEvent } from '@/lib/widget';
 import { fontFamily, radius, spacing, speciesColors, theme, urgencyColor, withAlpha, type SpeciesKey } from '@/theme';
 
 const WEEKDAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
@@ -42,6 +43,11 @@ export default function Home() {
   const rest = items.slice(1);
   const openers = items.filter((i) => i.kind === 'opener').length;
   const deadlines = items.filter((i) => i.kind === 'deadline').length;
+
+  // Keep the iOS home-screen widget showing the soonest event (no-op elsewhere).
+  useEffect(() => {
+    pushWidgetEvent(hero);
+  }, [hero?.id, hero?.date, hero?.kind]);
 
   async function onRefresh() {
     setRefreshing(true);
