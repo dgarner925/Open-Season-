@@ -149,12 +149,11 @@ function Hero({ item, onPress }: { item: CountdownItem; onPress: () => void }) {
       <View style={styles.heroMeta}>
         <View style={styles.metaLeft}>
           {item.kind === 'deadline' ? <GlassChip label="Deadline" /> : <Dot color={speciesColor} />}
-          <AppText variant="overline" color={theme.color.textMuted}>
-            {item.kind === 'deadline' ? 'NEXT DEADLINE' : 'NEXT OPENER'}
-            {item.stateCode ? `  ·  ${item.stateCode}` : ''}
+          <AppText variant="overline" color={theme.color.textMuted} numberOfLines={1} style={styles.metaLabel}>
+            {item.kind === 'deadline' ? item.stateCode : `OPENER${item.stateCode ? `  ·  ${item.stateCode}` : ''}`}
           </AppText>
         </View>
-        <AppText variant="caption" color={theme.color.textMuted}>
+        <AppText variant="caption" color={theme.color.textMuted} style={styles.metaDate}>
           {formatDate(item.date)}
         </AppText>
       </View>
@@ -246,8 +245,10 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
   },
   accentBar: { position: 'absolute', left: 0, top: 0, bottom: 0, width: 3 },
-  heroMeta: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  metaLeft: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  heroMeta: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.sm },
+  metaLeft: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, flex: 1, minWidth: 0 },
+  metaLabel: { flexShrink: 1 },
+  metaDate: { flexShrink: 0 },
   heroCount: { flexDirection: 'row', alignItems: 'flex-end', gap: spacing.md, marginTop: spacing.md },
   heroNumber: { fontFamily: fontFamily.serif, fontSize: 76, lineHeight: 76, letterSpacing: -2.5, fontWeight: '600' },
   heroCountMeta: { paddingBottom: 12, gap: 2 },
