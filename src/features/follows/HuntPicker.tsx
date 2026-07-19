@@ -2,9 +2,19 @@ import { Ionicons } from '@expo/vector-icons';
 import { useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
 import { AppText } from '@/components/ui';
-import { useActiveStates, useSpecies } from '@/features/reference/queries';
+import { useActiveStates, useSpecies, useStateSpecies } from '@/features/reference/queries';
 import { useFollows, useToggleFollow } from '@/features/follows/queries';
 import { radius, spacing, theme, withAlpha } from '@/theme';
+
+const CATEGORIES: { key: string; label: string }[] = [
+  { key: 'big_game', label: 'BIG GAME' },
+  { key: 'turkey', label: 'TURKEY' },
+  { key: 'waterfowl', label: 'WATERFOWL & MIGRATORY' },
+  { key: 'upland', label: 'UPLAND BIRDS' },
+  { key: 'small_game', label: 'SMALL GAME' },
+  { key: 'furbearer', label: 'FURBEARERS' },
+  { key: 'other', label: 'OTHER' },
+];
 
 /**
  * Add hunts with one state dropdown → animal chips, and see/remove your current
@@ -23,6 +33,7 @@ export function HuntPicker() {
   const nameOf = (id: string, list: { id: string; name: string }[]) => list.find((x) => x.id === id)?.name ?? '';
   const codeOf = (id: string) => states.find((s) => s.id === id)?.code ?? '';
   const selectedState = states.find((s) => s.id === stateId) ?? null;
+  const { data: stateSpecies = [], isLoading: speciesLoading } = useStateSpecies(stateId);
 
   if (isLoading) return <ActivityIndicator color={theme.color.accent} style={{ marginTop: spacing.md }} />;
 
@@ -78,35 +89,50 @@ export function HuntPicker() {
         </View>
       ) : null}
 
-      {/* Animals for the chosen state */}
+      {/* Animals for the chosen state — only what's huntable there, by category */}
       {selectedState ? (
-        <View style={{ gap: spacing.sm }}>
+        <View style={{ gap: spacing.md }}>
           <AppText variant="caption" color={theme.color.textSecondary}>
             Which animals in {selectedState.name}?
           </AppText>
-          <View style={styles.chipWrap}>
-            {species.map((sp) => {
-              const existingId = followKey.get(`${selectedState.id}:${sp.id}`);
-              const on = Boolean(existingId);
+          {speciesLoading ? (
+            <ActivityIndicator color={theme.color.accent} style={{ marginTop: spacing.sm }} />
+          ) : (
+            CATEGORIES.map((cat) => {
+              const inCat = stateSpecies.filter((sp) => sp.category === cat.key);
+              if (inCat.length === 0) return null;
               return (
-                <Pressable
-                  key={sp.id}
-                  disabled={toggle.isPending}
-                  onPress={() => toggle.mutate({ stateId: selectedState.id, speciesId: sp.id, existingId })}
-                  style={[
-                    styles.speciesChip,
-                    on
-                      ? { backgroundColor: theme.color.accent, borderColor: theme.color.accent }
-                      : { backgroundColor: 'transparent', borderColor: theme.color.border },
-                  ]}
-                >
-                  <AppText variant="bodyStrong" color={on ? theme.color.onAccent : theme.color.textSecondary}>
-                    {sp.name}
+                <View key={cat.key} style={{ gap: spacing.sm }}>
+                  <AppText variant="overline" color={theme.color.textMuted}>
+                    {cat.label}
                   </AppText>
-                </Pressable>
+                  <View style={styles.chipWrap}>
+                    {inCat.map((sp) => {
+                      const existingId = followKey.get(`${selectedState.id}:${sp.id}`);
+                      const on = Boolean(existingId);
+                      return (
+                        <Pressable
+                          key={sp.id}
+                          disabled={toggle.isPending}
+                          onPress={() => toggle.mutate({ stateId: selectedState.id, speciesId: sp.id, existingId })}
+                          style={[
+                            styles.speciesChip,
+                            on
+                              ? { backgroundColor: theme.color.accent, borderColor: theme.color.accent }
+                              : { backgroundColor: 'transparent', borderColor: theme.color.border },
+                          ]}
+                        >
+                          <AppText variant="bodyStrong" color={on ? theme.color.onAccent : theme.color.textSecondary}>
+                            {sp.name}
+                          </AppText>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+                </View>
               );
-            })}
-          </View>
+            })
+          )}
         </View>
       ) : null}
     </View>

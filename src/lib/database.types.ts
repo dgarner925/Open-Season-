@@ -76,6 +76,7 @@ export type SpeciesRow = {
   id: string;
   key: string;
   name: string;
+  category: string | null;
   sort_order: number;
   created_at: string;
 };

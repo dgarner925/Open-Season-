@@ -40,6 +40,23 @@ export function useSpecies() {
   });
 }
 
+/** The species that are actually huntable in a given state (from state_species). */
+export function useStateSpecies(stateId: string | null | undefined) {
+  return useQuery({
+    queryKey: ['state_species', stateId],
+    enabled: Boolean(stateId),
+    queryFn: async (): Promise<SpeciesRow[]> => {
+      const { data, error } = await supabase
+        .from('state_species')
+        .select('species:species(*)')
+        .eq('state_id', stateId!);
+      if (error) throw error;
+      const rows = ((data ?? []).map((r: any) => r.species).filter(Boolean)) as SpeciesRow[];
+      return rows.sort((a, b) => a.sort_order - b.sort_order);
+    },
+  });
+}
+
 /** Filter a list of rows to the exact (state, species) pairs the user follows. */
 function keepFollowed<T extends { state_id: string; species_id: string }>(
   rows: T[],
