@@ -3,7 +3,8 @@ import SwiftUI
 
 private let appGroup = "group.com.openseason.shared"
 
-// Slate + Ember palette (matches the app).
+// Slate + Ember palette (matches the app). Used only for the home-screen sizes;
+// Lock Screen (accessory) widgets are tinted monochrome by the system.
 private let slate = Color(red: 0.051, green: 0.051, blue: 0.078)
 private let ember = Color(red: 0.878, green: 0.475, blue: 0.290)
 private let emberSoft = Color(red: 0.941, green: 0.690, blue: 0.541)
@@ -31,7 +32,6 @@ struct Provider: TimelineProvider {
 
   func getTimeline(in context: Context, completion: @escaping (Timeline<NextEntry>) -> Void) {
     let entry = readEntry()
-    // Recompute just after midnight so the day count ticks down on its own.
     let cal = Calendar.current
     let tomorrow = cal.date(byAdding: .day, value: 1, to: Date()) ?? Date()
     let nextMidnight = cal.startOfDay(for: tomorrow)
@@ -67,29 +67,71 @@ struct WidgetView: View {
   var entry: NextEntry
   @Environment(\.widgetFamily) var family
 
+  private var days: Int { max(entry.daysUntil ?? 0, 0) }
+  private var kindLabel: String { entry.kind == "deadline" ? "TAG DEADLINE" : "OPENER" }
+
   var body: some View {
-    Group {
-      if entry.hasData {
-        content
-      } else {
-        empty
+    contentView
+      .containerBackground(for: .widget) {
+        if family == .systemSmall || family == .systemMedium { slate } else { Color.clear }
       }
-    }
-    .containerBackground(for: .widget) { slate }
   }
 
-  private var content: some View {
+  @ViewBuilder private var contentView: some View {
+    switch family {
+    case .accessoryInline:
+      Text(entry.hasData ? "\(entry.title) · \(days)d" : "OpenSeason")
+    case .accessoryCircular:
+      circular
+    case .accessoryRectangular:
+      rectangular
+    default:
+      if entry.hasData { home } else { empty }
+    }
+  }
+
+  // --- Lock Screen: circular badge ---
+  private var circular: some View {
+    ZStack {
+      AccessoryWidgetBackground()
+      VStack(spacing: -2) {
+        Text(entry.hasData ? "\(days)" : "—")
+          .font(.system(size: 22, weight: .bold, design: .rounded))
+        Text(entry.hasData ? (entry.kind == "deadline" ? "due" : "days") : "")
+          .font(.system(size: 9, weight: .medium))
+      }
+    }
+    .widgetAccentable()
+  }
+
+  // --- Lock Screen: rectangular ---
+  private var rectangular: some View {
+    VStack(alignment: .leading, spacing: 1) {
+      if entry.hasData {
+        Text(kindLabel).font(.system(size: 11, weight: .semibold)).widgetAccentable()
+        Text(entry.title).font(.system(size: 13, weight: .semibold)).lineLimit(1)
+        Text("\(days) \(days == 1 ? "day" : "days")").font(.system(size: 12))
+      } else {
+        Text("OpenSeason").font(.system(size: 13, weight: .semibold))
+        Text("Open the app to pick hunts").font(.system(size: 11))
+      }
+    }
+    .frame(maxWidth: .infinity, alignment: .leading)
+  }
+
+  // --- Home screen: full countdown ---
+  private var home: some View {
     VStack(alignment: .leading, spacing: 3) {
-      Text(entry.kind == "deadline" ? "TAG DEADLINE" : "OPENER")
+      Text(kindLabel)
         .font(.system(size: 10, weight: .semibold)).kerning(1.3)
         .foregroundColor(entry.kind == "deadline" ? emberSoft : muted)
       Spacer(minLength: 0)
       HStack(alignment: .lastTextBaseline, spacing: 6) {
-        Text(entry.daysUntil.map { "\(max($0, 0))" } ?? "—")
+        Text("\(days)")
           .font(.system(size: family == .systemSmall ? 46 : 56, weight: .bold, design: .serif))
           .foregroundColor(ember)
           .minimumScaleFactor(0.6).lineLimit(1)
-        Text((entry.daysUntil == 1 ? "day" : "days"))
+        Text(days == 1 ? "day" : "days")
           .font(.system(size: 13, weight: .semibold)).foregroundColor(muted)
           .padding(.bottom, 9)
       }
@@ -121,7 +163,10 @@ struct OpenSeasonWidget: Widget {
     }
     .configurationDisplayName("Next Up")
     .description("Your soonest opener or tag deadline.")
-    .supportedFamilies([.systemSmall, .systemMedium])
+    .supportedFamilies([
+      .systemSmall, .systemMedium,
+      .accessoryInline, .accessoryCircular, .accessoryRectangular,
+    ])
   }
 }
 
