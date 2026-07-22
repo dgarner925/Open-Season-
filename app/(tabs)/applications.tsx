@@ -2,9 +2,11 @@ import { useRouter } from 'expo-router';
 import { ActivityIndicator, FlatList, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AppText, Card, GlassChip } from '@/components/ui';
+import { PageTitle } from '@/components/midnight';
 import { useFollowedWindows } from '@/features/reference/queries';
 import type { ApplicationWindowWithRefs } from '@/features/reference/types';
 import { countdownLabel, daysUntil, formatDate } from '@/lib/date';
+import { drawTitle } from '@/lib/titles';
 import { spacing, speciesColors, theme, urgencyColor, type SpeciesKey } from '@/theme';
 
 export default function Applications() {
@@ -19,18 +21,24 @@ export default function Applications() {
     );
   }
 
+  // Upcoming (and undated) deadlines only — a passed deadline is just noise.
+  const upcoming = windows.filter((w) => {
+    const d = daysUntil(w.closes_at);
+    return d === null || d >= 0;
+  });
+
   return (
     <SafeAreaView style={styles.screen} edges={['top', 'left', 'right']}>
       <FlatList
-        data={windows}
+        data={upcoming}
         keyExtractor={(w) => w.id}
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
         ListHeaderComponent={
           <View style={styles.header}>
-            <AppText variant="h1">Tag Deadlines</AppText>
+            <PageTitle lead="Tag " accent="deadlines" style={{ fontSize: 44, lineHeight: 50, paddingTop: 3 }} />
             <AppText variant="body" color={theme.color.textSecondary}>
-              Draw and application windows. Missing a deadline means missing the season.
+              Draw and application windows. Miss a deadline, miss the season.
             </AppText>
           </View>
         }
@@ -38,7 +46,7 @@ export default function Applications() {
         ItemSeparatorComponent={() => <View style={{ height: spacing.md }} />}
         ListEmptyComponent={
           <AppText color={theme.color.textMuted} style={{ marginTop: spacing.xl }}>
-            No published application windows for your follows yet.
+            No upcoming tag deadlines for your follows right now.
           </AppText>
         }
       />
@@ -54,7 +62,7 @@ function WindowRow({ window: w, onPress }: { window: ApplicationWindowWithRefs; 
     <Card onPress={onPress} accentColor={color}>
       <View style={styles.rowTop}>
         <AppText variant="h3" numberOfLines={1} style={{ flex: 1 }}>
-          {w.state?.code} {w.species?.name} {w.name ?? ''}
+          {w.state?.code} {drawTitle(w.species?.name, w.name)}
         </AppText>
         <GlassChip label="Deadline" />
       </View>
@@ -65,12 +73,12 @@ function WindowRow({ window: w, onPress }: { window: ApplicationWindowWithRefs; 
         <AppText variant="bodyStrong" color={urgency}>
           {countdownLabel(d)}
         </AppText>
-        {w.fee_summary ? (
-          <AppText variant="caption" color={theme.color.textMuted}>
-            {w.fee_summary}
-          </AppText>
-        ) : null}
       </View>
+      {w.fee_summary ? (
+        <AppText variant="caption" color={theme.color.textMuted} numberOfLines={2} style={{ marginTop: spacing.xs }}>
+          {w.fee_summary}
+        </AppText>
+      ) : null}
     </Card>
   );
 }
@@ -78,7 +86,7 @@ function WindowRow({ window: w, onPress }: { window: ApplicationWindowWithRefs; 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: theme.color.background },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: theme.color.background },
-  content: { padding: spacing.lg },
+  content: { paddingHorizontal: spacing.xl, paddingTop: spacing.lg, paddingBottom: spacing.xxl },
   header: { gap: spacing.xs, marginBottom: spacing.lg },
   rowTop: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   rowBottom: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: spacing.xs },

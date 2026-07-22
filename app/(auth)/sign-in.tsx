@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { KeyboardAvoidingView, Platform, StyleSheet, TextInput, View } from 'react-native';
 import { AppText, Button, Screen } from '@/components/ui';
+import { PageTitle } from '@/components/midnight';
 import {
   isAppleSignInSupported,
   signInWithApple,
@@ -61,11 +62,9 @@ export default function SignIn() {
     <Screen scroll>
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <View style={styles.hero}>
-          <AppText variant="display" color={theme.color.accent}>
-            OpenSeason
-          </AppText>
-          <AppText variant="body" color={theme.color.textSecondary}>
-            Season dates, tag deadlines, and regs — verified and sourced.
+          <PageTitle lead={'Open\n'} accent="season." style={styles.wordmark} />
+          <AppText variant="body" color={theme.color.textSecondary} style={{ marginTop: spacing.md }}>
+            Never miss an opener or a tag deadline — season dates and draw deadlines for every state you hunt.
           </AppText>
         </View>
 
@@ -141,7 +140,8 @@ export default function SignIn() {
 }
 
 const styles = StyleSheet.create({
-  hero: { gap: spacing.sm, marginTop: spacing.xxl, marginBottom: spacing.xl },
+  hero: { marginTop: spacing.xxl, marginBottom: spacing.xl },
+  wordmark: { fontSize: 56, lineHeight: 60, paddingTop: 4 },
   form: { gap: spacing.md },
   input: {
     backgroundColor: theme.color.surface,

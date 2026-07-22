@@ -57,6 +57,28 @@ export function useStateSpecies(stateId: string | null | undefined) {
   });
 }
 
+/** Union of species huntable across several states (deduped) — for onboarding. */
+export function useStateSpeciesMulti(stateIds: string[]) {
+  const key = [...stateIds].sort();
+  return useQuery({
+    queryKey: ['state_species', 'multi', key],
+    enabled: stateIds.length > 0,
+    queryFn: async (): Promise<SpeciesRow[]> => {
+      const { data, error } = await supabase
+        .from('state_species')
+        .select('species:species(*)')
+        .in('state_id', stateIds);
+      if (error) throw error;
+      const byId = new Map<string, SpeciesRow>();
+      for (const r of data ?? []) {
+        const sp = (r as any).species as SpeciesRow | null;
+        if (sp) byId.set(sp.id, sp);
+      }
+      return [...byId.values()].sort((a, b) => a.sort_order - b.sort_order);
+    },
+  });
+}
+
 /** Filter a list of rows to the exact (state, species) pairs the user follows. */
 function keepFollowed<T extends { state_id: string; species_id: string }>(
   rows: T[],

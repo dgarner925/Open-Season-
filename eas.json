@@ -16,6 +16,7 @@
     "preview": {
       "distribution": "internal",
       "channel": "preview",
+      "android": { "buildType": "apk" },
       "env": {
         "EXPO_PUBLIC_SUPABASE_URL": "https://soxglmgbhmpuxhngcsvx.supabase.co",
         "EXPO_PUBLIC_SUPABASE_ANON_KEY": "sb_publishable_5rIoEtCHn8PcWgHit5NgzQ_Qjpn2AHc"
@@ -34,6 +35,9 @@
     "production": {
       "ios": {
         "ascAppId": "6791993537"
+      },
+      "android": {
+        "track": "internal"
       }
     }
   }

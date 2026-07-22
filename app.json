@@ -1,8 +1,8 @@
 {
   "expo": {
-    "name": "OpenSeason",
+    "name": "Open Season",
     "slug": "openseason",
-    "version": "0.1.0",
+    "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "scheme": "openseason",
@@ -11,13 +11,13 @@
     "splash": {
       "image": "./assets/splash.png",
       "resizeMode": "contain",
-      "backgroundColor": "#0D0D14"
+      "backgroundColor": "#100e0c"
     },
     "assetBundlePatterns": [
       "**/*"
     ],
     "ios": {
-      "supportsTablet": true,
+      "supportsTablet": false,
       "bundleIdentifier": "com.openseason.app",
       "usesAppleSignIn": true,
       "appleTeamId": "V6ZY6RXFTP",
@@ -25,15 +25,18 @@
         "ITSAppUsesNonExemptEncryption": false
       },
       "entitlements": {
-        "com.apple.security.application-groups": ["group.com.openseason.shared"]
+        "com.apple.security.application-groups": [
+          "group.com.openseason.shared"
+        ]
       },
-      "buildNumber": "4"
+      "buildNumber": "14"
     },
     "android": {
       "package": "com.openseason.app",
+      "versionCode": 1,
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#0D0D14"
+        "backgroundColor": "#100e0c"
       }
     },
     "web": {
@@ -50,15 +53,21 @@
         "expo-notifications",
         {
           "icon": "./assets/notification-icon.png",
-          "color": "#E0794A"
+          "color": "#d99e7f"
         }
       ],
       [
         "expo-splash-screen",
         {
-          "backgroundColor": "#0D0D14",
+          "backgroundColor": "#100e0c",
           "image": "./assets/splash.png",
           "imageWidth": 200
+        }
+      ],
+      [
+        "expo-calendar",
+        {
+          "calendarPermission": "Open Season adds your openers and tag deadlines to your calendar when you tap Add to Calendar."
         }
       ],
       "expo-status-bar",

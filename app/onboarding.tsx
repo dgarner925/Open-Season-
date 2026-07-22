@@ -1,34 +1,46 @@
-import { useEffect, useState } from 'react';
-import { Alert, Pressable, StyleSheet, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { AppText, Button, Screen } from '@/components/ui';
-import { useActiveStates, useSpecies } from '@/features/reference/queries';
+import { useEffect, useState } from 'react';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { AppText } from '@/components/ui';
+import { PageTitle, SpeciesBadge } from '@/components/midnight';
+import { useActiveStates, useStateSpeciesMulti } from '@/features/reference/queries';
 import { useCompleteOnboarding } from '@/features/follows/queries';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/providers/AuthProvider';
-import { radius, spacing, theme } from '@/theme';
+import { fontFamily, radius, spacing, theme } from '@/theme';
+
+const STEPS = 3;
+const CATEGORIES: { key: string; label: string }[] = [
+  { key: 'big_game', label: 'BIG GAME' },
+  { key: 'turkey', label: 'TURKEY' },
+  { key: 'waterfowl', label: 'WATERFOWL & MIGRATORY' },
+  { key: 'upland', label: 'UPLAND BIRDS' },
+  { key: 'small_game', label: 'SMALL GAME' },
+  { key: 'furbearer', label: 'FURBEARERS' },
+  { key: 'other', label: 'OTHER' },
+];
 
 export default function Onboarding() {
   const router = useRouter();
   const { user, isOnboarded } = useAuth();
-
-  // Reactively leave onboarding the instant the profile flips to onboarded.
-  // This avoids a race where a one-shot navigation fires before the auth
-  // state has propagated and the tabs gate bounces back here.
   useEffect(() => {
     if (isOnboarded) router.replace('/');
   }, [isOnboarded, router]);
+
   const { data: states = [], isLoading: statesLoading } = useActiveStates();
-  const { data: species = [], isLoading: speciesLoading } = useSpecies();
   const completeOnboarding = useCompleteOnboarding();
 
+  const [step, setStep] = useState(0); // 0 states · 1 species · 2 confirm
   const [stateIds, setStateIds] = useState<Set<string>>(new Set());
   const [speciesIds, setSpeciesIds] = useState<Set<string>>(new Set());
   const [saving, setSaving] = useState(false);
-  // Inline error — Alert.alert is a no-op on web, so surface failures on screen.
   const [notice, setNotice] = useState<string | null>(null);
 
-  // Functional update so rapid taps don't clobber each other (stale-closure safe).
+  // Only the species huntable in the states they picked.
+  const { data: huntable = [], isLoading: huntLoading } = useStateSpeciesMulti([...stateIds]);
+
   function toggle(id: string, setter: React.Dispatch<React.SetStateAction<Set<string>>>) {
     setter((prev) => {
       const next = new Set(prev);
@@ -37,113 +49,167 @@ export default function Onboarding() {
     });
   }
 
-  async function handleContinue() {
-    setNotice(null);
-    if (!user || stateIds.size === 0 || speciesIds.size === 0) {
-      setNotice('Pick at least one state and one species first.');
-      return;
-    }
+  async function finish() {
+    if (!user) return;
     setSaving(true);
+    setNotice(null);
     try {
-      const rows = [...stateIds].flatMap((state_id) =>
-        [...speciesIds].map((species_id) => ({ user_id: user.id, state_id, species_id })),
-      );
-      // Ignore duplicates so re-running onboarding is safe.
-      const { error } = await supabase
-        .from('follows')
-        .upsert(rows, { onConflict: 'user_id,state_id,species_id', ignoreDuplicates: true });
-      if (error) throw error;
+      // Follow only (state, species) pairs that are actually huntable.
+      const { data: pairs, error: pairErr } = await supabase
+        .from('state_species')
+        .select('state_id, species_id')
+        .in('state_id', [...stateIds])
+        .in('species_id', [...speciesIds]);
+      if (pairErr) throw pairErr;
+      const rows = (pairs ?? []).map((p) => ({ user_id: user.id, state_id: p.state_id, species_id: p.species_id }));
+      if (rows.length > 0) {
+        const { error } = await supabase.from('follows').upsert(rows, { onConflict: 'user_id,state_id,species_id', ignoreDuplicates: true });
+        if (error) throw error;
+      }
       await completeOnboarding.mutateAsync();
       router.replace('/');
     } catch (e) {
-      const msg = e instanceof Error ? e.message : 'Please try again.';
-      console.error('[onboarding] save failed:', e);
-      setNotice(`Could not save: ${msg}`);
-      Alert.alert('Could not save', msg);
+      setNotice(`Could not save: ${e instanceof Error ? e.message : 'try again'}`);
     } finally {
       setSaving(false);
     }
   }
 
+  const canAdvance = step === 0 ? stateIds.size > 0 : step === 1 ? speciesIds.size > 0 : true;
+  const primaryLabel =
+    step === 0 ? `Continue · ${stateIds.size} selected` : step === 1 ? `Continue · ${speciesIds.size} selected` : 'Start hunting';
+
   return (
-    <Screen scroll>
-      <View style={{ gap: spacing.sm, marginTop: spacing.lg }}>
-        <AppText variant="h1">What do you hunt?</AppText>
-        <AppText variant="body" color={theme.color.textSecondary}>
-          We'll track seasons, tag deadlines, and regs for your picks — and alert you before every opener and deadline.
+    <SafeAreaView style={styles.screen} edges={['top', 'left', 'right', 'bottom']}>
+      <View style={styles.progress}>
+        {Array.from({ length: STEPS }).map((_, i) => (
+          <View key={i} style={[styles.dot, { backgroundColor: i <= step ? theme.color.accent : 'rgba(255,255,255,0.12)' }]} />
+        ))}
+      </View>
+
+      <View style={styles.head}>
+        <AppText variant="overline" color={theme.color.textMuted}>
+          STEP {step + 1} OF {STEPS}
+        </AppText>
+        {step === 0 ? (
+          <PageTitle lead={'Where do you\n'} accent="hunt?" style={styles.title} />
+        ) : step === 1 ? (
+          <PageTitle lead={'What do you\n'} accent="hunt?" style={styles.title} />
+        ) : (
+          <PageTitle lead={'Stay\n'} accent="ahead." style={styles.title} />
+        )}
+        <AppText variant="body" color={theme.color.textSecondary} style={styles.intro}>
+          {step === 0
+            ? 'Choose the states you hunt — pick as many as you like.'
+            : step === 1
+              ? "Just the species you can hunt in the states you picked. Choose what to track."
+              : "We'll remind you before every opener and application deadline — so you never miss a season."}
         </AppText>
       </View>
 
-      <AppText variant="overline" color={theme.color.textMuted}>
-        STATES
-      </AppText>
-      <View style={styles.grid}>
-        {statesLoading ? (
-          <AppText color={theme.color.textMuted}>Loading states…</AppText>
-        ) : (
-          states.map((s) => (
-            <Chip
-              key={s.id}
-              label={s.name}
-              selected={stateIds.has(s.id)}
-              onPress={() => toggle(s.id, setStateIds)}
-            />
-          ))
-        )}
-      </View>
-
-      <AppText variant="overline" color={theme.color.textMuted}>
-        SPECIES
-      </AppText>
-      <View style={styles.grid}>
-        {speciesLoading ? (
-          <AppText color={theme.color.textMuted}>Loading species…</AppText>
-        ) : (
-          species.map((sp) => (
-            <Chip
-              key={sp.id}
-              label={sp.name}
-              selected={speciesIds.has(sp.id)}
-              onPress={() => toggle(sp.id, setSpeciesIds)}
-            />
-          ))
-        )}
-      </View>
+      {step === 2 ? (
+        <View style={styles.confirm}>
+          <View style={styles.bell}>
+            <Ionicons name="notifications-outline" size={30} color={theme.color.accent} />
+          </View>
+          <AppText variant="h3" style={{ marginTop: spacing.lg, textAlign: 'center' }}>
+            {stateIds.size} {stateIds.size === 1 ? 'state' : 'states'} · {speciesIds.size} {speciesIds.size === 1 ? 'species' : 'species'}
+          </AppText>
+        </View>
+      ) : (
+        <ScrollView contentContainerStyle={styles.list} showsVerticalScrollIndicator={false}>
+          {step === 0 ? (
+            statesLoading ? (
+              <ActivityIndicator color={theme.color.accent} />
+            ) : (
+              states.map((s) => <SelectRow key={s.id} label={s.name} selected={stateIds.has(s.id)} onPress={() => toggle(s.id, setStateIds)} />)
+            )
+          ) : huntLoading ? (
+            <ActivityIndicator color={theme.color.accent} />
+          ) : (
+            CATEGORIES.map((cat) => {
+              const inCat = huntable.filter((sp) => sp.category === cat.key);
+              if (inCat.length === 0) return null;
+              return (
+                <View key={cat.key} style={styles.catGroup}>
+                  <AppText variant="overline" color={theme.color.textMuted}>
+                    {cat.label}
+                  </AppText>
+                  {inCat.map((sp) => (
+                    <SelectRow key={sp.id} label={sp.name} badge selected={speciesIds.has(sp.id)} onPress={() => toggle(sp.id, setSpeciesIds)} />
+                  ))}
+                </View>
+              );
+            })
+          )}
+        </ScrollView>
+      )}
 
       {notice ? (
-        <AppText variant="bodyStrong" color={theme.color.danger} style={{ marginTop: spacing.md }}>
+        <AppText variant="caption" color={theme.color.danger} style={{ paddingHorizontal: spacing.xl }}>
           {notice}
         </AppText>
       ) : null}
-      <Button title="Continue" onPress={handleContinue} loading={saving} style={{ marginTop: spacing.lg }} />
-    </Screen>
+
+      <View style={styles.actions}>
+        {step > 0 ? (
+          <Pressable onPress={() => setStep((s) => s - 1)} hitSlop={10}>
+            <AppText variant="bodyStrong" color={theme.color.textMuted}>
+              Back
+            </AppText>
+          </Pressable>
+        ) : (
+          <View />
+        )}
+        <Pressable
+          disabled={!canAdvance || saving}
+          onPress={() => (step === 2 ? finish() : setStep((s) => s + 1))}
+          style={[styles.primary, (!canAdvance || saving) && { opacity: 0.45 }]}
+        >
+          {saving ? <ActivityIndicator color={theme.color.onAccent} /> : <Text style={styles.primaryLabel}>{primaryLabel}</Text>}
+        </Pressable>
+      </View>
+    </SafeAreaView>
   );
 }
 
-function Chip({ label, selected, onPress }: { label: string; selected: boolean; onPress: () => void }) {
+function SelectRow({ label, selected, onPress, badge = false }: { label: string; selected: boolean; onPress: () => void; badge?: boolean }) {
   return (
-    <Pressable
-      onPress={onPress}
-      style={[
-        styles.chip,
-        selected
-          ? { borderColor: theme.color.accent, backgroundColor: theme.color.accent }
-          : { borderColor: theme.color.border, backgroundColor: 'transparent' },
-      ]}
-    >
-      <AppText variant="bodyStrong" color={selected ? theme.color.onAccent : theme.color.textSecondary}>
+    <Pressable onPress={onPress} style={[styles.row, selected ? styles.rowOn : styles.rowOff]}>
+      {badge ? <SpeciesBadge name={label} size={40} muted={!selected} /> : null}
+      <Text style={[styles.rowLabel, { color: selected ? theme.color.textPrimary : theme.color.textSecondary }]} numberOfLines={1}>
         {label}
-      </AppText>
+      </Text>
+      <View style={[styles.check, selected ? styles.checkOn : styles.checkOff]}>
+        {selected ? <Ionicons name="checkmark" size={13} color={theme.color.onAccent} /> : null}
+      </View>
     </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
-  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
-  chip: {
-    paddingHorizontal: spacing.lg,
-    paddingVertical: 11,
-    borderRadius: radius.pill,
-    borderWidth: StyleSheet.hairlineWidth,
-  },
+  screen: { flex: 1, backgroundColor: theme.color.background },
+  progress: { flexDirection: 'row', gap: 6, paddingHorizontal: spacing.xl, paddingTop: spacing.lg },
+  dot: { flex: 1, height: 3, borderRadius: 2 },
+
+  head: { paddingHorizontal: spacing.xl, paddingTop: spacing.xl, gap: spacing.sm },
+  title: { fontSize: 42, lineHeight: 48, marginTop: spacing.xs, paddingTop: 3 },
+  intro: { maxWidth: 300, marginTop: spacing.xs },
+
+  list: { paddingHorizontal: spacing.xl, paddingVertical: spacing.xl, gap: spacing.sm },
+  catGroup: { gap: spacing.sm, marginBottom: spacing.md },
+  row: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, padding: spacing.md, borderRadius: 18, borderWidth: StyleSheet.hairlineWidth },
+  rowOn: { backgroundColor: theme.color.surfaceElevated, borderColor: 'rgba(217,158,127,0.35)' },
+  rowOff: { backgroundColor: theme.color.surfaceFlat, borderColor: theme.color.borderFlat },
+  rowLabel: { flex: 1, fontFamily: fontFamily.sansSemiBold, fontSize: 15 },
+  check: { width: 24, height: 24, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+  checkOn: { backgroundColor: theme.color.accent },
+  checkOff: { borderWidth: 1.5, borderColor: 'rgba(255,255,255,0.18)' },
+
+  confirm: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: spacing.xxl },
+  bell: { width: 72, height: 72, borderRadius: 36, backgroundColor: theme.color.accentFill, alignItems: 'center', justifyContent: 'center' },
+
+  actions: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.lg, paddingHorizontal: spacing.xl, paddingVertical: spacing.lg },
+  primary: { flex: 1, maxWidth: 260, height: 52, borderRadius: 26, backgroundColor: theme.color.accent, alignItems: 'center', justifyContent: 'center' },
+  primaryLabel: { fontFamily: fontFamily.sansBold, fontSize: 15, color: theme.color.onAccent },
 });

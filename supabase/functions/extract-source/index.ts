@@ -119,15 +119,31 @@ Rules:
   is a season-dates chart with no draw/application info, return application_windows: [].
   If it has no season tables, return seasons: []. Same for regulation_summaries.
 - Dates must be ISO YYYY-MM-DD, or null if the document does not state an exact date.
-- species must be one of: deer, elk, bear, duck.
+- NEVER write editorial notes, placeholders, or "TODO" text in any field. If a value
+  (results date, fee, bag limit, etc.) is not stated in the document, use null — never a
+  sentence describing what is missing. Fields are for facts from the document only.
 - seasons: method one of archery, muzzleloader, firearm, general. zone is the geographic
   zone name ("Statewide" if statewide). season_year is the license year (2026 for a
   2026-27 season). label is a concise variant name ("1st Rifle", "Primitive Weapons").
 - application_windows are tag/permit DRAW deadlines. closes_at is THE application deadline.
-  name is the draw's name ("Primary Draw", "Elk Limited"). zone null if not zone-specific.
+  name is the draw's name and must NOT repeat the species — use "Primary Draw", not "Elk
+  Primary Draw" (the species is a separate field). zone null if not zone-specific.
   application_url is the page where hunters apply, if the document states one.
 - regulation_summaries: a short markdown summary of the key rules for that species in
   this state (bag limits, legal weapons, license requirements). Keep it factual and brief.`;
+
+// The set of valid species keys is injected per-run from the DB (see handler), so
+// the model can extract every huntable species — not a hardcoded few. Maps common
+// document synonyms onto our keys and tells the model to drop anything unlisted.
+function speciesCatalog(species: { key: string; name: string }[]): string {
+  const list = species.map((s) => `${s.key} (${s.name})`).join(', ');
+  return `\n- species MUST be one of these keys — output the KEY (left), not the name: ${list}.
+  Map document terms to the closest key: "antelope"->pronghorn, "cougar"/"puma"/"mountain lion"->mountain-lion,
+  "whitetail"/"white-tailed deer"/"mule deer"/"blacktail"->deer, "ducks"->duck, "geese"->goose,
+  "grizzly"->brown-bear, "black bear"->bear, "wild boar"/"feral hog"/"wild pig"->wild-hog,
+  "cottontail"/"jackrabbit"->rabbit, "gray/Hungarian partridge"->gray-partridge. If an animal
+  in the document has no matching key, OMIT it — never invent a key.`;
+}
 
 // ~9 MB cap — beyond this the in-worker base64 + model upload risks the edge
 // function's memory/CPU limits. Oversized PDFs are skipped (isolated per-source).
@@ -176,7 +192,7 @@ async function fetchDocumentBlock(url: string): Promise<any> {
   return { type: 'text', text };
 }
 
-async function extract(doc: any, agency: string): Promise<{ seasons: any[]; application_windows: any[]; regulation_summaries: any[] }> {
+async function extract(doc: any, agency: string, catalog: string): Promise<{ seasons: any[]; application_windows: any[]; regulation_summaries: any[] }> {
   const res = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
     headers: {
@@ -187,7 +203,7 @@ async function extract(doc: any, agency: string): Promise<{ seasons: any[]; appl
     body: JSON.stringify({
       model: MODEL,
       max_tokens: 16000,
-      system: SYSTEM,
+      system: SYSTEM + catalog,
       output_config: { format: { type: 'json_schema', schema: EXTRACTION_SCHEMA } },
       messages: [{
         role: 'user',
@@ -244,14 +260,14 @@ async function pendingExists(targetTable: string, targetId: string | null, keys:
 type Tally = { created: number; updated: number; unchanged: number; skipped: number };
 const emptyTally = (): Tally => ({ created: 0, updated: 0, unchanged: 0, skipped: 0 });
 
-async function processSource(source: any, runId: string, speciesByKey: Record<string, string>) {
+async function processSource(source: any, runId: string, speciesByKey: Record<string, string>, catalog: string) {
   // Stamp FIRST so the round-robin advances even if this source later kills the
   // worker (a huge PDF hitting the memory/CPU limit, or a slow site hitting the
   // 150s wall clock). Otherwise last_extracted_at stays null and the same poison
   // source gets re-picked forever, stalling the sweep.
   await admin.from('sources').update({ last_extracted_at: new Date().toISOString() }).eq('id', source.id);
   const doc = await fetchDocumentBlock(source.url);
-  const { seasons, application_windows, regulation_summaries } = await extract(doc, source.agency_name);
+  const { seasons, application_windows, regulation_summaries } = await extract(doc, source.agency_name, catalog);
   const t = emptyTally();
 
   // --- seasons ---
@@ -353,15 +369,16 @@ Deno.serve(async (req) => {
     if (sources.length === 0) return json({ error: 'no source with a state_id to process' }, 404);
 
     const runId = crypto.randomUUID();
-    const { data: species } = await admin.from('species').select('id, key');
+    const { data: species } = await admin.from('species').select('id, key, name').order('sort_order');
     const speciesByKey = Object.fromEntries((species ?? []).map((s: any) => [s.key, s.id]));
+    const catalog = speciesCatalog((species ?? []) as { key: string; name: string }[]);
 
     // Process sequentially; isolate per-source errors so one bad source doesn't
     // abort the whole run.
     const results = [];
     for (const source of sources) {
       try {
-        results.push(await processSource(source, runId, speciesByKey));
+        results.push(await processSource(source, runId, speciesByKey, catalog));
       } catch (e) {
         await admin.from('sources').update({ last_extracted_at: new Date().toISOString() }).eq('id', source.id);
         results.push({ source: source.agency_name, url: source.url, error: e instanceof Error ? e.message : String(e) });

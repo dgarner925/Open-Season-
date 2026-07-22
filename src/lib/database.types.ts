@@ -20,7 +20,7 @@ export type SeasonMethod = 'archery' | 'muzzleloader' | 'firearm' | 'general';
 export type SourceDocType = 'webpage' | 'pdf' | 'other';
 export type ReviewStatus = 'pending' | 'approved' | 'rejected';
 export type ReviewChangeType = 'create' | 'update';
-export type NotificationSubjectType = 'season_opener' | 'application_deadline';
+export type NotificationSubjectType = 'season_opener' | 'application_deadline' | 'application_results';
 
 type Timestamps = { created_at: string; updated_at: string };
 
@@ -139,7 +139,29 @@ export type ProfileRow = Timestamps & {
   display_name: string | null;
   is_admin: boolean;
   onboarded_at: string | null;
+  active_location_id: string | null;
+  resident_state_id: string | null;
 };
+
+export type DateReportRow = {
+  id: string;
+  user_id: string;
+  target_table: string;
+  target_id: string | null;
+  label: string | null;
+  detail: string | null;
+  created_at: string;
+};
+
+export type UserLocationRow = {
+  id: string;
+  user_id: string;
+  state_id: string;
+  zone_id: string | null;
+  created_at: string;
+};
+
+export type StateSpeciesRow = { state_id: string; species_id: string };
 
 export type FollowRow = {
   id: string;
@@ -153,6 +175,7 @@ export type AlertPreferenceRow = Timestamps & {
   follow_id: string;
   opener_offsets: number[];
   deadline_offsets: number[];
+  results_offsets: number[];
 };
 
 export type DevicePushTokenRow = Timestamps & {
@@ -211,8 +234,10 @@ export type Database = {
       regulation_summaries: Table<RegulationSummaryRow, Omit<RegulationSummaryRow, Gen> & { id?: string }>;
       profiles: Table<
         ProfileRow,
-        { id: string; display_name?: string | null; is_admin?: boolean; onboarded_at?: string | null }
+        { id: string; display_name?: string | null; is_admin?: boolean; onboarded_at?: string | null; active_location_id?: string | null; resident_state_id?: string | null }
       >;
+      user_locations: Table<UserLocationRow, Omit<UserLocationRow, 'id' | 'created_at'> & { id?: string }>;
+      state_species: Table<StateSpeciesRow, StateSpeciesRow>;
       follows: Table<FollowRow, Omit<FollowRow, 'id' | 'created_at'> & { id?: string }>;
       alert_preferences: Table<AlertPreferenceRow, Omit<AlertPreferenceRow, 'created_at' | 'updated_at'>>;
       device_push_tokens: Table<DevicePushTokenRow, Omit<DevicePushTokenRow, Gen> & { id?: string }>;
@@ -220,6 +245,7 @@ export type Database = {
       review_queue: Table<ReviewQueueRow, Omit<ReviewQueueRow, Gen> & { id?: string }>;
       user_applications: Table<UserApplicationRow, Omit<UserApplicationRow, Gen> & { id?: string }>;
       user_point_balances: Table<PointBalanceRow, Omit<PointBalanceRow, Gen> & { id?: string }>;
+      date_reports: Table<DateReportRow, Omit<DateReportRow, 'id' | 'created_at'> & { id?: string }>;
     };
     Views: Record<string, never>;
     Functions: {

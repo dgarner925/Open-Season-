@@ -5,11 +5,12 @@ private let appGroup = "group.com.openseason.shared"
 
 // Slate + Ember palette (matches the app). Used only for the home-screen sizes;
 // Lock Screen (accessory) widgets are tinted monochrome by the system.
-private let slate = Color(red: 0.051, green: 0.051, blue: 0.078)
-private let ember = Color(red: 0.878, green: 0.475, blue: 0.290)
-private let emberSoft = Color(red: 0.941, green: 0.690, blue: 0.541)
-private let mist = Color(red: 0.929, green: 0.933, blue: 0.957)
-private let muted = Color(red: 0.475, green: 0.494, blue: 0.549)
+// Ember palette — warm charcoal + copper, matching the redesigned app.
+private let slate = Color(red: 0.063, green: 0.055, blue: 0.047)     // #100e0c
+private let ember = Color(red: 0.851, green: 0.620, blue: 0.498)     // #d99e7f copper
+private let emberSoft = Color(red: 0.902, green: 0.718, blue: 0.608) // #e6b79b
+private let mist = Color(red: 0.957, green: 0.945, blue: 0.918)      // #f4f1ea
+private let muted = Color(red: 0.52, green: 0.50, blue: 0.47)        // warm muted
 
 struct NextEntry: TimelineEntry {
   let date: Date
@@ -112,7 +113,7 @@ struct WidgetView: View {
         Text(entry.title).font(.system(size: 13, weight: .semibold)).lineLimit(1)
         Text("\(days) \(days == 1 ? "day" : "days")").font(.system(size: 12))
       } else {
-        Text("OpenSeason").font(.system(size: 13, weight: .semibold))
+        Text("Open Season").font(.system(size: 13, weight: .semibold))
         Text("Open the app to pick hunts").font(.system(size: 11))
       }
     }

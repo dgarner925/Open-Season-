@@ -2,7 +2,9 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'expo-router';
 import { Alert, Pressable, StyleSheet, TextInput, View } from 'react-native';
 import { AppText, Button, Card, Screen } from '@/components/ui';
+import { PageTitle } from '@/components/midnight';
 import { useAuth } from '@/providers/AuthProvider';
+import { useActiveStates } from '@/features/reference/queries';
 import { supabase } from '@/lib/supabase';
 import { openExternalUrl } from '@/lib/openUrl';
 import { radius, spacing, theme } from '@/theme';
@@ -12,6 +14,9 @@ const PRIVACY_POLICY_URL = 'https://dgarner925.github.io/OpenSeason-Legal/';
 export default function Settings() {
   const router = useRouter();
   const { user, profile, isAdmin, signOut, refreshProfile } = useAuth();
+
+  const { data: states = [] } = useActiveStates();
+  const residentStateName = states.find((s) => s.id === profile?.resident_state_id)?.name ?? null;
 
   const [name, setName] = useState(profile?.display_name ?? '');
   const [savingName, setSavingName] = useState(false);
@@ -53,8 +58,8 @@ export default function Settings() {
   }
 
   return (
-    <Screen scroll>
-      <AppText variant="h1">Settings</AppText>
+    <Screen scroll contentStyle={{ paddingBottom: spacing.xxl }}>
+      <PageTitle lead="Settings" />
 
       <Card>
         <AppText variant="overline" color={theme.color.textMuted}>
@@ -67,6 +72,15 @@ export default function Settings() {
           </AppText>
         )}
       </Card>
+
+      {isAdmin && (
+        <Card onPress={() => router.push('/(tabs)/admin')}>
+          <AppText variant="h3">Review queue</AppText>
+          <AppText variant="body" color={theme.color.textSecondary}>
+            Approve or reject extracted seasons, draws, and regs.
+          </AppText>
+        </Card>
+      )}
 
       <Card>
         <AppText variant="overline" color={theme.color.textMuted}>
@@ -97,6 +111,15 @@ export default function Settings() {
         </AppText>
       </Card>
 
+      <Card onPress={() => router.push('/residency')}>
+        <AppText variant="h3">Residency</AppText>
+        <AppText variant="body" color={theme.color.textSecondary}>
+          {residentStateName
+            ? `Home state: ${residentStateName}. Everywhere else shows as nonresident.`
+            : 'Set your home state so tags and deadlines show resident vs. nonresident.'}
+        </AppText>
+      </Card>
+
       <Card onPress={() => router.push('/tracker')}>
         <AppText variant="h3">My Applications</AppText>
         <AppText variant="body" color={theme.color.textSecondary}>
@@ -115,6 +138,13 @@ export default function Settings() {
         <AppText variant="h3">Alerts</AppText>
         <AppText variant="body" color={theme.color.textSecondary}>
           Choose when to be notified before openers and deadlines.
+        </AppText>
+      </Card>
+
+      <Card onPress={() => router.push('/notifications')}>
+        <AppText variant="h3">Notifications</AppText>
+        <AppText variant="body" color={theme.color.textSecondary}>
+          A history of the openers, deadlines, and draw results we've alerted you about.
         </AppText>
       </Card>
 

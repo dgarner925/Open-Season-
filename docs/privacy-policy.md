@@ -71,4 +71,4 @@ date above.
 
 ## Contact
 
-Questions about this policy or your data: **dgarner925@gmail.com**
+Questions about this policy or your data: **contact@osdatesanddraws.com**

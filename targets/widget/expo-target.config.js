@@ -1,10 +1,10 @@
 module.exports = (config) => ({
   type: "widget",
-  displayName: "OpenSeason",
-  // Slate + Ember, matching the app theme.
+  displayName: "Open Season",
+  // Ember — warm charcoal + copper, matching the app theme.
   colors: {
-    $accent: "#E0794A",
-    $widgetBackground: "#0D0D14",
+    $accent: "#d99e7f",
+    $widgetBackground: "#100e0c",
   },
   // Share the App Group with the main app so the widget can read the next event.
   entitlements: {

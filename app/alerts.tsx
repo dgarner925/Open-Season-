@@ -15,6 +15,15 @@ const OFFSETS: { days: number; label: string }[] = [
   { days: 1, label: '1d' },
 ];
 
+// Draw results land on a known day, so the cadence ladder is short and close in.
+// Must stay within the results_offsets check constraint (0/1/3/7).
+const RESULTS_OFFSETS: { days: number; label: string }[] = [
+  { days: 7, label: '1w' },
+  { days: 3, label: '3d' },
+  { days: 1, label: '1d' },
+  { days: 0, label: 'Day of' },
+];
+
 export default function Alerts() {
   const { data: prefs = [], isLoading } = useAlertPreferences();
   const toggle = useToggleOffset();
@@ -25,8 +34,8 @@ export default function Alerts() {
       <View style={{ gap: spacing.xs }}>
         <AppText variant="h1">Alerts</AppText>
         <AppText variant="body" color={theme.color.textSecondary}>
-          Choose how far ahead you're notified — from a year out down to the day of. Tap to toggle. Push
-          notifications require a real device.
+          Choose how far ahead you're notified before openers, tag deadlines, and draw results — from a
+          year out down to the day of. Tap to toggle. Push notifications require a real device.
         </AppText>
       </View>
 
@@ -52,7 +61,7 @@ function PrefCard({
   onToggle,
 }: {
   pref: AlertPref;
-  onToggle: (kind: 'opener' | 'deadline', offset: number, current: number[]) => void;
+  onToggle: (kind: 'opener' | 'deadline' | 'results', offset: number, current: number[]) => void;
 }) {
   return (
     <Card>
@@ -70,6 +79,12 @@ function PrefCard({
         offsets={pref.deadline_offsets}
         onToggle={(offset) => onToggle('deadline', offset, pref.deadline_offsets)}
       />
+      <OffsetRow
+        label="Draw results"
+        ladder={RESULTS_OFFSETS}
+        offsets={pref.results_offsets}
+        onToggle={(offset) => onToggle('results', offset, pref.results_offsets)}
+      />
     </Card>
   );
 }
@@ -78,10 +93,12 @@ function OffsetRow({
   label,
   offsets,
   onToggle,
+  ladder = OFFSETS,
 }: {
   label: string;
   offsets: number[];
   onToggle: (offset: number) => void;
+  ladder?: { days: number; label: string }[];
 }) {
   return (
     <View style={styles.row}>
@@ -89,7 +106,7 @@ function OffsetRow({
         {label}
       </AppText>
       <View style={styles.chips}>
-        {OFFSETS.map((o) => {
+        {ladder.map((o) => {
           const on = offsets.includes(o.days);
           return (
             <Pressable

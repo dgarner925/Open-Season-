@@ -11,6 +11,7 @@ import {
   type TextStyle,
   type ViewStyle,
 } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { radius, spacing, theme, type, withAlpha } from '@/theme';
 
@@ -61,24 +62,41 @@ export function AppText({
   );
 }
 
-/** Elevated card — hairline border + soft surface. Refined, not loud. */
+/**
+ * Card surface. `gradient` (default) is the featured Midnight card — vertical
+ * green gradient + copper hairline. `flat` is the quieter surface used for
+ * inactive rows and stat tiles.
+ */
 export function Card({
   children,
   onPress,
   style,
   accentColor,
+  variant = 'gradient',
 }: {
   children: ReactNode;
   onPress?: () => void;
   style?: StyleProp<ViewStyle>;
   accentColor?: string;
+  variant?: 'gradient' | 'flat';
 }) {
-  const content = (
-    <View style={[styles.card, style]}>
-      {accentColor ? <View style={[styles.accentBar, { backgroundColor: accentColor }]} /> : null}
-      {children}
-    </View>
-  );
+  const content =
+    variant === 'flat' ? (
+      <View style={[styles.card, styles.cardFlat, style]}>
+        {accentColor ? <View style={[styles.accentBar, { backgroundColor: accentColor }]} /> : null}
+        {children}
+      </View>
+    ) : (
+      <LinearGradient
+        colors={theme.gradient.card}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 0, y: 1 }}
+        style={[styles.card, style]}
+      >
+        {accentColor ? <View style={[styles.accentBar, { backgroundColor: accentColor }]} /> : null}
+        {children}
+      </LinearGradient>
+    );
   if (!onPress) return content;
   return (
     <Pressable onPress={onPress} style={({ pressed }) => (pressed ? styles.pressed : undefined)}>
@@ -183,7 +201,6 @@ const styles = StyleSheet.create({
   flex: { flex: 1 },
   screenContent: { padding: spacing.xl, gap: spacing.lg },
   card: {
-    backgroundColor: theme.color.surface,
     borderRadius: radius.lg,
     padding: spacing.xl,
     gap: spacing.sm,
@@ -191,6 +208,7 @@ const styles = StyleSheet.create({
     borderColor: theme.color.border,
     overflow: 'hidden',
   },
+  cardFlat: { backgroundColor: theme.color.surfaceFlat, borderColor: theme.color.borderFlat },
   accentBar: { position: 'absolute', left: 0, top: 0, bottom: 0, width: 3 },
   pressed: { opacity: 0.9, transform: [{ scale: 0.994 }] },
   button: {

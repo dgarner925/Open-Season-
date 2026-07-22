@@ -1,47 +1,41 @@
 /**
- * OpenSeason — "Slate & Ember" palette.
- * Cool graphite base with a single warm ember-orange accent (a nod to hunter
- * blaze). Species get one small muted dot, never a full fill.
+ * Open Season — "Ember" palette.
+ * Warm charcoal (brown-black) base that leans into the copper accent — no green.
+ * Cards are a subtle warm-dark gradient with a copper-tinted hairline; species
+ * read as copper monograms. Status: Open = copper, Closed/Soon = muted white.
  */
 
 export const palette = {
-  // Cool graphite ink scale (backgrounds, surfaces, hairlines)
-  ink900: '#0D0D14', // app background
-  ink800: '#101018',
-  ink700: '#16161F', // card surface
-  ink600: '#1E1E29', // elevated surface / pressed
-  ink500: '#2A2A36', // hairline border
-  ink400: '#3A3A48',
+  // Warm charcoal ink scale (no green tint)
+  ink900: '#100e0c', // app background
+  ink800: '#15120f',
+  ink700: '#17130f', // card surface (darker gradient stop)
+  ink600: '#241e17', // elevated surface (lighter gradient stop)
+  ink500: '#2a251f', // solid hairline-ish
 
-  // Cool off-white text
-  mist100: '#F7F7FB',
-  mist200: '#EDEEF4', // primary text
-  mist300: '#CFD1DC',
-  mist400: '#A3A7B5', // secondary text
-  mist500: '#797E8C', // muted / captions
+  // Warm off-white text
+  bone100: '#f4f1ea', // primary text
 
-  // Accent — ember orange (hunter blaze, dialed to "refined")
-  ember300: '#F0B08A', // light — text on glass/translucent ember
-  ember400: '#EA9068',
-  ember500: '#E0794A', // primary accent
-  ember600: '#B85E34',
-
-  // Status — kept distinct so urgency still reads at a glance
-  danger: '#DE5F55',
-  warning: '#E3A24A',
-  calm: '#6E9B99', // muted teal — "open now" / plenty of time
+  // Accent — copper
+  copper300: '#e6b79b', // light copper (text on copper glass)
+  copper400: '#d99e7f', // primary accent
+  copper500: '#c98a6a', // pressed / deeper copper
 
   overlay: 'rgba(0,0,0,0.62)',
   transparent: 'transparent',
 } as const;
 
-/** Species colors — muted, used ONLY as a small dot. */
+/**
+ * Species colors — earthy copper family so any small dot/monogram sits in the
+ * Midnight mood. The SpeciesBadge renders a solid copper monogram; these are for
+ * incidental accents only.
+ */
 export const speciesColors = {
-  deer: '#C39A73',
-  elk: '#B87A57',
-  bear: '#8C7059',
-  duck: '#6E9B99',
-  default: palette.ember500,
+  deer: '#d99e7f',
+  elk: '#c98a6a',
+  bear: '#a97a5c',
+  duck: '#8fa39a',
+  default: '#d99e7f',
 } as const;
 
 export type SpeciesKey = keyof typeof speciesColors;
@@ -51,17 +45,24 @@ export const theme = {
     background: palette.ink900,
     surface: palette.ink700,
     surfaceElevated: palette.ink600,
-    border: palette.ink500,
-    textPrimary: palette.mist200,
-    textSecondary: palette.mist400,
-    textMuted: palette.mist500,
-    accent: palette.ember500,
-    accentStrong: palette.ember400,
-    accentSoft: palette.ember300, // light ember for text on translucent/glass
-    onAccent: '#2A1206', // dark brown — legible on ember fills
-    danger: palette.danger,
-    warning: palette.warning,
-    success: palette.calm,
+    border: 'rgba(217,158,127,0.20)', // copper-tinted border (featured/gradient card)
+    surfaceFlat: 'rgba(255,255,255,0.03)', // inactive rows, stat tiles, peek cards
+    borderFlat: 'rgba(255,255,255,0.07)', // border on flat surfaces
+    hairline: 'rgba(255,255,255,0.08)', // list dividers
+    textPrimary: palette.bone100,
+    textSecondary: 'rgba(244,241,234,0.72)',
+    textMuted: 'rgba(244,241,234,0.50)',
+    accent: palette.copper400,
+    accentStrong: palette.copper500,
+    accentSoft: palette.copper300, // light copper — text on translucent/glass
+    accentFill: 'rgba(217,158,127,0.18)', // soft copper fill behind "Open" pills
+    onAccent: '#161a17', // near-black — legible on solid copper
+    danger: '#d9776a',
+    warning: '#d9a86a',
+    success: palette.copper400, // "open / plenty of time" reads copper in Midnight
+  },
+  gradient: {
+    card: ['#241e17', '#17130f'] as [string, string],
   },
   species: speciesColors,
 } as const;
