@@ -1,5 +1,5 @@
 import { useRouter } from 'expo-router';
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AppText, Card } from '@/components/ui';
@@ -29,12 +29,18 @@ export default function Seasons() {
   const { data: seasons = [], isLoading } = useFollowedSeasons();
   const iso = todayISO();
 
-  const { open, upcoming } = useMemo(() => {
+  // Species filter — chips over the list. null = all.
+  const [speciesFilter, setSpeciesFilter] = useState<string | null>(null);
+
+  const { open, upcoming, chipSpecies } = useMemo(() => {
     const openList: Item[] = [];
     const upcomingList: Item[] = [];
+    const byId = new Map<string, string>(); // species id -> name (only current/upcoming)
     for (const s of seasons) {
       if (!s.open_date) continue;
       if (s.close_date && s.close_date < iso) continue; // fully past
+      if (s.species?.id) byId.set(s.species.id, s.species.name);
+      if (speciesFilter && s.species?.id !== speciesFilter) continue;
       if (s.open_date <= iso && (!s.close_date || iso <= s.close_date)) {
         openList.push({ season: s, status: 'open', days: daysUntil(s.close_date) });
       } else if (s.open_date > iso) {
@@ -43,8 +49,9 @@ export default function Seasons() {
     }
     openList.sort((a, b) => (a.days ?? 0) - (b.days ?? 0));
     upcomingList.sort((a, b) => (a.days ?? 0) - (b.days ?? 0));
-    return { open: openList, upcoming: upcomingList };
-  }, [seasons, iso]);
+    const chips = [...byId.entries()].map(([id, name]) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name));
+    return { open: openList, upcoming: upcomingList, chipSpecies: chips };
+  }, [seasons, iso, speciesFilter]);
 
   return (
     <SafeAreaView style={styles.screen} edges={['top', 'left', 'right']}>
@@ -59,11 +66,20 @@ export default function Seasons() {
           </AppText>
         </View>
 
+        {chipSpecies.length > 1 ? (
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipScroll} contentContainerStyle={styles.chipRow}>
+            <FilterChip label="All" active={speciesFilter === null} onPress={() => setSpeciesFilter(null)} />
+            {chipSpecies.map((sp) => (
+              <FilterChip key={sp.id} label={sp.name} active={speciesFilter === sp.id} onPress={() => setSpeciesFilter(speciesFilter === sp.id ? null : sp.id)} />
+            ))}
+          </ScrollView>
+        ) : null}
+
         {isLoading ? (
           <ActivityIndicator color={theme.color.accent} style={{ marginTop: spacing.xl }} />
         ) : open.length === 0 && upcoming.length === 0 ? (
           <AppText variant="body" color={theme.color.textMuted} style={{ marginTop: spacing.xl }}>
-            No upcoming seasons for your follows yet — add species from Home.
+            {speciesFilter ? 'No current or upcoming dates for this species.' : 'No upcoming seasons for your follows yet — add species from Home.'}
           </AppText>
         ) : (
           <>
@@ -85,6 +101,22 @@ export default function Seasons() {
         )}
       </ScrollView>
     </SafeAreaView>
+  );
+}
+
+function FilterChip({ label, active, onPress }: { label: string; active: boolean; onPress: () => void }) {
+  return (
+    <Pressable
+      onPress={onPress}
+      style={[
+        styles.chip,
+        active
+          ? { backgroundColor: theme.color.accent, borderColor: theme.color.accent }
+          : { backgroundColor: theme.color.surfaceFlat, borderColor: theme.color.borderFlat },
+      ]}
+    >
+      <Text style={[styles.chipLabel, { color: active ? theme.color.onAccent : theme.color.textSecondary }]}>{label}</Text>
+    </Pressable>
   );
 }
 
@@ -134,4 +166,9 @@ const styles = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, padding: spacing.lg },
   right: { alignItems: 'flex-end', gap: 4 },
   metric: { fontFamily: fontFamily.serifItalic, fontSize: 18 },
+
+  chipScroll: { marginTop: spacing.lg, marginHorizontal: -spacing.xl },
+  chipRow: { paddingHorizontal: spacing.xl, gap: spacing.sm, flexDirection: 'row' },
+  chip: { paddingHorizontal: spacing.lg, paddingVertical: 8, borderRadius: 20, borderWidth: StyleSheet.hairlineWidth },
+  chipLabel: { fontFamily: fontFamily.sansSemiBold, fontSize: 13 },
 });

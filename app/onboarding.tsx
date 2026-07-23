@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AppText } from '@/components/ui';
 import { PageTitle, SpeciesBadge } from '@/components/midnight';
@@ -24,7 +24,7 @@ const CATEGORIES: { key: string; label: string }[] = [
 
 export default function Onboarding() {
   const router = useRouter();
-  const { user, isOnboarded } = useAuth();
+  const { user, profile, isOnboarded } = useAuth();
   useEffect(() => {
     if (isOnboarded) router.replace('/');
   }, [isOnboarded, router]);
@@ -37,6 +37,14 @@ export default function Onboarding() {
   const [speciesIds, setSpeciesIds] = useState<Set<string>>(new Set());
   const [saving, setSaving] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
+
+  // First name for the Home greeting. Apple/Google sign-ins prefill it via the
+  // profile trigger; email signups get to type it here (optional).
+  const [name, setName] = useState('');
+  useEffect(() => {
+    if (profile?.display_name && !name) setName(profile.display_name);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [profile?.display_name]);
 
   // Only the species huntable in the states they picked.
   const { data: huntable = [], isLoading: huntLoading } = useStateSpeciesMulti([...stateIds]);
@@ -65,6 +73,10 @@ export default function Onboarding() {
       if (rows.length > 0) {
         const { error } = await supabase.from('follows').upsert(rows, { onConflict: 'user_id,state_id,species_id', ignoreDuplicates: true });
         if (error) throw error;
+      }
+      const trimmed = name.trim();
+      if (trimmed && trimmed !== profile?.display_name) {
+        await supabase.from('profiles').update({ display_name: trimmed }).eq('id', user.id);
       }
       await completeOnboarding.mutateAsync();
       router.replace('/');
@@ -115,6 +127,22 @@ export default function Onboarding() {
           <AppText variant="h3" style={{ marginTop: spacing.lg, textAlign: 'center' }}>
             {stateIds.size} {stateIds.size === 1 ? 'state' : 'states'} · {speciesIds.size} {speciesIds.size === 1 ? 'species' : 'species'}
           </AppText>
+
+          <View style={styles.nameBlock}>
+            <AppText variant="overline" color={theme.color.textMuted}>
+              WHAT SHOULD WE CALL YOU?
+            </AppText>
+            <TextInput
+              value={name}
+              onChangeText={setName}
+              placeholder="First name (optional)"
+              placeholderTextColor={theme.color.textMuted}
+              autoCapitalize="words"
+              autoComplete="given-name"
+              returnKeyType="done"
+              style={styles.nameInput}
+            />
+          </View>
         </View>
       ) : (
         <ScrollView contentContainerStyle={styles.list} showsVerticalScrollIndicator={false}>
@@ -208,6 +236,18 @@ const styles = StyleSheet.create({
 
   confirm: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: spacing.xxl },
   bell: { width: 72, height: 72, borderRadius: 36, backgroundColor: theme.color.accentFill, alignItems: 'center', justifyContent: 'center' },
+  nameBlock: { alignSelf: 'stretch', marginTop: spacing.xxl, gap: spacing.sm },
+  nameInput: {
+    backgroundColor: theme.color.surfaceElevated,
+    borderRadius: radius.md,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+    color: theme.color.textPrimary,
+    fontSize: 16,
+    fontFamily: fontFamily.sans,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: theme.color.border,
+  },
 
   actions: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.lg, paddingHorizontal: spacing.xl, paddingVertical: spacing.lg },
   primary: { flex: 1, maxWidth: 260, height: 52, borderRadius: 26, backgroundColor: theme.color.accent, alignItems: 'center', justifyContent: 'center' },

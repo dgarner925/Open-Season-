@@ -1,6 +1,7 @@
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
 import { AppText, Card, Screen } from '@/components/ui';
+import { NotificationsOffBanner } from '@/components/NotificationsOffBanner';
 import { useAlertPreferences, useToggleOffset, type AlertPref } from '@/features/alerts/queries';
 import { useFollowedWindows } from '@/features/reference/queries';
 import { radius, spacing, theme } from '@/theme';
@@ -60,6 +61,8 @@ export default function Alerts() {
           </Pressable>
         ) : null}
       </View>
+
+      <NotificationsOffBanner />
 
       {isLoading ? (
         <ActivityIndicator color={theme.color.accent} style={{ marginTop: spacing.xl }} />

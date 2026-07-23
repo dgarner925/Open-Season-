@@ -5,6 +5,7 @@ import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'r
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AppText } from '@/components/ui';
 import { PageTitle, SpeciesBadge } from '@/components/midnight';
+import { NotificationsOffBanner } from '@/components/NotificationsOffBanner';
 import { useAuth } from '@/providers/AuthProvider';
 import { useFollows } from '@/features/follows/queries';
 import { useActiveStates, useFollowedSeasons, useFollowedWindows, useSpecies, useUpcomingCountdown } from '@/features/reference/queries';
@@ -125,6 +126,8 @@ export default function Home() {
             <Text style={styles.greeting}>{partOfDay}</Text>
           )}
         </View>
+
+        <NotificationsOffBanner />
 
         <View style={styles.stats}>
           <StatTile value={openCount} label="Open now" onPress={() => router.push('/calendar')} />
