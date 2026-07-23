@@ -1,7 +1,8 @@
-import { Stack } from 'expo-router';
+import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
 import { AppText, Card, Screen } from '@/components/ui';
 import { useAlertPreferences, useToggleOffset, type AlertPref } from '@/features/alerts/queries';
+import { useFollowedWindows } from '@/features/reference/queries';
 import { radius, spacing, theme } from '@/theme';
 
 // Cadence ladder from a year out down to the day of. Values must stay within the
@@ -25,31 +26,59 @@ const RESULTS_OFFSETS: { days: number; label: string }[] = [
 ];
 
 export default function Alerts() {
+  const router = useRouter();
+  const { species: speciesFilter } = useLocalSearchParams<{ species?: string }>();
   const { data: prefs = [], isLoading } = useAlertPreferences();
+  const { data: windows = [] } = useFollowedWindows();
   const toggle = useToggleOffset();
+
+  // Which (state, species) pairs actually have a draw? Only those get a "Draw
+  // results" cadence — no point offering it for over-the-counter species.
+  const drawPairs = new Set(windows.map((w) => `${w.state_id}:${w.species_id}`));
+
+  // Arriving from a species' "Set reminder" scopes the list to that animal, so
+  // the user sees only its alerts (one card per state they follow it in).
+  const shown = speciesFilter ? prefs.filter((p) => p.follow?.species?.id === speciesFilter) : prefs;
+  const filterName = speciesFilter ? shown[0]?.follow?.species?.name ?? null : null;
+  const title = filterName ? `${filterName} alerts` : 'Alerts';
 
   return (
     <Screen scroll>
-      <Stack.Screen options={{ headerShown: true, title: 'Alerts' }} />
+      <Stack.Screen options={{ headerShown: true, title }} />
       <View style={{ gap: spacing.xs }}>
-        <AppText variant="h1">Alerts</AppText>
+        <AppText variant="h1">{title}</AppText>
         <AppText variant="body" color={theme.color.textSecondary}>
-          Choose how far ahead you're notified before openers, tag deadlines, and draw results — from a
-          year out down to the day of. Tap to toggle. Push notifications require a real device.
+          {filterName
+            ? `Choose how far ahead you're notified for ${filterName} — before openers, tag deadlines, and draw results, in every state you follow it. Tap to toggle.`
+            : "Choose how far ahead you're notified before openers, tag deadlines, and draw results — from a year out down to the day of. Tap to toggle. Push notifications require a real device."}
         </AppText>
+        {speciesFilter ? (
+          <Pressable onPress={() => router.setParams({ species: undefined })} hitSlop={6} style={{ marginTop: spacing.xs }}>
+            <AppText variant="caption" color={theme.color.accent}>
+              Show all alerts
+            </AppText>
+          </Pressable>
+        ) : null}
       </View>
 
       {isLoading ? (
         <ActivityIndicator color={theme.color.accent} style={{ marginTop: spacing.xl }} />
-      ) : prefs.length === 0 ? (
+      ) : shown.length === 0 ? (
         <Card>
           <AppText variant="body" color={theme.color.textSecondary}>
-            Follow a state and species first, then set your alerts here.
+            {speciesFilter
+              ? "You don't follow this species yet — add it, then set its alerts here."
+              : 'Follow a state and species first, then set your alerts here.'}
           </AppText>
         </Card>
       ) : (
-        prefs.map((p) => (
-          <PrefCard key={p.follow_id} pref={p} onToggle={(kind, offset, current) => toggle.mutate({ followId: p.follow_id, kind, offset, current })} />
+        shown.map((p) => (
+          <PrefCard
+            key={p.follow_id}
+            pref={p}
+            hasDraw={drawPairs.has(`${p.state_id}:${p.species_id}`)}
+            onToggle={(kind, offset, current) => toggle.mutate({ followId: p.follow_id, kind, offset, current })}
+          />
         ))
       )}
     </Screen>
@@ -58,9 +87,11 @@ export default function Alerts() {
 
 function PrefCard({
   pref,
+  hasDraw,
   onToggle,
 }: {
   pref: AlertPref;
+  hasDraw: boolean;
   onToggle: (kind: 'opener' | 'deadline' | 'results', offset: number, current: number[]) => void;
 }) {
   return (
@@ -79,12 +110,14 @@ function PrefCard({
         offsets={pref.deadline_offsets}
         onToggle={(offset) => onToggle('deadline', offset, pref.deadline_offsets)}
       />
-      <OffsetRow
-        label="Draw results"
-        ladder={RESULTS_OFFSETS}
-        offsets={pref.results_offsets}
-        onToggle={(offset) => onToggle('results', offset, pref.results_offsets)}
-      />
+      {hasDraw ? (
+        <OffsetRow
+          label="Draw results"
+          ladder={RESULTS_OFFSETS}
+          offsets={pref.results_offsets}
+          onToggle={(offset) => onToggle('results', offset, pref.results_offsets)}
+        />
+      ) : null}
     </Card>
   );
 }

@@ -93,7 +93,7 @@ export default function Home() {
   const legalLine = !hasFollows
     ? 'Pick the species you chase to begin.'
     : openCount > 0
-      ? `${openCount} of your ${roster.length} tracked species are legal to hunt today.`
+      ? `${openCount} of your ${roster.length} tracked species ${openCount === 1 ? 'is' : 'are'} legal to hunt today.`
       : `None of your ${roster.length} tracked species are legal today.`;
 
   return (
@@ -189,7 +189,11 @@ function RosterRow({ item, divider, onPress }: { item: RosterItem; divider: bool
           {item.name}
         </AppText>
         <AppText variant="caption" color={theme.color.textMuted} numberOfLines={1}>
-          {item.codes.join(' · ') || 'Tracked'}
+          {item.codes.length === 0
+            ? 'Tracked'
+            : item.codes.length <= 3
+              ? item.codes.join(' · ')
+              : `${item.codes.length} states`}
         </AppText>
       </View>
       <Text style={[styles.rowMetric, { color: rightColor }]}>{right}</Text>

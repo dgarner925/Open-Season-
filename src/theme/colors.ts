@@ -50,8 +50,8 @@ export const theme = {
     borderFlat: 'rgba(255,255,255,0.07)', // border on flat surfaces
     hairline: 'rgba(255,255,255,0.08)', // list dividers
     textPrimary: palette.bone100,
-    textSecondary: 'rgba(244,241,234,0.72)',
-    textMuted: 'rgba(244,241,234,0.50)',
+    textSecondary: 'rgba(244,241,234,0.80)', // raised for outdoor/sunlight legibility
+    textMuted: 'rgba(244,241,234,0.62)', // raised from .50 — dim greys were hard to read in bright light
     accent: palette.copper400,
     accentStrong: palette.copper500,
     accentSoft: palette.copper300, // light copper — text on translucent/glass

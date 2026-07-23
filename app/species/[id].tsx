@@ -222,7 +222,7 @@ export default function SpeciesDetail() {
           </ScrollView>
 
           <View style={styles.actionBar}>
-            <Pressable style={styles.primaryBtn} onPress={() => router.push('/alerts')}>
+            <Pressable style={styles.primaryBtn} onPress={() => router.push({ pathname: '/alerts', params: { species: id } })}>
               <Text style={styles.primaryLabel}>Set reminder</Text>
             </Pressable>
             {licenseUrl ? (

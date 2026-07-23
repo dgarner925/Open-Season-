@@ -4,12 +4,14 @@ import { useAuth } from '@/providers/AuthProvider';
 
 export type AlertPref = {
   follow_id: string;
+  state_id: string;
+  species_id: string;
   opener_offsets: number[];
   deadline_offsets: number[];
   results_offsets: number[];
   follow: {
     state: { code: string; name: string } | null;
-    species: { key: string; name: string } | null;
+    species: { id: string; key: string; name: string } | null;
   } | null;
 };
 
@@ -30,13 +32,15 @@ export function useAlertPreferences() {
     queryFn: async (): Promise<AlertPref[]> => {
       const { data, error } = await supabase
         .from('follows')
-        .select('id, state:states(code,name), species:species(key,name), alert_preferences(opener_offsets, deadline_offsets, results_offsets)')
+        .select('id, state_id, species_id, state:states(code,name), species:species(id,key,name), alert_preferences(opener_offsets, deadline_offsets, results_offsets)')
         .eq('user_id', user!.id);
       if (error) throw error;
       return (data ?? []).map((f: any) => {
         const ap = Array.isArray(f.alert_preferences) ? f.alert_preferences[0] : f.alert_preferences;
         return {
           follow_id: f.id,
+          state_id: f.state_id,
+          species_id: f.species_id,
           opener_offsets: ap?.opener_offsets ?? DEFAULT_OFFSETS,
           deadline_offsets: ap?.deadline_offsets ?? DEFAULT_OFFSETS,
           results_offsets: ap?.results_offsets ?? DEFAULT_RESULTS,
