@@ -90,12 +90,6 @@ export default function Home() {
     setRefreshing(false);
   }
 
-  const legalLine = !hasFollows
-    ? 'Pick the species you chase to begin.'
-    : openCount > 0
-      ? `${openCount} of your ${roster.length} tracked species ${openCount === 1 ? 'is' : 'are'} legal to hunt today.`
-      : `None of your ${roster.length} tracked species are legal today.`;
-
   return (
     <SafeAreaView style={styles.screen} edges={['top', 'left', 'right']}>
       <ScrollView
@@ -119,7 +113,8 @@ export default function Home() {
         </View>
 
         <View style={styles.heroBlock}>
-          <AppText variant="overline" color={theme.color.textMuted}>
+          <PageTitle lead={'Open\n'} accent="season." style={styles.hero} />
+          <AppText variant="overline" color={theme.color.textMuted} style={styles.dateLine}>
             {WEEKDAYS[now.getDay()]}, {MONTHS[now.getMonth()]} {now.getDate()}
           </AppText>
           {firstName ? (
@@ -129,10 +124,6 @@ export default function Home() {
           ) : (
             <Text style={styles.greeting}>{partOfDay}</Text>
           )}
-          <PageTitle lead={'Open\n'} accent="season." style={styles.hero} />
-          <AppText variant="body" color={theme.color.textSecondary} style={styles.legal}>
-            {legalLine}
-          </AppText>
         </View>
 
         <View style={styles.stats}>
@@ -224,10 +215,10 @@ const styles = StyleSheet.create({
   wordmark: { fontFamily: fontFamily.sansBold, fontSize: 11, letterSpacing: 3, color: theme.color.accent },
 
   heroBlock: { marginTop: spacing.xl },
+  hero: { fontSize: 62, lineHeight: 70, paddingTop: 4 },
+  dateLine: { marginTop: spacing.lg },
   greeting: { fontFamily: fontFamily.sansMedium, fontSize: 15, color: theme.color.textSecondary, marginTop: spacing.xs },
   greetingName: { fontFamily: fontFamily.sansSemiBold, color: theme.color.accent },
-  hero: { fontSize: 62, lineHeight: 70, marginTop: spacing.xs, paddingTop: 4 },
-  legal: { marginTop: spacing.md, maxWidth: 280 },
 
   stats: { flexDirection: 'row', gap: spacing.sm, marginTop: spacing.xl },
   tile: { flex: 1, padding: spacing.lg, borderRadius: radius.md, backgroundColor: theme.color.surfaceFlat, borderWidth: StyleSheet.hairlineWidth, borderColor: theme.color.borderFlat, gap: 2 },
