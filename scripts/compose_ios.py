@@ -118,10 +118,9 @@ save(img, "01.png")
 SLIDES = [
     ("home.png", "Your hunts,", "at a glance.", "02.png"),
     ("seasons.png", "Every opener,", "soonest first.", "03.png"),
-    ("tags.png", "Never miss", "a tag deadline.", "04.png"),
-    ("detail.png", "Every state", "you hunt.", "05.png"),
-    ("provenance.png", "Real dates,", "official sources.", "06.png"),
-    ("alerts.png", "Reminded when", "it matters.", "07.png"),
+    ("provenance.png", "Real dates,", "official sources.", "04.png"),
+    ("notifications.png", "Never miss", "a tag deadline.", "05.png"),
+    ("alerts.png", "Reminded when", "it matters.", "06.png"),
 ]
 
 for raw, l1, l2, out in SLIDES:

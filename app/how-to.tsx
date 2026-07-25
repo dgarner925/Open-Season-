@@ -32,7 +32,7 @@ export default function HowTo() {
       <Stack.Screen options={{ headerShown: true, title: 'How it works' }} />
 
       <View style={{ gap: spacing.xs }}>
-        <AppText variant="h1">How OpenSeason works</AppText>
+        <AppText variant="h1">How Open Season works</AppText>
         <AppText variant="body" color={theme.color.textSecondary}>
           Five steps from setup to opening day.
         </AppText>
