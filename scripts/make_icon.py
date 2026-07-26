@@ -54,3 +54,9 @@ finish(ad, os.path.join(ASSETS, "adaptive-icon.png"))
 nt = Image.new("RGBA", (S, S), (0, 0, 0, 0))
 draw_mark(nt, WHITE, width_frac=0.5)
 finish(nt, os.path.join(ASSETS, "notification-icon.png"))
+
+# 4. Splash — copper O.S on transparent; expo-splash-screen centers it (imageWidth
+#    200) over the charcoal backgroundColor, so the mark is all the image needs.
+sp = Image.new("RGBA", (S, S), (0, 0, 0, 0))
+draw_mark(sp, COPPER, width_frac=0.72)
+finish(sp, os.path.join(ASSETS, "splash.png"))
