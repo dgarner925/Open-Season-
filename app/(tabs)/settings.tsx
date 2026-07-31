@@ -10,6 +10,7 @@ import { openExternalUrl } from '@/lib/openUrl';
 import { radius, spacing, theme } from '@/theme';
 
 const PRIVACY_POLICY_URL = 'https://dgarner925.github.io/OpenSeason-Legal/';
+const TERMS_URL = 'https://dgarner925.github.io/OpenSeason-Legal/terms.html';
 
 export default function Settings() {
   const router = useRouter();
@@ -159,6 +160,13 @@ export default function Settings() {
         <AppText variant="h3">Privacy Policy</AppText>
         <AppText variant="body" color={theme.color.textSecondary}>
           What we collect, and what we don't.
+        </AppText>
+      </Card>
+
+      <Card onPress={() => openExternalUrl(TERMS_URL)}>
+        <AppText variant="h3">Terms of Service</AppText>
+        <AppText variant="body" color={theme.color.textSecondary}>
+          The agreement that covers using Open Season.
         </AppText>
       </Card>
 
