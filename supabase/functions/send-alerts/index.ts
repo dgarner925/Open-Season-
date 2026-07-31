@@ -53,6 +53,11 @@ type Due = {
   title: string;
   body: string;
   tokens: string[];
+  // Where a tap should land in the app. For date_change alerts the dedup
+  // identity (subject_*) is the change-log row, while the route points at the
+  // underlying season/window so existing tap-routing keeps working.
+  route_type: string | null;
+  route_id: string | null;
 };
 
 async function sendExpoBatch(messages: any[]): Promise<void> {
@@ -89,7 +94,7 @@ Deno.serve(async (req) => {
         title: r.title,
         body: r.body,
         sound: 'default',
-        data: { subjectType: r.subject_type, subjectId: r.subject_id },
+        data: { subjectType: r.route_type ?? r.subject_type, subjectId: r.route_id ?? r.subject_id },
       })),
     );
 

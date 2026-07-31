@@ -20,7 +20,17 @@ export type SeasonMethod = 'archery' | 'muzzleloader' | 'firearm' | 'general';
 export type SourceDocType = 'webpage' | 'pdf' | 'other';
 export type ReviewStatus = 'pending' | 'approved' | 'rejected';
 export type ReviewChangeType = 'create' | 'update';
-export type NotificationSubjectType = 'season_opener' | 'application_deadline' | 'application_results';
+export type NotificationSubjectType = 'season_opener' | 'application_deadline' | 'application_results' | 'date_change';
+
+export type DateChangeRow = {
+  id: string;
+  target_table: string;
+  target_id: string;
+  field: string;
+  old_date: string;
+  new_date: string;
+  created_at: string;
+};
 
 type Timestamps = { created_at: string; updated_at: string };
 
@@ -247,6 +257,7 @@ export type Database = {
       user_applications: Table<UserApplicationRow, Omit<UserApplicationRow, Gen> & { id?: string }>;
       user_point_balances: Table<PointBalanceRow, Omit<PointBalanceRow, Gen> & { id?: string }>;
       date_reports: Table<DateReportRow, Omit<DateReportRow, 'id' | 'created_at'> & { id?: string }>;
+      date_changes: Table<DateChangeRow, Omit<DateChangeRow, 'id' | 'created_at'> & { id?: string }>;
     };
     Views: Record<string, never>;
     Functions: {

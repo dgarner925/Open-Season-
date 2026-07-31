@@ -10,6 +10,7 @@ const KIND_ICON: Record<NotifKind, keyof typeof Ionicons.glyphMap> = {
   opener: 'calendar-outline',
   deadline: 'alarm-outline',
   results: 'trophy-outline',
+  change: 'swap-horizontal',
 };
 
 export default function Notifications() {
