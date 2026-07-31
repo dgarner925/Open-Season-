@@ -119,6 +119,7 @@ export type ApplicationWindowRow = Timestamps & {
   results_expected_at: string | null;
   fee_summary: string | null;
   application_url: string | null;
+  notes: string | null;
   source_id: string | null;
   last_verified_at: string | null;
   status: ContentStatus;

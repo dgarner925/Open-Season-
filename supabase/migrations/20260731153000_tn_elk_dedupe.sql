@@ -1,9 +1,13 @@
 -- 20260731153000_tn_elk_dedupe.sql
--- Wave-1 SE migration added 'Elk Quota Hunt' (TN) unaware an extractor-created
--- 'Elk Quota Permit Draw' already covered the same Feb 4-25, 2026 draw under a
--- different name (the dedupe key is name-based). Keep the original row (stable
--- id, may be referenced by sent notifications), enrich it with the fuller
--- notes, and remove the duplicate.
+-- Two fixes:
+-- 1. application_windows never had a notes column (seasons does), so the
+--    context notes written in the GA/SE quota migrations silently didn't land.
+--    Add the column; the window-detail screen can render it in a future build.
+-- 2. Wave-1 SE added 'Elk Quota Hunt' (TN) unaware an extractor-created
+--    'Elk Quota Permit Draw' already covered the same Feb 4-25, 2026 draw under
+--    a different name. Keep the original row, enrich it, drop the duplicate.
+
+alter table public.application_windows add column if not exists notes text;
 
 with tn as (select id from public.states where code = 'TN'),
 elk as (select id from public.species where key = 'elk')
