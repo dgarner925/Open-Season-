@@ -1,8 +1,15 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Stack, useRouter } from 'expo-router';
-import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
+import { Alert, ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
 import { AppText, Card, Screen } from '@/components/ui';
-import { useNotificationHistory, sentAgo, type NotifItem, type NotifKind } from '@/features/notifications/queries';
+import {
+  useNotificationHistory,
+  useHideNotification,
+  useClearNotifications,
+  sentAgo,
+  type NotifItem,
+  type NotifKind,
+} from '@/features/notifications/queries';
 import { routeForNotification } from '@/lib/notificationRouting';
 import { radius, spacing, theme } from '@/theme';
 
@@ -16,15 +23,40 @@ const KIND_ICON: Record<NotifKind, keyof typeof Ionicons.glyphMap> = {
 export default function Notifications() {
   const router = useRouter();
   const { data: items = [], isLoading } = useNotificationHistory();
+  const hide = useHideNotification();
+  const clearAll = useClearNotifications();
+
+  function onRemove(item: NotifItem) {
+    Alert.alert('Remove this notification?', item.title, [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Remove', style: 'destructive', onPress: () => hide.mutate(item.id) },
+    ]);
+  }
+
+  function onClearAll() {
+    Alert.alert('Clear all notifications?', 'This removes every entry from your history.', [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Clear all', style: 'destructive', onPress: () => clearAll.mutate() },
+    ]);
+  }
 
   return (
     <Screen scroll contentStyle={{ paddingBottom: spacing.xxl }}>
       <Stack.Screen options={{ headerShown: true, title: 'Notifications' }} />
       <View style={{ gap: spacing.xs }}>
-        <AppText variant="h1">Notifications</AppText>
+        <View style={styles.titleRow}>
+          <AppText variant="h1">Notifications</AppText>
+          {items.length > 0 ? (
+            <Pressable onPress={onClearAll} hitSlop={8}>
+              <AppText variant="caption" color={theme.color.accent}>
+                Clear all
+              </AppText>
+            </Pressable>
+          ) : null}
+        </View>
         <AppText variant="body" color={theme.color.textSecondary}>
           Every opener, tag deadline, and draw-results alert we've sent you. Tap one to open the hunt it's
-          about.
+          about — press and hold to remove it.
         </AppText>
       </View>
 
@@ -41,7 +73,12 @@ export default function Notifications() {
       ) : (
         <View style={{ marginTop: spacing.md, gap: spacing.sm }}>
           {items.map((n) => (
-            <NotificationRow key={n.id} item={n} onPress={() => routeForNotification(router, n)} />
+            <NotificationRow
+              key={n.id}
+              item={n}
+              onPress={() => routeForNotification(router, n)}
+              onLongPress={() => onRemove(n)}
+            />
           ))}
         </View>
       )}
@@ -49,9 +86,17 @@ export default function Notifications() {
   );
 }
 
-function NotificationRow({ item, onPress }: { item: NotifItem; onPress: () => void }) {
+function NotificationRow({
+  item,
+  onPress,
+  onLongPress,
+}: {
+  item: NotifItem;
+  onPress: () => void;
+  onLongPress: () => void;
+}) {
   return (
-    <Pressable onPress={onPress} style={({ pressed }) => [pressed && { opacity: 0.7 }]}>
+    <Pressable onPress={onPress} onLongPress={onLongPress} style={({ pressed }) => [pressed && { opacity: 0.7 }]}>
       <Card variant="flat" style={styles.row}>
         <View style={styles.iconWrap}>
           <Ionicons name={KIND_ICON[item.kind]} size={18} color={theme.color.accent} />
@@ -73,6 +118,7 @@ function NotificationRow({ item, onPress }: { item: NotifItem; onPress: () => vo
 }
 
 const styles = StyleSheet.create({
+  titleRow: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between' },
   row: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
   iconWrap: {
     width: 38,

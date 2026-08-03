@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { formatDate } from '@/lib/date';
 import { useAuth } from '@/providers/AuthProvider';
@@ -45,6 +45,7 @@ export function useNotificationHistory() {
         .from('sent_notifications')
         .select('id, subject_type, subject_id, sent_at')
         .eq('user_id', user!.id)
+        .is('hidden_at', null)
         .order('sent_at', { ascending: false })
         .limit(50);
       if (error) throw error;
@@ -120,6 +121,40 @@ export function useNotificationHistory() {
         return { ...base, title: `${code} ${sp} tag deadline`.trim(), subtitle: w?.closes_at ? `Closes ${formatDate(w.closes_at)}` : 'Application deadline' };
       });
     },
+  });
+}
+
+/** Remove one entry from the visible history (soft-hide; the send-dedup log keeps it). */
+export function useHideNotification() {
+  const qc = useQueryClient();
+  const { user } = useAuth();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase
+        .from('sent_notifications')
+        .update({ hidden_at: new Date().toISOString() })
+        .eq('id', id)
+        .eq('user_id', user!.id);
+      if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['notifications'] }),
+  });
+}
+
+/** Clear the whole visible history for this user. */
+export function useClearNotifications() {
+  const qc = useQueryClient();
+  const { user } = useAuth();
+  return useMutation({
+    mutationFn: async () => {
+      const { error } = await supabase
+        .from('sent_notifications')
+        .update({ hidden_at: new Date().toISOString() })
+        .eq('user_id', user!.id)
+        .is('hidden_at', null);
+      if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['notifications'] }),
   });
 }
 

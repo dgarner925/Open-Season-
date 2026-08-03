@@ -206,6 +206,7 @@ export type SentNotificationRow = {
   sent_at: string;
   status: string;
   detail: string | null;
+  hidden_at: string | null;
 };
 
 export type ReviewQueueRow = Timestamps & {
@@ -252,7 +253,7 @@ export type Database = {
       follows: Table<FollowRow, Omit<FollowRow, 'id' | 'created_at'> & { id?: string }>;
       alert_preferences: Table<AlertPreferenceRow, Omit<AlertPreferenceRow, 'created_at' | 'updated_at'>>;
       device_push_tokens: Table<DevicePushTokenRow, Omit<DevicePushTokenRow, Gen> & { id?: string }>;
-      sent_notifications: Table<SentNotificationRow, Omit<SentNotificationRow, 'id' | 'sent_at'> & { id?: string }>;
+      sent_notifications: Table<SentNotificationRow, Omit<SentNotificationRow, 'id' | 'sent_at' | 'hidden_at'> & { id?: string; hidden_at?: string | null }>;
       review_queue: Table<ReviewQueueRow, Omit<ReviewQueueRow, Gen> & { id?: string }>;
       user_applications: Table<UserApplicationRow, Omit<UserApplicationRow, Gen> & { id?: string }>;
       user_point_balances: Table<PointBalanceRow, Omit<PointBalanceRow, Gen> & { id?: string }>;
