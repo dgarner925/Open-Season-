@@ -119,7 +119,7 @@ SLIDES = [
     ("home.png", "Your hunts,", "at a glance.", "02.png"),
     ("seasons.png", "Every opener,", "soonest first.", "03.png"),
     ("provenance.png", "Real dates,", "official sources.", "04.png"),
-    ("notifications.png", "Never miss", "a tag deadline.", "05.png"),
+    ("tags.png", "Never miss", "a tag deadline.", "05.png"),
     ("alerts.png", "Reminded when", "it matters.", "06.png"),
 ]
 
