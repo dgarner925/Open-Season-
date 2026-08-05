@@ -20,5 +20,8 @@ export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
     persistSession: true,
     // React Native has no URL to parse a session out of.
     detectSessionInUrl: false,
+    // PKCE: OAuth redirects return a ?code= we exchange explicitly — required
+    // for the browser-based Google flow to hand a session back to the app.
+    flowType: 'pkce',
   },
 });

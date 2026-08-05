@@ -43,13 +43,25 @@ export async function signInWithGoogle(): Promise<void> {
   const result = await WebBrowser.openAuthSessionAsync(data.url, redirectTo);
   if (result.type !== 'success' || !result.url) return; // user cancelled
 
-  // Exchange the returned code/tokens for a session.
+  // Exchange the returned code/tokens for a session. PKCE returns ?code=;
+  // older/implicit responses return tokens in the URL fragment. Handle both so
+  // a server-side flow change can never strand a signed-in user again.
   const url = new URL(result.url);
   const code = url.searchParams.get('code');
   if (code) {
     const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
     if (exchangeError) throw exchangeError;
+    return;
   }
+  const fragment = new URLSearchParams(url.hash.replace(/^#/, ''));
+  const access_token = fragment.get('access_token');
+  const refresh_token = fragment.get('refresh_token');
+  if (access_token && refresh_token) {
+    const { error: sessionError } = await supabase.auth.setSession({ access_token, refresh_token });
+    if (sessionError) throw sessionError;
+    return;
+  }
+  throw new Error('Sign-in did not return a session. Please try again.');
 }
 
 export async function signInWithEmail(email: string, password: string): Promise<void> {
