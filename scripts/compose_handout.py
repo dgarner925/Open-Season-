@@ -126,21 +126,21 @@ centered(d, cx, 110, "One app. Every date", f(SERIF, 92), TEXT)
 centered(d, cx, 220, "that matters.", f(SERIF_IT, 92), COPPER)
 
 features = [
-    ("Season dates for all 50 states", "Archery, muzzleloader, firearm — every window, verified against official sources."),
+    ("Season dates for all 50 states", "Every window, verified against official agency sources."),
     ("Tag & draw deadlines", "Application windows with live countdowns, incl. WMA quota hunts."),
     ("Reminders that matter", "A push before every opener, deadline, and draw result you follow."),
     ("We watch for changes", "If an agency moves a date, you get an alert — old date and new."),
     ("$4.99 once. No subscription.", "Buy it, use it every season."),
 ]
-y = 420
+y = 400
 for title, body in features:
-    d.ellipse([90, y + 14, 122, y + 46], fill=COPPER)
-    d.text((160, y), title, font=f(SANS_B, 48), fill=TEXT)
-    d.text((160, y + 62), body, font=f(SANS, 36), fill=MUTED)
-    y += 200
+    d.ellipse([90, y + 12, 120, y + 42], fill=COPPER)
+    d.text((156, y), title, font=f(SANS_B, 46), fill=TEXT)
+    d.text((156, y + 58), body, font=f(SANS, 34), fill=MUTED)
+    y += 168
 
-qr_card(img, cx, y + 30, 300, "Scan for the App Store", f(SANS_SB, 34))
-centered(d, cx, 1720, "© 2026 Piece & Quiet, LLC · contact@osdatesanddraws.com", f(SANS, 30), MUTED)
+qr_card(img, cx, y + 40, 260, "Scan for the App Store", f(SANS_SB, 32))
+centered(d, cx, 1725, "© 2026 Piece & Quiet, LLC · contact@osdatesanddraws.com", f(SANS, 30), MUTED)
 img.save(os.path.join(OUT, "postcard_back.png"), dpi=(300, 300))
 pages.append(img)
 print("wrote handouts/postcard_back.png (4x6 @300dpi)")
