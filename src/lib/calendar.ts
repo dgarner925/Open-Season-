@@ -1,14 +1,15 @@
 import * as Calendar from 'expo-calendar';
-import { Alert } from 'react-native';
+import { Alert, Linking } from 'react-native';
 
 /**
- * Add a hunting date (opener or deadline) to the user's calendar.
+ * Add a hunting date (opener or deadline) to the user's calendar via the
+ * system "New Event" sheet (createEventInCalendarAsync) — the user confirms,
+ * so we never guess at a writable calendar.
  *
- * Uses the system-provided "New Event" sheet (createEventInCalendarAsync) rather
- * than writing an event directly: the OS presents a pre-filled editor the user
- * confirms, so we don't need calendar permission, a default-calendar lookup, or
- * to guess a writable calendar — the brittle parts that made the direct-write
- * approach fail. Works on both iOS and Android. `date` is a YYYY-MM-DD string.
+ * NOTE: despite presenting a system dialog, expo-calendar's iOS implementation
+ * still requires calendar permission before it will open the sheet (it throws
+ * otherwise). Request it first, and offer the Settings deep link if the user
+ * previously denied. `date` is a YYYY-MM-DD string.
  */
 export async function addToCalendar(opts: {
   title: string;
@@ -17,6 +18,22 @@ export async function addToCalendar(opts: {
   url?: string;
 }): Promise<void> {
   try {
+    let { status, canAskAgain } = await Calendar.getCalendarPermissionsAsync();
+    if (status !== 'granted' && canAskAgain) {
+      ({ status } = await Calendar.requestCalendarPermissionsAsync());
+    }
+    if (status !== 'granted') {
+      Alert.alert(
+        'Calendar access needed',
+        'Allow calendar access for Open Season in Settings to add hunt dates to your calendar.',
+        [
+          { text: 'Not now', style: 'cancel' },
+          { text: 'Open Settings', onPress: () => Linking.openSettings() },
+        ],
+      );
+      return;
+    }
+
     const start = new Date(`${opts.date}T00:00:00`);
     const end = new Date(start.getTime() + 24 * 60 * 60 * 1000);
 
@@ -31,6 +48,6 @@ export async function addToCalendar(opts: {
     });
   } catch (e) {
     console.warn('[calendar] add failed:', e);
-    Alert.alert('Could not open calendar', 'Please try again in a moment.');
+    Alert.alert('Could not open calendar', e instanceof Error ? e.message : 'Please try again in a moment.');
   }
 }
