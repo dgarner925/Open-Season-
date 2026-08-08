@@ -25,12 +25,20 @@ from concurrent.futures import ThreadPoolExecutor
 
 BASE = "https://soxglmgbhmpuxhngcsvx.supabase.co/rest/v1"
 KEY = "sb_publishable_5rIoEtCHn8PcWgHit5NgzQ_Qjpn2AHc"
-UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) OpenSeasonLinkCheck/1.0"
+UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36"
 TIMEOUT = 15
+HEADERS = {
+    "User-Agent": UA,
+    # Some agency storefronts (e.g. Alaska's) 403 probe-shaped requests but
+    # serve anything that looks like a browser; send browser-ish headers so we
+    # measure what a real user gets.
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+    "Accept-Language": "en-US,en;q=0.9",
+}
 
 
 def _status(url, method):
-    req = urllib.request.Request(url, method=method, headers={"User-Agent": UA})
+    req = urllib.request.Request(url, method=method, headers=HEADERS)
     try:
         with urllib.request.urlopen(req, timeout=TIMEOUT) as r:  # follows redirects
             return r.status
