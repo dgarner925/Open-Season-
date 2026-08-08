@@ -120,6 +120,16 @@ CTA = f"""
 states = get("states?is_active=eq.true&select=id,code,name,agency_name,license_url&order=name")
 print(f"{len(states)} active states")
 
+# Publish gate: refuse to bake dead license links into the site.
+from check_links import check_license_urls  # noqa: E402
+print("link-health check on license URLs...")
+_failures = check_license_urls(states)
+if _failures:
+    print(f"ABORTING PUBLISH — {len(_failures)} bad license URL(s); fix or update states.license_url first:")
+    for _code, _url, _status in _failures:
+        print(f"  {_code}  {_url}  -> {_status}")
+    raise SystemExit(1)
+
 seasons = get(
     "seasons?status=eq.published&select=state_id,open_date,close_date,method,label,last_verified_at,"
     "species:species(name),zone:zones(name)&order=open_date.asc.nullslast&limit=10000")
