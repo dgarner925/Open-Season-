@@ -1,3 +1,4 @@
+import Constants from 'expo-constants';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'expo-router';
 import { Alert, Pressable, StyleSheet, TextInput, View } from 'react-native';
@@ -188,6 +189,9 @@ export default function Settings() {
             {deleting ? 'Deleting…' : 'Delete account'}
           </AppText>
         </Pressable>
+        <AppText variant="caption" color={theme.color.textMuted} style={{ textAlign: 'center', marginTop: spacing.md }}>
+          Open Season v{Constants.expoConfig?.version ?? '?'} ({Constants.expoConfig?.ios?.buildNumber ?? '—'})
+        </AppText>
       </View>
     </Screen>
   );

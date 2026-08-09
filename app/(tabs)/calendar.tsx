@@ -32,7 +32,7 @@ export default function Seasons() {
   // Species filter — chips over the list. null = all.
   const [speciesFilter, setSpeciesFilter] = useState<string | null>(null);
 
-  const { open, upcoming, chipSpecies } = useMemo(() => {
+  const { open, upcomingMonths, chipSpecies } = useMemo(() => {
     const openList: Item[] = [];
     const upcomingList: Item[] = [];
     const byId = new Map<string, string>(); // species id -> name (only current/upcoming)
@@ -50,7 +50,23 @@ export default function Seasons() {
     openList.sort((a, b) => (a.days ?? 0) - (b.days ?? 0));
     upcomingList.sort((a, b) => (a.days ?? 0) - (b.days ?? 0));
     const chips = [...byId.entries()].map(([id, name]) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name));
-    return { open: openList, upcoming: upcomingList, chipSpecies: chips };
+
+    // Group upcoming by opening month, so the list reads like a season
+    // calendar ("August is gator, September is the pile-up").
+    const MONTHS = ['JANUARY', 'FEBRUARY', 'MARCH', 'APRIL', 'MAY', 'JUNE', 'JULY', 'AUGUST', 'SEPTEMBER', 'OCTOBER', 'NOVEMBER', 'DECEMBER'];
+    const thisYear = iso.slice(0, 4);
+    const months: { key: string; label: string; items: Item[] }[] = [];
+    for (const it of upcomingList) {
+      const [y, m] = it.season.open_date!.split('-');
+      const key = `${y}-${m}`;
+      let bucket = months[months.length - 1];
+      if (!bucket || bucket.key !== key) {
+        bucket = { key, label: `${MONTHS[Number(m) - 1]}${y !== thisYear ? ` ${y}` : ''}`, items: [] };
+        months.push(bucket);
+      }
+      bucket.items.push(it);
+    }
+    return { open: openList, upcomingMonths: months, chipSpecies: chips };
   }, [seasons, iso, speciesFilter]);
 
   return (
@@ -77,7 +93,7 @@ export default function Seasons() {
 
         {isLoading ? (
           <ActivityIndicator color={theme.color.accent} style={{ marginTop: spacing.xl }} />
-        ) : open.length === 0 && upcoming.length === 0 ? (
+        ) : open.length === 0 && upcomingMonths.length === 0 ? (
           <AppText variant="body" color={theme.color.textMuted} style={{ marginTop: spacing.xl }}>
             {speciesFilter ? 'No current or upcoming dates for this species.' : 'No upcoming seasons for your follows yet — add species from Home.'}
           </AppText>
@@ -90,13 +106,13 @@ export default function Seasons() {
                 ))}
               </Section>
             ) : null}
-            {upcoming.length > 0 ? (
-              <Section label="UPCOMING">
-                {upcoming.map((it) => (
+            {upcomingMonths.map((m) => (
+              <Section key={m.key} label={m.label}>
+                {m.items.map((it) => (
                   <SeasonRow key={it.season.id} item={it} onPress={() => router.push(`/season/${it.season.id}`)} />
                 ))}
               </Section>
-            ) : null}
+            ))}
           </>
         )}
       </ScrollView>
