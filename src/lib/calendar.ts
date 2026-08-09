@@ -1,4 +1,7 @@
-import * as Calendar from 'expo-calendar';
+// expo-calendar 57 moved the classic functional API behind ./legacy — the root
+// import re-exports throwing deprecation stubs (the "Could not open calendar"
+// bug in 1.0). The legacy module is the real, working implementation.
+import * as Calendar from 'expo-calendar/legacy';
 import { Alert, Linking } from 'react-native';
 
 /**
