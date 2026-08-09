@@ -121,6 +121,13 @@ export default function Settings() {
         </AppText>
       </Card>
 
+      <Card onPress={() => router.push('/parties')}>
+        <AppText variant="h3">Hunting parties</AppText>
+        <AppText variant="body" color={theme.color.textSecondary}>
+          Apply for draws with your buddies — join with a code or start your own.
+        </AppText>
+      </Card>
+
       <Card onPress={() => router.push('/tracker')}>
         <AppText variant="h3">My Applications</AppText>
         <AppText variant="body" color={theme.color.textSecondary}>

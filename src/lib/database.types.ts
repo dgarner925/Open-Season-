@@ -22,6 +22,29 @@ export type ReviewStatus = 'pending' | 'approved' | 'rejected';
 export type ReviewChangeType = 'create' | 'update';
 export type NotificationSubjectType = 'season_opener' | 'application_deadline' | 'application_results' | 'date_change';
 
+export type PartyRow = {
+  id: string;
+  window_id: string;
+  owner_id: string;
+  invite_code: string;
+  created_at: string;
+};
+
+export type PartyMemberRow = {
+  party_id: string;
+  user_id: string;
+  joined_at: string;
+  applied_at: string | null;
+};
+
+export type PartyRosterEntry = {
+  user_id: string;
+  display_name: string;
+  joined_at: string;
+  applied_at: string | null;
+  is_owner: boolean;
+};
+
 export type DateChangeRow = {
   id: string;
   target_table: string;
@@ -259,11 +282,19 @@ export type Database = {
       user_point_balances: Table<PointBalanceRow, Omit<PointBalanceRow, Gen> & { id?: string }>;
       date_reports: Table<DateReportRow, Omit<DateReportRow, 'id' | 'created_at'> & { id?: string }>;
       date_changes: Table<DateChangeRow, Omit<DateChangeRow, 'id' | 'created_at'> & { id?: string }>;
+      parties: Table<PartyRow, Omit<PartyRow, 'id' | 'created_at'> & { id?: string }>;
+      party_members: Table<PartyMemberRow, Omit<PartyMemberRow, 'joined_at'> & { joined_at?: string }>;
     };
     Views: Record<string, never>;
     Functions: {
       is_admin: { Args: Record<string, never>; Returns: boolean };
       apply_review_item: { Args: { p_review_id: string }; Returns: undefined };
+      create_party: { Args: { p_window_id: string }; Returns: { party_id: string; invite_code: string }[] };
+      join_party: { Args: { p_code: string }; Returns: string };
+      set_party_applied: { Args: { p_party_id: string; p_applied: boolean }; Returns: undefined };
+      leave_party: { Args: { p_party_id: string }; Returns: undefined };
+      party_roster: { Args: { p_party_id: string }; Returns: PartyRosterEntry[] };
+      is_party_member: { Args: { p_party_id: string }; Returns: boolean };
     };
     Enums: {
       content_status: ContentStatus;

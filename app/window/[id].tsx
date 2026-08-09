@@ -3,6 +3,7 @@ import { ActivityIndicator, Alert, Pressable, Share, StyleSheet, View } from 're
 import { AppText, Button, Card, Divider, GlassChip, Screen } from '@/components/ui';
 import { ProvenanceBlock } from '@/components/Provenance';
 import { useWindowById } from '@/features/reference/queries';
+import { useCreateParty, useMyParties } from '@/features/parties/queries';
 import { useReportDate, promptReport } from '@/features/reports/queries';
 import { useAuth } from '@/providers/AuthProvider';
 import { addToCalendar } from '@/lib/calendar';
@@ -19,6 +20,20 @@ export default function WindowDetail() {
   const { data: w, isLoading } = useWindowById(id);
   const { profile } = useAuth();
   const report = useReportDate();
+  const { data: myParties = [] } = useMyParties();
+  const createParty = useCreateParty();
+  const myParty = myParties.find((p) => p.window_id === id);
+
+  function onParty() {
+    if (myParty) {
+      router.push({ pathname: '/party/[id]', params: { id: myParty.id } });
+      return;
+    }
+    createParty.mutate(id!, {
+      onSuccess: ({ party_id }) => router.push({ pathname: '/party/[id]', params: { id: party_id } }),
+      onError: () => Alert.alert('Could not start a party', 'Please try again in a moment.'),
+    });
+  }
 
   if (isLoading) {
     return (
@@ -126,6 +141,13 @@ export default function WindowDetail() {
       {w.application_url ? (
         <Button title="Apply on the official site" onPress={() => openExternalUrl(w.application_url)} />
       ) : null}
+      <Button
+        variant="secondary"
+        title={myParty ? 'View your party' : 'Hunt with your party'}
+        onPress={onParty}
+        loading={createParty.isPending}
+      />
+
       {w.closes_at ? (
         <Button
           variant="secondary"
