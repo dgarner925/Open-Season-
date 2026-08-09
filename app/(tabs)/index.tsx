@@ -11,6 +11,7 @@ import { useFollows } from '@/features/follows/queries';
 import { useActiveStates, useFollowedSeasons, useFollowedWindows, useSpecies, useUpcomingCountdown } from '@/features/reference/queries';
 import type { SeasonWithRefs } from '@/features/reference/types';
 import { queryClient } from '@/lib/queryClient';
+import { maybeRequestReview } from '@/lib/rateApp';
 import { pushWidgetEvent } from '@/lib/widget';
 import { fontFamily, radius, spacing, theme } from '@/theme';
 
@@ -84,6 +85,11 @@ export default function Home() {
   useEffect(() => {
     pushWidgetEvent(items[0]);
   }, [items[0]?.id, items[0]?.date, items[0]?.kind]);
+
+  // Ask for a rating on the 5th session with real follows — a moment of value.
+  useEffect(() => {
+    if (hasFollows) maybeRequestReview(true);
+  }, [hasFollows]);
 
   async function onRefresh() {
     setRefreshing(true);

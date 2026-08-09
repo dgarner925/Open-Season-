@@ -111,6 +111,16 @@ export default function WindowDetail() {
             </AppText>
           </View>
         ) : null}
+        {w.notes ? (
+          <View style={styles.feeBlock}>
+            <AppText variant="overline" color={theme.color.textMuted}>
+              NOTES
+            </AppText>
+            <AppText variant="body" color={theme.color.textSecondary}>
+              {w.notes}
+            </AppText>
+          </View>
+        ) : null}
       </Card>
 
       {w.application_url ? (
