@@ -9,6 +9,7 @@ import { useActiveStates, useStateSpeciesMulti } from '@/features/reference/quer
 import { useCompleteOnboarding } from '@/features/follows/queries';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/providers/AuthProvider';
+import { usePremium } from '@/providers/PremiumProvider';
 import { fontFamily, radius, spacing, theme } from '@/theme';
 
 const STEPS = 3;
@@ -31,6 +32,7 @@ export default function Onboarding() {
 
   const { data: states = [], isLoading: statesLoading } = useActiveStates();
   const completeOnboarding = useCompleteOnboarding();
+  const { isPro, loading: proLoading } = usePremium();
 
   const [step, setStep] = useState(0); // 0 states · 1 species · 2 confirm
   const [stateIds, setStateIds] = useState<Set<string>>(new Set());
@@ -57,8 +59,33 @@ export default function Onboarding() {
     });
   }
 
+  /** Complete onboarding with no follows — the free "just browsing" path. */
+  async function browseFree() {
+    if (!user) return;
+    setSaving(true);
+    try {
+      const trimmed = name.trim();
+      if (trimmed && trimmed !== profile?.display_name) {
+        await supabase.from('profiles').update({ display_name: trimmed }).eq('id', user.id);
+      }
+      await completeOnboarding.mutateAsync();
+      router.replace('/');
+    } catch (e) {
+      setNotice(`Could not save: ${e instanceof Error ? e.message : 'try again'}`);
+    } finally {
+      setSaving(false);
+    }
+  }
+
   async function finish() {
     if (!user) return;
+    // Following is the Pro product. Send free users to the paywall at the
+    // moment of maximum motivation — their picks stay staged on this screen,
+    // so subscribing (or coming Back) returns them right here to finish.
+    if (!isPro && !proLoading) {
+      router.push('/paywall');
+      return;
+    }
     setSaving(true);
     setNotice(null);
     try {
@@ -177,6 +204,14 @@ export default function Onboarding() {
         <AppText variant="caption" color={theme.color.danger} style={{ paddingHorizontal: spacing.xl }}>
           {notice}
         </AppText>
+      ) : null}
+
+      {step === 2 && !isPro && !proLoading ? (
+        <Pressable onPress={browseFree} disabled={saving} hitSlop={10} style={{ alignSelf: 'center' }}>
+          <AppText variant="caption" color={theme.color.textMuted}>
+            Or browse free for now — no reminders, just the dates
+          </AppText>
+        </Pressable>
       ) : null}
 
       <View style={styles.actions}>

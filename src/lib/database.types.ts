@@ -175,6 +175,8 @@ export type ProfileRow = Timestamps & {
   onboarded_at: string | null;
   active_location_id: string | null;
   resident_state_id: string | null;
+  is_premium: boolean;
+  grandfathered: boolean;
 };
 
 export type DateReportRow = {
@@ -269,7 +271,7 @@ export type Database = {
       regulation_summaries: Table<RegulationSummaryRow, Omit<RegulationSummaryRow, Gen> & { id?: string }>;
       profiles: Table<
         ProfileRow,
-        { id: string; display_name?: string | null; is_admin?: boolean; onboarded_at?: string | null; active_location_id?: string | null; resident_state_id?: string | null }
+        { id: string; display_name?: string | null; is_admin?: boolean; onboarded_at?: string | null; active_location_id?: string | null; resident_state_id?: string | null; is_premium?: boolean; grandfathered?: boolean }
       >;
       user_locations: Table<UserLocationRow, Omit<UserLocationRow, 'id' | 'created_at'> & { id?: string }>;
       state_species: Table<StateSpeciesRow, StateSpeciesRow>;

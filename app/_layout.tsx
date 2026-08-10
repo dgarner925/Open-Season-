@@ -15,6 +15,7 @@ import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { queryClient } from '@/lib/queryClient';
 import { AuthProvider } from '@/providers/AuthProvider';
+import { PremiumProvider } from '@/providers/PremiumProvider';
 import { HeaderBack } from '@/components/HeaderBack';
 import { NotificationRouter } from '@/lib/notificationRouting';
 import { theme } from '@/theme';
@@ -36,6 +37,7 @@ export default function RootLayout() {
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
+        <PremiumProvider>
         <SafeAreaProvider>
           <StatusBar style="light" />
           <NotificationRouter />
@@ -56,6 +58,7 @@ export default function RootLayout() {
             <Stack.Screen name="onboarding" options={{ headerShown: false }} />
           </Stack>
         </SafeAreaProvider>
+        </PremiumProvider>
       </AuthProvider>
     </QueryClientProvider>
   );

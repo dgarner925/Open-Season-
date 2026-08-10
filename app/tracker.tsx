@@ -2,6 +2,7 @@ import { Stack, useRouter } from 'expo-router';
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
 import { AppText, Button, Card, Pill, Screen } from '@/components/ui';
 import { useApplications, type ApplicationWithRefs } from '@/features/applications/queries';
+import { useRequirePro } from '@/hooks/useRequirePro';
 import { formatDate } from '@/lib/date';
 import { openExternalUrl } from '@/lib/openUrl';
 import { spacing, theme } from '@/theme';
@@ -24,6 +25,7 @@ function statusColor(s: ApplicationStatus): string {
 export default function Applications() {
   const router = useRouter();
   const { data: apps = [], isLoading } = useApplications();
+  const requirePro = useRequirePro();
 
   return (
     <Screen scroll>
@@ -35,7 +37,7 @@ export default function Applications() {
         </AppText>
       </View>
 
-      <Button title="+ Add an application" onPress={() => router.push('/application-edit')} />
+      <Button title="+ Add an application" onPress={() => requirePro() && router.push('/application-edit')} />
 
       {isLoading ? (
         <ActivityIndicator color={theme.color.accent} style={{ marginTop: spacing.lg }} />

@@ -2,6 +2,7 @@ import { Stack, useRouter } from 'expo-router';
 import { ActivityIndicator, Alert, Platform, View } from 'react-native';
 import { AppText, Button, Card, Screen } from '@/components/ui';
 import { useJoinParty, useMyParties } from '@/features/parties/queries';
+import { useRequirePro } from '@/hooks/useRequirePro';
 import { countdownLabel, daysUntil } from '@/lib/date';
 import { drawTitle } from '@/lib/titles';
 import { spacing, theme, urgencyColor } from '@/theme';
@@ -10,8 +11,10 @@ export default function Parties() {
   const router = useRouter();
   const { data: parties = [], isLoading } = useMyParties();
   const join = useJoinParty();
+  const requirePro = useRequirePro();
 
   function onJoin() {
+    if (!requirePro()) return;
     if (Platform.OS === 'ios') {
       Alert.prompt('Join a hunting party', 'Enter the invite code your buddy sent you.', [
         { text: 'Cancel', style: 'cancel' },

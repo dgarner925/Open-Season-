@@ -3,12 +3,14 @@ import { Stack, useRouter } from 'expo-router';
 import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
 import { AppText, Button, Card, Pill, Screen } from '@/components/ui';
 import { usePointBalances, useAdjustPointBalance, type PointBalanceWithRefs } from '@/features/points/queries';
+import { useRequirePro } from '@/hooks/useRequirePro';
 import { spacing, theme } from '@/theme';
 
 export default function Points() {
   const router = useRouter();
   const { data: balances = [], isLoading } = usePointBalances();
   const adjust = useAdjustPointBalance();
+  const requirePro = useRequirePro();
 
   return (
     <Screen scroll>
@@ -20,7 +22,7 @@ export default function Points() {
         </AppText>
       </View>
 
-      <Button title="+ Add points" onPress={() => router.push('/points-edit')} />
+      <Button title="+ Add points" onPress={() => requirePro() && router.push('/points-edit')} />
 
       {isLoading ? (
         <ActivityIndicator color={theme.color.accent} style={{ marginTop: spacing.lg }} />

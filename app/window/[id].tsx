@@ -6,6 +6,7 @@ import { useWindowById } from '@/features/reference/queries';
 import { useCreateParty, useMyParties } from '@/features/parties/queries';
 import { useReportDate, promptReport } from '@/features/reports/queries';
 import { useAuth } from '@/providers/AuthProvider';
+import { useRequirePro } from '@/hooks/useRequirePro';
 import { addToCalendar } from '@/lib/calendar';
 import { countdownLabel, daysUntil, formatDate } from '@/lib/date';
 import { openExternalUrl } from '@/lib/openUrl';
@@ -22,6 +23,7 @@ export default function WindowDetail() {
   const report = useReportDate();
   const { data: myParties = [] } = useMyParties();
   const createParty = useCreateParty();
+  const requirePro = useRequirePro();
   const myParty = myParties.find((p) => p.window_id === id);
 
   function onParty() {
@@ -29,6 +31,7 @@ export default function WindowDetail() {
       router.push({ pathname: '/party/[id]', params: { id: myParty.id } });
       return;
     }
+    if (!requirePro()) return;
     createParty.mutate(id!, {
       onSuccess: ({ party_id }) => router.push({ pathname: '/party/[id]', params: { id: party_id } }),
       onError: () => Alert.alert('Could not start a party', 'Please try again in a moment.'),
