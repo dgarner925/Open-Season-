@@ -30,7 +30,7 @@ export default function Parties() {
   }
 
   return (
-    <Screen scroll contentStyle={{ paddingBottom: spacing.xxl }} texture={!isLoading && parties.length === 0} textureSeed={31}>
+    <Screen scroll contentStyle={{ paddingBottom: spacing.xxl }}>
       <Stack.Screen options={{ headerShown: true, title: 'Hunting parties' }} />
       <View style={{ gap: spacing.xs }}>
         <AppText variant="h1">Hunting parties</AppText>

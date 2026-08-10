@@ -4,7 +4,6 @@ import { useEffect, useMemo, useState } from 'react';
 import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AppText } from '@/components/ui';
-import { TextureBackground } from '@/components/TextureBackground';
 import { PageTitle, SpeciesBadge } from '@/components/midnight';
 import { NotificationsOffBanner } from '@/components/NotificationsOffBanner';
 import { useAuth } from '@/providers/AuthProvider';
@@ -105,7 +104,6 @@ export default function Home() {
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.color.accent} />}
       >
-        <TextureBackground seed={41} style={styles.headerTexture}>
         <View style={styles.topRow}>
           <Pressable style={styles.locChip} onPress={() => router.push('/follows')}>
             <View style={styles.locDot} />
@@ -134,7 +132,6 @@ export default function Home() {
             <Text style={styles.greeting}>{partOfDay}</Text>
           )}
         </View>
-        </TextureBackground>
 
         <NotificationsOffBanner />
 
@@ -218,8 +215,6 @@ function FooterLink({ icon, label, onPress }: { icon: keyof typeof Ionicons.glyp
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: theme.color.background },
   content: { paddingHorizontal: spacing.xl, paddingTop: spacing.lg, paddingBottom: spacing.xxl },
-  // Bleeds the header texture to the screen edges, then restores the inset.
-  headerTexture: { marginHorizontal: -spacing.xl, paddingHorizontal: spacing.xl, marginTop: -spacing.lg, paddingTop: spacing.lg },
 
   topRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   locChip: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, flexShrink: 1 },

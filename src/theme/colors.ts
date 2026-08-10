@@ -65,24 +65,6 @@ export const theme = {
     card: ['#241e17', '#17130f'] as [string, string],
   },
   species: speciesColors,
-  /**
-   * Ambient contour-line texture on chrome surfaces (TextureBackground).
-   * `opacity` is THE tuning knob — keep within 0.03–0.06. Single hue from the
-   * palette; no new colors.
-   */
-  texture: {
-    color: palette.copper400,
-    opacity: 0.06,
-    scale: 1,
-    variant: 'camo' as 'topo' | 'camo',
-  },
-  /** Light-mode variant, ready for a future light theme (app is dark-only today). */
-  textureLight: {
-    color: palette.copper500,
-    opacity: 0.05,
-    scale: 1,
-    variant: 'camo' as 'topo' | 'camo',
-  },
 } as const;
 
 /** hex (#RRGGBB) -> rgba string with the given alpha. For translucent "glass" fills. */

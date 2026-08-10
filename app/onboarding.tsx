@@ -4,7 +4,6 @@ import { useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AppText } from '@/components/ui';
-import { TextureBackground } from '@/components/TextureBackground';
 import { PageTitle, SpeciesBadge } from '@/components/midnight';
 import { useActiveStates, useStateSpeciesMulti } from '@/features/reference/queries';
 import { useCompleteOnboarding } from '@/features/follows/queries';
@@ -94,7 +93,6 @@ export default function Onboarding() {
 
   return (
     <SafeAreaView style={styles.screen} edges={['top', 'left', 'right', 'bottom']}>
-      <TextureBackground seed={17} style={StyleSheet.absoluteFill} />
       <View style={styles.progress}>
         {Array.from({ length: STEPS }).map((_, i) => (
           <View key={i} style={[styles.dot, { backgroundColor: i <= step ? theme.color.accent : 'rgba(255,255,255,0.12)' }]} />

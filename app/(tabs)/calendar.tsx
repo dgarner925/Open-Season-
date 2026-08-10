@@ -3,7 +3,6 @@ import { useMemo, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AppText, Card } from '@/components/ui';
-import { TextureBackground } from '@/components/TextureBackground';
 import { PageTitle, SpeciesBadge, StatusPill } from '@/components/midnight';
 import { useFollowedSeasons } from '@/features/reference/queries';
 import type { SeasonWithRefs } from '@/features/reference/types';
@@ -73,7 +72,6 @@ export default function Seasons() {
   return (
     <SafeAreaView style={styles.screen} edges={['top', 'left', 'right']}>
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <TextureBackground seed={43} style={styles.headerTexture}>
         <View style={styles.header}>
           <AppText variant="overline" color={theme.color.textMuted}>
             SEASON DATES
@@ -83,7 +81,6 @@ export default function Seasons() {
             When each species opens and closes, for everything you track.
           </AppText>
         </View>
-        </TextureBackground>
 
         {chipSpecies.length > 1 ? (
           <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipScroll} contentContainerStyle={styles.chipRow}>
@@ -182,8 +179,6 @@ const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: theme.color.background },
   content: { paddingHorizontal: spacing.xl, paddingTop: spacing.lg, paddingBottom: spacing.xxl },
   header: {},
-  // Bleeds the header texture to the screen edges, then restores the inset.
-  headerTexture: { marginHorizontal: -spacing.xl, paddingHorizontal: spacing.xl, marginTop: -spacing.lg, paddingTop: spacing.lg },
   row: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, padding: spacing.lg },
   right: { alignItems: 'flex-end', gap: 4 },
   metric: { fontFamily: fontFamily.serifItalic, fontSize: 18 },

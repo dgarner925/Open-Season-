@@ -13,26 +13,17 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { TextureBackground } from '@/components/TextureBackground';
 import { radius, spacing, theme, type, withAlpha } from '@/theme';
 
-/**
- * Screen wrapper with safe-area + ink background. `texture` draws the ambient
- * contour-line layer behind the content — chrome surfaces only (sign-in,
- * settings, empty states), never on screens whose body is dense data rows.
- */
+/** Screen wrapper with safe-area + ink background. */
 export function Screen({
   children,
   scroll = false,
   contentStyle,
-  texture = false,
-  textureSeed,
 }: {
   children: ReactNode;
   scroll?: boolean;
   contentStyle?: StyleProp<ViewStyle>;
-  texture?: boolean;
-  textureSeed?: number;
 }) {
   const inner = scroll ? (
     <ScrollView
@@ -44,12 +35,7 @@ export function Screen({
   ) : (
     <View style={[styles.screenContent, styles.flex, contentStyle]}>{children}</View>
   );
-  return (
-    <SafeAreaView style={styles.screen} edges={['top', 'left', 'right']}>
-      {texture ? <TextureBackground seed={textureSeed} style={StyleSheet.absoluteFill} /> : null}
-      {inner}
-    </SafeAreaView>
-  );
+  return <SafeAreaView style={styles.screen} edges={['top', 'left', 'right']}>{inner}</SafeAreaView>;
 }
 
 type TextVariant = keyof typeof type;
