@@ -72,14 +72,16 @@ export const theme = {
    */
   texture: {
     color: palette.copper400,
-    opacity: 0.045,
+    opacity: 0.06,
     scale: 1,
+    variant: 'camo' as 'topo' | 'camo',
   },
   /** Light-mode variant, ready for a future light theme (app is dark-only today). */
   textureLight: {
     color: palette.copper500,
     opacity: 0.05,
     scale: 1,
+    variant: 'camo' as 'topo' | 'camo',
   },
 } as const;
 
