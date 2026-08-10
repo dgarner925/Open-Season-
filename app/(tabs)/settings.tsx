@@ -60,7 +60,7 @@ export default function Settings() {
   }
 
   return (
-    <Screen scroll contentStyle={{ paddingBottom: spacing.xxl }}>
+    <Screen scroll contentStyle={{ paddingBottom: spacing.xxl }} texture textureSeed={23}>
       <PageTitle lead="Settings" />
 
       <Card>

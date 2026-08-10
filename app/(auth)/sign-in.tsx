@@ -59,7 +59,7 @@ export default function SignIn() {
   }
 
   return (
-    <Screen scroll>
+    <Screen scroll texture textureSeed={7}>
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <View style={styles.hero}>
           <PageTitle lead={'Open\n'} accent="season." style={styles.wordmark} />
