@@ -42,3 +42,8 @@ credentials.json
 
 # Claude Code local settings
 .claude/settings.local.json
+
+# Apple private keys - never commit
+*.p8
+*.p8.txt
+~$*

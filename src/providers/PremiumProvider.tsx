@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { Platform } from 'react-native';
+import * as Application from 'expo-application';
 import Purchases, { LOG_LEVEL, type CustomerInfo } from 'react-native-purchases';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/providers/AuthProvider';
@@ -42,6 +43,22 @@ function receiptIsGrandfathered(info: CustomerInfo): boolean {
   return Number.isFinite(original) && original <= LAST_PAID_BUILD;
 }
 
+/**
+ * The receipt check is only meaningful on a real App Store install: sandbox
+ * receipts (TestFlight AND App Review) report originalApplicationVersion as
+ * "1.0", which would make every tester — and Apple's reviewer — look like a
+ * paid-era buyer and hide the paywall entirely. Real paid-era users are also
+ * covered by the server flag, so skipping the receipt off-store is safe.
+ */
+async function receiptTrustworthy(): Promise<boolean> {
+  try {
+    const t = await Application.getIosApplicationReleaseTypeAsync();
+    return t === Application.ApplicationReleaseType.APP_STORE;
+  } catch {
+    return false;
+  }
+}
+
 function entitlementActive(info: CustomerInfo): boolean {
   return Boolean(info.entitlements.active[ENTITLEMENT_ID]);
 }
@@ -65,7 +82,7 @@ export function PremiumProvider({ children }: { children: ReactNode }) {
         Purchases.configure({ apiKey: API_KEY, appUserID: user?.id });
         const info = await Purchases.getCustomerInfo();
         if (cancelled) return;
-        const pro = entitlementActive(info) || receiptIsGrandfathered(info);
+        const pro = entitlementActive(info) || ((await receiptTrustworthy()) && receiptIsGrandfathered(info));
         setRcPro(pro);
         // Push receipt-grandfathered status to the server so push alerts flow
         // even before the webhook knows this user.
@@ -88,7 +105,7 @@ export function PremiumProvider({ children }: { children: ReactNode }) {
     if (!API_KEY || Platform.OS !== 'ios') return;
     try {
       const info = await Purchases.getCustomerInfo();
-      const pro = entitlementActive(info) || receiptIsGrandfathered(info);
+      const pro = entitlementActive(info) || ((await receiptTrustworthy()) && receiptIsGrandfathered(info));
       setRcPro(pro);
       if (pro && user) {
         await supabase.from('profiles').update({ is_premium: true }).eq('id', user.id);
