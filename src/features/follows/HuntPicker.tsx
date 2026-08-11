@@ -4,7 +4,6 @@ import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
 import { AppText } from '@/components/ui';
 import { useActiveStates, useSpecies, useStateSpecies } from '@/features/reference/queries';
 import { useFollows, useToggleFollow } from '@/features/follows/queries';
-import { useRequirePro } from '@/hooks/useRequirePro';
 import { radius, spacing, theme, withAlpha } from '@/theme';
 
 const CATEGORIES: { key: string; label: string }[] = [
@@ -26,7 +25,6 @@ export function HuntPicker() {
   const { data: species = [] } = useSpecies();
   const { data: follows = [] } = useFollows();
   const toggle = useToggleFollow();
-  const requirePro = useRequirePro();
 
   const [stateId, setStateId] = useState<string | null>(null);
   const [dropdownOpen, setDropdownOpen] = useState(false);
@@ -116,11 +114,7 @@ export function HuntPicker() {
                         <Pressable
                           key={sp.id}
                           disabled={toggle.isPending}
-                          onPress={() => {
-                            // Removing is always allowed; following is Pro.
-                            if (!existingId && !requirePro()) return;
-                            toggle.mutate({ stateId: selectedState.id, speciesId: sp.id, existingId });
-                          }}
+                          onPress={() => toggle.mutate({ stateId: selectedState.id, speciesId: sp.id, existingId })}
                           style={[
                             styles.speciesChip,
                             on

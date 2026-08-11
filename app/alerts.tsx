@@ -2,7 +2,9 @@ import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
 import { AppText, Card, Screen } from '@/components/ui';
 import { NotificationsOffBanner } from '@/components/NotificationsOffBanner';
+import { ProUpsellCard } from '@/components/ProUpsellCard';
 import { useAlertPreferences, useToggleOffset, type AlertPref } from '@/features/alerts/queries';
+import { useRequirePro } from '@/hooks/useRequirePro';
 import { useFollowedWindows } from '@/features/reference/queries';
 import { radius, spacing, theme } from '@/theme';
 
@@ -32,6 +34,7 @@ export default function Alerts() {
   const { data: prefs = [], isLoading } = useAlertPreferences();
   const { data: windows = [] } = useFollowedWindows();
   const toggle = useToggleOffset();
+  const requirePro = useRequirePro();
 
   // Which (state, species) pairs actually have a draw? Only those get a "Draw
   // results" cadence — no point offering it for over-the-counter species.
@@ -63,6 +66,7 @@ export default function Alerts() {
       </View>
 
       <NotificationsOffBanner />
+      <ProUpsellCard context="alerts" />
 
       {isLoading ? (
         <ActivityIndicator color={theme.color.accent} style={{ marginTop: spacing.xl }} />
@@ -80,7 +84,11 @@ export default function Alerts() {
             key={p.follow_id}
             pref={p}
             hasDraw={drawPairs.has(`${p.state_id}:${p.species_id}`)}
-            onToggle={(kind, offset, current) => toggle.mutate({ followId: p.follow_id, kind, offset, current })}
+            onToggle={(kind, offset, current) => {
+              // Free users can see the ladder; changing it is Pro.
+              if (!requirePro()) return;
+              toggle.mutate({ followId: p.follow_id, kind, offset, current });
+            }}
           />
         ))
       )}
