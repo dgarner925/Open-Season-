@@ -35,7 +35,10 @@
   "submit": {
     "production": {
       "ios": {
-        "ascAppId": "6791993537"
+        "ascAppId": "6791993537",
+        "ascApiKeyPath": "C:/Users/david/Documents/OpenSeason-Keys/AuthKey_NLJ8HQQH94.p8",
+        "ascApiKeyId": "NLJ8HQQH94",
+        "ascApiKeyIssuerId": "80cdb1f5-9aa5-45de-9f2e-e78021e6031d"
       },
       "android": {
         "track": "internal"
