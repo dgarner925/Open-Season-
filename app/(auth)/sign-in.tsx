@@ -4,6 +4,7 @@ import { AppText, Button, Screen } from '@/components/ui';
 import { PageTitle } from '@/components/midnight';
 import {
   isAppleSignInSupported,
+  sendPasswordReset,
   signInWithApple,
   signInWithEmail,
   signInWithGoogle,
@@ -41,6 +42,20 @@ export default function SignIn() {
       setNotice({ tone: 'error', text: e instanceof Error ? e.message : 'Something went wrong. Please try again.' });
     } finally {
       setBusy(null);
+    }
+  }
+
+  async function handleForgotPassword() {
+    setNotice(null);
+    if (!email.trim()) {
+      setNotice({ tone: 'error', text: 'Type your email above first, then tap "Forgot password?" again.' });
+      return;
+    }
+    try {
+      await sendPasswordReset(email);
+      setNotice({ tone: 'info', text: 'Reset link sent — open the email on this phone and tap the link.' });
+    } catch (e) {
+      setNotice({ tone: 'error', text: e instanceof Error ? e.message : 'Could not send the reset email. Try again.' });
     }
   }
 
@@ -108,6 +123,9 @@ export default function SignIn() {
               setMode(mode === 'sign-in' ? 'sign-up' : 'sign-in');
             }}
           />
+          {mode === 'sign-in' ? (
+            <Button variant="ghost" title="Forgot password?" onPress={handleForgotPassword} />
+          ) : null}
         </View>
 
         <View style={styles.dividerRow}>

@@ -75,3 +75,21 @@ export async function signUpWithEmail(email: string, password: string): Promise<
   // If email confirmations are on, there's no session until the user confirms.
   return { needsConfirmation: data.session === null };
 }
+
+/**
+ * Email a password-reset link that deep-links back into the app at
+ * /reset-password. PKCE stores the verifier on THIS device, so the link must
+ * be opened on the same phone that requested it (the email copy says so).
+ * Requires openseason://reset-password in Supabase Auth's redirect allow-list.
+ */
+export async function sendPasswordReset(email: string): Promise<void> {
+  const redirectTo = Linking.createURL('/reset-password');
+  const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), { redirectTo });
+  if (error) throw error;
+}
+
+/** Set a new password for the currently-authenticated (recovery) session. */
+export async function updatePassword(password: string): Promise<void> {
+  const { error } = await supabase.auth.updateUser({ password });
+  if (error) throw error;
+}
