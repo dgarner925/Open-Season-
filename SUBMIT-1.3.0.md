@@ -11,7 +11,7 @@ Preconditions (all must be true before submitting):
 
 ```sql
 update public.profiles set is_premium = false, grandfathered = false
-where id = (select id from auth.users where email = 'DEMO_ACCOUNT_EMAIL');
+where id = (select id from auth.users where email = 'dgarner925+review2@gmail.com');
 ```
 
 ## ASC steps
