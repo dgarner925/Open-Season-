@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import * as AppleAuthentication from 'expo-apple-authentication';
 import { KeyboardAvoidingView, Platform, StyleSheet, TextInput, View } from 'react-native';
 import { AppText, Button, Screen } from '@/components/ui';
 import { PageTitle } from '@/components/midnight';
@@ -138,11 +139,17 @@ export default function SignIn() {
 
         <View style={styles.providers}>
           {isAppleSignInSupported && (
-            <Button
-              variant="secondary"
-              title="Continue with Apple"
-              onPress={() => handleProvider('apple')}
-              loading={busy === 'apple'}
+            // Apple's system-drawn button — required by App Review (Guideline 4):
+            // official artwork and styling come from the OS, not our theme.
+            <AppleAuthentication.AppleAuthenticationButton
+              buttonType={AppleAuthentication.AppleAuthenticationButtonType.CONTINUE}
+              buttonStyle={AppleAuthentication.AppleAuthenticationButtonStyle.WHITE}
+              cornerRadius={radius.md}
+              style={styles.appleButton}
+              onPress={() => {
+                if (busy) return;
+                handleProvider('apple');
+              }}
             />
           )}
           <Button
@@ -174,4 +181,5 @@ const styles = StyleSheet.create({
   dividerRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, marginVertical: spacing.xl },
   line: { flex: 1, height: StyleSheet.hairlineWidth, backgroundColor: theme.color.border },
   providers: { gap: spacing.md },
+  appleButton: { height: 54, width: '100%' },
 });
