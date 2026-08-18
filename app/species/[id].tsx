@@ -4,7 +4,6 @@ import { ActivityIndicator, Alert, Pressable, ScrollView, Share, StyleSheet, Tex
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AppText, Card } from '@/components/ui';
 import { VerifiedStamp, SourceLink } from '@/components/Provenance';
-import { StatusPill } from '@/components/midnight';
 import { useFollowedSeasons } from '@/features/reference/queries';
 import { useReportDate, promptReport } from '@/features/reports/queries';
 import { useAuth } from '@/providers/AuthProvider';
@@ -164,7 +163,6 @@ export default function SpeciesDetail() {
                         </Text>
                       ) : null}
                     </View>
-                    {g.anyOpen ? <StatusPill status="open" /> : null}
                   </View>
                   <View style={{ gap: spacing.sm }}>
                     {g.rows.map((r) => (
