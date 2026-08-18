@@ -4,7 +4,7 @@ import { ActivityIndicator, Alert, Pressable, ScrollView, Share, StyleSheet, Tex
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AppText, Card } from '@/components/ui';
 import { VerifiedStamp, SourceLink } from '@/components/Provenance';
-import { SpeciesBadge, StatusPill, type SpeciesStatus } from '@/components/midnight';
+import { StatusPill } from '@/components/midnight';
 import { useFollowedSeasons } from '@/features/reference/queries';
 import { useReportDate, promptReport } from '@/features/reports/queries';
 import { useAuth } from '@/providers/AuthProvider';
@@ -71,7 +71,6 @@ export default function SpeciesDetail() {
   groups.sort((a, b) => Number(b.anyOpen) - Number(a.anyOpen) || Number(b.anyUpcoming) - Number(a.anyUpcoming) || a.name.localeCompare(b.name));
 
   const stateNames = groups.map((g) => g.name);
-  const overall: SpeciesStatus = groups.some((g) => g.anyOpen) ? 'open' : groups.some((g) => g.anyUpcoming) ? 'soon' : 'closed';
 
   const parts = name.trim().split(' ');
   const accent = parts.pop() ?? name;
@@ -143,10 +142,6 @@ export default function SpeciesDetail() {
               </View>
             </View>
 
-            <View style={styles.idRow}>
-              <SpeciesBadge name={name} size={64} />
-              <StatusPill status={overall} />
-            </View>
             <Text style={styles.title}>
               {lead ? `${lead}\n` : ''}
               <Text style={styles.titleAccent}>{accent}</Text>
@@ -253,8 +248,7 @@ const styles = StyleSheet.create({
   navActions: { flexDirection: 'row', gap: spacing.sm },
   circle: { width: 38, height: 38, borderRadius: 19, backgroundColor: theme.color.surfaceFlat, alignItems: 'center', justifyContent: 'center' },
 
-  idRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.lg, marginTop: spacing.xl },
-  title: { fontFamily: fontFamily.serif, fontSize: 50, lineHeight: 56, color: theme.color.textPrimary, marginTop: spacing.lg, paddingTop: 4 },
+  title: { fontFamily: fontFamily.serif, fontSize: 50, lineHeight: 56, color: theme.color.textPrimary, marginTop: spacing.xl, paddingTop: 4 },
   titleAccent: { fontFamily: fontFamily.serifItalic, color: theme.color.accent },
 
   group: { marginTop: spacing.xl, gap: spacing.md },
