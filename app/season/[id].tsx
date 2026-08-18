@@ -37,7 +37,7 @@ export default function SeasonDetail() {
         <View style={[styles.stripe, { backgroundColor: color }]} />
         <View style={{ flex: 1, gap: spacing.xs }}>
           <AppText variant="h1">
-            {season.species?.name} — {cap(season.method)}
+            {season.species?.name} — {season.label ?? cap(season.method)}
           </AppText>
           <AppText variant="body" color={theme.color.textSecondary}>
             {season.state?.name} · {season.zone?.name ?? 'Statewide'}

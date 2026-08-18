@@ -114,7 +114,7 @@ export default function SpeciesDetail() {
       return;
     }
     addToCalendar({
-      title: `${nextOpener.state?.code ?? ''} ${name} — ${cap(nextOpener.method)} opener`.trim(),
+      title: `${nextOpener.state?.code ?? ''} ${name} — ${nextOpener.label ?? cap(nextOpener.method)} opener`.trim(),
       date: nextOpener.open_date,
       notes: bagLimit ?? undefined,
       url: licenseUrl ?? undefined,
@@ -175,7 +175,7 @@ export default function SpeciesDetail() {
                     {g.rows.map((r) => (
                       <Card key={r.season.id} variant={r.open ? 'gradient' : 'flat'} style={styles.methodCard}>
                         <View style={{ flex: 1 }}>
-                          <AppText variant="bodyStrong">{cap(r.season.method)}</AppText>
+                          <AppText variant="bodyStrong">{r.season.label ?? cap(r.season.method)}</AppText>
                           <AppText variant="caption" color={theme.color.textMuted} style={{ marginTop: 2 }}>
                             {r.season.open_date ? formatDate(r.season.open_date) : 'TBD'}
                             {r.season.close_date ? ` – ${formatDate(r.season.close_date)}` : ''}

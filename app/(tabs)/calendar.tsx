@@ -157,7 +157,7 @@ function SeasonRow({ item, onPress }: { item: Item; onPress: () => void }) {
       <View style={{ flex: 1 }}>
         <AppText variant="bodyStrong" numberOfLines={1}>
           {s.species?.name}
-          {s.method ? ` · ${cap(s.method)}` : ''}
+          {s.label ? ` · ${s.label}` : s.method ? ` · ${cap(s.method)}` : ''}
         </AppText>
         <AppText variant="caption" color={theme.color.textMuted} numberOfLines={1}>
           {s.state?.code ? `${s.state.code} · ` : ''}
