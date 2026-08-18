@@ -10,6 +10,14 @@ import engravings from '@/assets/engravings.json';
 type EngravingData = { viewBox: string; d: string };
 const art = engravings as Record<string, EngravingData>;
 
+/** Display names that should borrow another species' plate. */
+const aliases: Record<string, string> = {
+  geese: 'goose',
+  chukar: 'partridge',
+  fisher: 'marten',
+  'dall sheep': 'bighorn',
+};
+
 /** Resolve a species display name (e.g. "Deer", "White-tailed deer") to art. */
 export function engravingFor(name: string | null | undefined): EngravingData | null {
   if (!name) return null;
@@ -17,6 +25,9 @@ export function engravingFor(name: string | null | undefined): EngravingData | n
   if (art[n]) return art[n];
   for (const key of Object.keys(art)) {
     if (n.includes(key)) return art[key];
+  }
+  for (const [alias, target] of Object.entries(aliases)) {
+    if (n.includes(alias) && art[target]) return art[target];
   }
   return null;
 }
