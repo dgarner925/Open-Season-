@@ -146,7 +146,7 @@ export default function SpeciesDetail() {
             <View style={styles.headerBlock}>
               {heroArt ? (
                 <View pointerEvents="none" style={styles.heroArt}>
-                  <Engraving data={heroArt} size={230} color={theme.color.accent} opacity={0.14} />
+                  <Engraving data={heroArt} size={lead ? 168 : 108} color={theme.color.accent} opacity={0.16} />
                 </View>
               ) : null}
               <Text style={styles.title}>
@@ -255,8 +255,8 @@ const styles = StyleSheet.create({
   navActions: { flexDirection: 'row', gap: spacing.sm },
   circle: { width: 38, height: 38, borderRadius: 19, backgroundColor: theme.color.surfaceFlat, alignItems: 'center', justifyContent: 'center' },
 
-  headerBlock: { position: 'relative', overflow: 'hidden', marginHorizontal: -spacing.xl, paddingHorizontal: spacing.xl, paddingBottom: spacing.sm },
-  heroArt: { position: 'absolute', right: -26, top: -6 },
+  headerBlock: { position: 'relative', marginHorizontal: -spacing.xl, paddingHorizontal: spacing.xl, paddingBottom: spacing.sm, overflow: 'hidden' },
+  heroArt: { position: 'absolute', right: -14, top: 10 },
   title: { fontFamily: fontFamily.serif, fontSize: 50, lineHeight: 56, color: theme.color.textPrimary, marginTop: spacing.xl, paddingTop: 4 },
   titleAccent: { fontFamily: fontFamily.serifItalic, color: theme.color.accent },
 
