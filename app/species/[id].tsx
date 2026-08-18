@@ -256,7 +256,7 @@ const styles = StyleSheet.create({
   circle: { width: 38, height: 38, borderRadius: 19, backgroundColor: theme.color.surfaceFlat, alignItems: 'center', justifyContent: 'center' },
 
   headerBlock: { position: 'relative', marginHorizontal: -spacing.xl, paddingHorizontal: spacing.xl, paddingBottom: spacing.sm, overflow: 'hidden' },
-  heroArt: { position: 'absolute', right: 16, top: 10 },
+  heroArt: { position: 'absolute', right: 84, top: 10 },
   title: { fontFamily: fontFamily.serif, fontSize: 50, lineHeight: 56, color: theme.color.textPrimary, marginTop: spacing.xl, paddingTop: 4 },
   titleAccent: { fontFamily: fontFamily.serifItalic, color: theme.color.accent },
 
