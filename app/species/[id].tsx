@@ -143,18 +143,20 @@ export default function SpeciesDetail() {
               </View>
             </View>
 
-            {heroArt ? (
-              <View pointerEvents="none" style={styles.heroArt}>
-                <Engraving data={heroArt} size={200} color={theme.color.accent} opacity={0.12} />
-              </View>
-            ) : null}
-            <Text style={styles.title}>
-              {lead ? `${lead}\n` : ''}
-              <Text style={styles.titleAccent}>{accent}</Text>
-            </Text>
-            <AppText variant="caption" color={theme.color.textMuted} style={{ marginTop: spacing.sm }}>
-              {stateNames.join(' · ') || 'Your follows'}
-            </AppText>
+            <View style={styles.headerBlock}>
+              {heroArt ? (
+                <View pointerEvents="none" style={styles.heroArt}>
+                  <Engraving data={heroArt} size={230} color={theme.color.accent} opacity={0.14} />
+                </View>
+              ) : null}
+              <Text style={styles.title}>
+                {lead ? `${lead}\n` : ''}
+                <Text style={styles.titleAccent}>{accent}</Text>
+              </Text>
+              <AppText variant="caption" color={theme.color.textMuted} style={{ marginTop: spacing.sm }}>
+                {stateNames.join(' · ') || 'Your follows'}
+              </AppText>
+            </View>
 
             {groups.length > 0 ? (
               groups.map((g) => (
@@ -253,7 +255,8 @@ const styles = StyleSheet.create({
   navActions: { flexDirection: 'row', gap: spacing.sm },
   circle: { width: 38, height: 38, borderRadius: 19, backgroundColor: theme.color.surfaceFlat, alignItems: 'center', justifyContent: 'center' },
 
-  heroArt: { position: 'absolute', right: -30, top: 34, width: 210, height: 200, overflow: 'hidden' },
+  headerBlock: { position: 'relative', overflow: 'hidden', marginHorizontal: -spacing.xl, paddingHorizontal: spacing.xl, paddingBottom: spacing.sm },
+  heroArt: { position: 'absolute', right: -26, top: -6 },
   title: { fontFamily: fontFamily.serif, fontSize: 50, lineHeight: 56, color: theme.color.textPrimary, marginTop: spacing.xl, paddingTop: 4 },
   titleAccent: { fontFamily: fontFamily.serifItalic, color: theme.color.accent },
 
