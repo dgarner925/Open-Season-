@@ -3,6 +3,7 @@ import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { ActivityIndicator, Alert, Pressable, ScrollView, Share, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AppText, Card } from '@/components/ui';
+import { Engraving, engravingFor } from '@/components/Engraving';
 import { VerifiedStamp, SourceLink } from '@/components/Provenance';
 import { useFollowedSeasons } from '@/features/reference/queries';
 import { useReportDate, promptReport } from '@/features/reports/queries';
@@ -74,6 +75,7 @@ export default function SpeciesDetail() {
   const parts = name.trim().split(' ');
   const accent = parts.pop() ?? name;
   const lead = parts.length ? parts.join(' ') : '';
+  const heroArt = engravingFor(name);
 
   // Soonest still-upcoming opener — used for the calendar add and share blurb.
   const iso = todayISO();
@@ -141,6 +143,11 @@ export default function SpeciesDetail() {
               </View>
             </View>
 
+            {heroArt ? (
+              <View pointerEvents="none" style={styles.heroArt}>
+                <Engraving data={heroArt} size={210} color={theme.color.accent} opacity={0.12} />
+              </View>
+            ) : null}
             <Text style={styles.title}>
               {lead ? `${lead}\n` : ''}
               <Text style={styles.titleAccent}>{accent}</Text>
@@ -246,6 +253,7 @@ const styles = StyleSheet.create({
   navActions: { flexDirection: 'row', gap: spacing.sm },
   circle: { width: 38, height: 38, borderRadius: 19, backgroundColor: theme.color.surfaceFlat, alignItems: 'center', justifyContent: 'center' },
 
+  heroArt: { position: 'absolute', right: -34, top: 46 },
   title: { fontFamily: fontFamily.serif, fontSize: 50, lineHeight: 56, color: theme.color.textPrimary, marginTop: spacing.xl, paddingTop: 4 },
   titleAccent: { fontFamily: fontFamily.serifItalic, color: theme.color.accent },
 

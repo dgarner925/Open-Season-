@@ -5,6 +5,7 @@
  * italic-serif copper numeral used for countdowns and stats).
  */
 import { StyleSheet, Text, View, type StyleProp, type TextStyle, type ViewStyle } from 'react-native';
+import { Engraving, engravingFor } from '@/components/Engraving';
 import { fontFamily, radius, spacing, theme, type } from '@/theme';
 
 export type SpeciesStatus = 'open' | 'soon' | 'closed';
@@ -29,7 +30,7 @@ export function PageTitle({
   );
 }
 
-/** Copper monogram badge (first letter of the species name). */
+/** Engraved species art when we have it; copper monogram fallback otherwise. */
 export function SpeciesBadge({
   name,
   size = 44,
@@ -42,6 +43,7 @@ export function SpeciesBadge({
   round?: boolean;
 }) {
   const letter = (name ?? '?').trim().charAt(0).toUpperCase() || '?';
+  const art = engravingFor(name);
   return (
     <View
       style={[
@@ -56,15 +58,19 @@ export function SpeciesBadge({
         },
       ]}
     >
-      <Text
-        style={{
-          fontFamily: fontFamily.sansBold,
-          fontSize: size * 0.4,
-          color: muted ? theme.color.textMuted : theme.color.accent,
-        }}
-      >
-        {letter}
-      </Text>
+      {art ? (
+        <Engraving data={art} size={size * 0.72} color={muted ? theme.color.textMuted : theme.color.accent} />
+      ) : (
+        <Text
+          style={{
+            fontFamily: fontFamily.sansBold,
+            fontSize: size * 0.4,
+            color: muted ? theme.color.textMuted : theme.color.accent,
+          }}
+        >
+          {letter}
+        </Text>
+      )}
     </View>
   );
 }
