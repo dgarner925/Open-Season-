@@ -13,14 +13,17 @@ import { useFonts } from 'expo-font';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { useState } from 'react';
 import { queryClient } from '@/lib/queryClient';
 import { AuthProvider } from '@/providers/AuthProvider';
+import { LaunchQuote } from '@/components/LaunchQuote';
 import { PremiumProvider } from '@/providers/PremiumProvider';
 import { HeaderBack } from '@/components/HeaderBack';
 import { NotificationRouter } from '@/lib/notificationRouting';
 import { theme } from '@/theme';
 
 export default function RootLayout() {
+  const [launchQuoteDone, setLaunchQuoteDone] = useState(false);
   const [fontsLoaded] = useFonts({
     Archivo_400Regular,
     Archivo_500Medium,
@@ -57,6 +60,7 @@ export default function RootLayout() {
             <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
             <Stack.Screen name="onboarding" options={{ headerShown: false }} />
           </Stack>
+          {!launchQuoteDone ? <LaunchQuote onDone={() => setLaunchQuoteDone(true)} /> : null}
         </SafeAreaProvider>
         </PremiumProvider>
       </AuthProvider>

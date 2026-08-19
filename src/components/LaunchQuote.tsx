@@ -1,0 +1,120 @@
+/**
+ * Cold-start quote moment: a line from the sporting canon fades in over the
+ * Midnight background, holds, then hands off to "Welcome to Open Season"
+ * before revealing the app. Tap anywhere to skip. First-ever launch always
+ * opens with Jack Elrod; after that the rotation is a curated subset of the
+ * species quotes.
+ */
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useEffect, useRef, useState } from 'react';
+import { Animated, Pressable, StyleSheet, Text, View } from 'react-native';
+import quotes from '@/assets/quotes.json';
+import { fontFamily, spacing, theme } from '@/theme';
+
+const FIRST_LAUNCH_KEY = 'launch-quote-shown';
+const ROTATION = ['bobcat', 'elk', 'goose', 'bear', 'deer', 'duck', 'moose', 'coyote', 'alligator', 'ruffed-grouse'];
+
+const QUOTE_FADE_IN = 900;
+const QUOTE_HOLD = 4000;
+const QUOTE_FADE_OUT = 700;
+const WELCOME_FADE_IN = 900;
+const WELCOME_HOLD = 1400;
+const WELCOME_FADE_OUT = 500;
+
+type Q = { text: string; attr: string };
+const all = quotes as Record<string, Q>;
+
+export function LaunchQuote({ onDone }: { onDone: () => void }) {
+  const [q, setQ] = useState<Q | null>(null);
+  const quoteOpacity = useRef(new Animated.Value(0)).current;
+  const welcomeOpacity = useRef(new Animated.Value(0)).current;
+  const finished = useRef(false);
+
+  function finish() {
+    if (finished.current) return;
+    finished.current = true;
+    onDone();
+  }
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      let key = ROTATION[Math.floor(Math.random() * ROTATION.length)];
+      try {
+        const seen = await AsyncStorage.getItem(FIRST_LAUNCH_KEY);
+        if (!seen) {
+          key = 'bobcat';
+          AsyncStorage.setItem(FIRST_LAUNCH_KEY, '1').catch(() => {});
+        }
+      } catch {}
+      if (cancelled) return;
+      setQ(all[key] ?? all.elk);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!q) return;
+    const seq = Animated.sequence([
+      Animated.timing(quoteOpacity, { toValue: 1, duration: QUOTE_FADE_IN, useNativeDriver: true }),
+      Animated.delay(QUOTE_HOLD),
+      Animated.timing(quoteOpacity, { toValue: 0, duration: QUOTE_FADE_OUT, useNativeDriver: true }),
+      Animated.timing(welcomeOpacity, { toValue: 1, duration: WELCOME_FADE_IN, useNativeDriver: true }),
+      Animated.delay(WELCOME_HOLD),
+      Animated.timing(welcomeOpacity, { toValue: 0, duration: WELCOME_FADE_OUT, useNativeDriver: true }),
+    ]);
+    seq.start(({ finished: ok }) => {
+      if (ok) finish();
+    });
+    return () => seq.stop();
+  }, [q]);
+
+  return (
+    <Pressable style={styles.fill} onPress={finish}>
+      {q ? (
+        <Animated.View style={[styles.center, { opacity: quoteOpacity }]}>
+          <Text style={styles.quote}>{`“${q.text}”`}</Text>
+          <Text style={styles.attr}>{q.attr.toUpperCase()}</Text>
+        </Animated.View>
+      ) : null}
+      <Animated.View style={[styles.center, { opacity: welcomeOpacity }]} pointerEvents="none">
+        <Text style={styles.welcomeEyebrow}>WELCOME TO</Text>
+        <View style={{ height: spacing.md }} />
+        <Text style={styles.welcomeTitle}>
+          Open <Text style={styles.welcomeAccent}>Season</Text>
+        </Text>
+      </Animated.View>
+    </Pressable>
+  );
+}
+
+const styles = StyleSheet.create({
+  fill: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: theme.color.background,
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 100,
+  },
+  center: { ...StyleSheet.absoluteFillObject, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 40 },
+  quote: {
+    fontFamily: fontFamily.serifItalic,
+    fontSize: 21,
+    lineHeight: 33,
+    color: '#cfc4b4',
+    textAlign: 'center',
+  },
+  attr: {
+    fontFamily: fontFamily.sansSemiBold,
+    fontSize: 10,
+    letterSpacing: 2,
+    color: '#a68a6d',
+    marginTop: spacing.lg,
+    textAlign: 'center',
+  },
+  welcomeEyebrow: { fontFamily: fontFamily.serif, fontSize: 15, letterSpacing: 3, color: theme.color.textMuted },
+  welcomeTitle: { fontFamily: fontFamily.serif, fontSize: 40, color: theme.color.textPrimary },
+  welcomeAccent: { fontFamily: fontFamily.serifItalic, color: theme.color.accent },
+});
