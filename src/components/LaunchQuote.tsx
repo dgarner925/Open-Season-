@@ -114,14 +114,14 @@ const styles = StyleSheet.create({
   },
   quote: {
     fontFamily: fontFamily.serifItalic,
-    fontSize: 21,
-    lineHeight: 33,
+    fontSize: 24,
+    lineHeight: 37,
     color: '#cfc4b4',
     textAlign: 'center',
   },
   attr: {
     fontFamily: fontFamily.sansSemiBold,
-    fontSize: 10,
+    fontSize: 11,
     letterSpacing: 2,
     color: '#a68a6d',
     marginTop: spacing.lg,
