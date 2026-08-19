@@ -128,6 +128,7 @@ const styles = StyleSheet.create({
     lineHeight: 37,
     color: '#cfc4b4',
     textAlign: 'center',
+    paddingHorizontal: 10,
   },
   attrName: {
     fontFamily: fontFamily.sansSemiBold,

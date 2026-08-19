@@ -268,7 +268,7 @@ const styles = StyleSheet.create({
     borderTopColor: 'rgba(217, 169, 126, 0.4)',
     alignItems: 'flex-end',
   },
-  quoteText: { fontFamily: fontFamily.serifItalic, fontSize: 14.5, lineHeight: 22, color: '#b8ac9a', textAlign: 'right' },
+  quoteText: { fontFamily: fontFamily.serifItalic, fontSize: 14.5, lineHeight: 22, color: '#b8ac9a', textAlign: 'right', paddingLeft: 6 },
   quoteAttrName: { fontFamily: fontFamily.sansSemiBold, fontSize: 10.5, letterSpacing: 1.8, color: '#d9a97e', marginTop: 8, textAlign: 'right' },
   quoteAttrTitle: { fontFamily: fontFamily.sansSemiBold, fontSize: 9, letterSpacing: 1.4, color: '#8d8377', marginTop: 4, textAlign: 'right' },
   title: { fontFamily: fontFamily.serif, fontSize: 50, lineHeight: 56, color: theme.color.textPrimary, marginTop: spacing.xl, paddingTop: 4 },
