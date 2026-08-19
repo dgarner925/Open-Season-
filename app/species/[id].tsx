@@ -150,9 +150,6 @@ export default function SpeciesDetail() {
                   {lead ? `${lead}\n` : ''}
                   <Text style={styles.titleAccent}>{accent}</Text>
                 </Text>
-                <AppText variant="caption" color={theme.color.textMuted} style={{ marginTop: spacing.sm }}>
-                  {stateNames.join(' · ') || 'Your follows'}
-                </AppText>
               </View>
               {quote ? (
                 <View style={styles.quoteCol}>
