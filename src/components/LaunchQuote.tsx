@@ -24,6 +24,15 @@ const WELCOME_FADE_OUT = 500;
 type Q = { text: string; attr: string };
 const all = quotes as Record<string, Q>;
 
+/** "Jack Elrod, Outdoor Artist & Conservationist" → name + descriptor. */
+export function attrName(attr: string): string {
+  return attr.split(',')[0].trim().toUpperCase();
+}
+export function attrTitle(attr: string): string {
+  const i = attr.indexOf(',');
+  return i === -1 ? '' : attr.slice(i + 1).trim().toUpperCase();
+}
+
 export function LaunchQuote({ onDone }: { onDone: () => void }) {
   const [q, setQ] = useState<Q | null>(null);
   const quoteOpacity = useRef(new Animated.Value(0)).current;
@@ -76,7 +85,8 @@ export function LaunchQuote({ onDone }: { onDone: () => void }) {
       {q ? (
         <Animated.View style={[styles.center, { opacity: quoteOpacity }]}>
           <Text style={styles.quote}>{`“${q.text}”`}</Text>
-          <Text style={styles.attr}>{q.attr.toUpperCase()}</Text>
+          <Text style={styles.attrName}>{attrName(q.attr)}</Text>
+          {attrTitle(q.attr) ? <Text style={styles.attrTitle}>{attrTitle(q.attr)}</Text> : null}
         </Animated.View>
       ) : null}
       <Animated.View style={[styles.center, { opacity: welcomeOpacity }]} pointerEvents="none">
@@ -119,12 +129,20 @@ const styles = StyleSheet.create({
     color: '#cfc4b4',
     textAlign: 'center',
   },
-  attr: {
+  attrName: {
     fontFamily: fontFamily.sansSemiBold,
-    fontSize: 11,
-    letterSpacing: 2,
-    color: '#a68a6d',
+    fontSize: 12,
+    letterSpacing: 2.2,
+    color: '#d9a97e',
     marginTop: spacing.lg,
+    textAlign: 'center',
+  },
+  attrTitle: {
+    fontFamily: fontFamily.sansSemiBold,
+    fontSize: 9.5,
+    letterSpacing: 1.8,
+    color: '#8d8377',
+    marginTop: 6,
     textAlign: 'center',
   },
   welcomeEyebrow: { fontFamily: fontFamily.serif, fontSize: 15, letterSpacing: 3, color: theme.color.textMuted },

@@ -4,6 +4,7 @@ import { ActivityIndicator, Alert, Pressable, ScrollView, Share, StyleSheet, Tex
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AppText, Card } from '@/components/ui';
 import quotes from '@/assets/quotes.json';
+import { attrName, attrTitle } from '@/components/LaunchQuote';
 import { VerifiedStamp, SourceLink } from '@/components/Provenance';
 import { useFollowedSeasons } from '@/features/reference/queries';
 import { useReportDate, promptReport } from '@/features/reports/queries';
@@ -154,7 +155,8 @@ export default function SpeciesDetail() {
               {quote ? (
                 <View style={styles.quoteCol}>
                   <Text style={styles.quoteText}>{`“${quote.text}”`}</Text>
-                  <Text style={styles.quoteAttr}>{quote.attr.toUpperCase()}</Text>
+                  <Text style={styles.quoteAttrName}>{attrName(quote.attr)}</Text>
+                  {attrTitle(quote.attr) ? <Text style={styles.quoteAttrTitle}>{attrTitle(quote.attr)}</Text> : null}
                 </View>
               ) : null}
             </View>
@@ -267,7 +269,8 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end',
   },
   quoteText: { fontFamily: fontFamily.serifItalic, fontSize: 14.5, lineHeight: 22, color: '#b8ac9a', textAlign: 'right' },
-  quoteAttr: { fontFamily: fontFamily.sansSemiBold, fontSize: 10, letterSpacing: 1.6, color: '#a68a6d', marginTop: 8, textAlign: 'right' },
+  quoteAttrName: { fontFamily: fontFamily.sansSemiBold, fontSize: 10.5, letterSpacing: 1.8, color: '#d9a97e', marginTop: 8, textAlign: 'right' },
+  quoteAttrTitle: { fontFamily: fontFamily.sansSemiBold, fontSize: 9, letterSpacing: 1.4, color: '#8d8377', marginTop: 4, textAlign: 'right' },
   title: { fontFamily: fontFamily.serif, fontSize: 50, lineHeight: 56, color: theme.color.textPrimary, marginTop: spacing.xl, paddingTop: 4 },
   titleAccent: { fontFamily: fontFamily.serifItalic, color: theme.color.accent },
 
