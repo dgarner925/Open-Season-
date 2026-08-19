@@ -92,13 +92,26 @@ export function LaunchQuote({ onDone }: { onDone: () => void }) {
 
 const styles = StyleSheet.create({
   fill: {
-    ...StyleSheet.absoluteFillObject,
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
     backgroundColor: theme.color.background,
     alignItems: 'center',
     justifyContent: 'center',
     zIndex: 100,
   },
-  center: { ...StyleSheet.absoluteFillObject, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 40 },
+  center: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 40,
+  },
   quote: {
     fontFamily: fontFamily.serifItalic,
     fontSize: 21,
