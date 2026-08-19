@@ -1,1 +1,190 @@
-{}
+{
+ "turkey": {
+  "text": "When a female utters a call-note, all the gobblers within hearing return the sound, rolling note after note.",
+  "attr": "Audubon, 1831"
+ },
+ "duck": {
+  "text": "Look at that Mallard as he floats on the lake; see his elevated head glittering with emerald-green.",
+  "attr": "Audubon, 1835"
+ },
+ "goose": {
+  "text": "Night after night the geese came lumbering in in the dark with a clangor and a whistling of wings.",
+  "attr": "Thoreau, 1854"
+ },
+ "dove": {
+  "text": "She forces us to forget the chilling blasts of winter, by the soft and melancholy sound of her cooing.",
+  "attr": "Audubon, 1831"
+ },
+ "pheasant": {
+  "text": "Stately pheasants, with their glossy feathers shining in the autumn sun.",
+  "attr": "Richard Jefferies, 1878"
+ },
+ "ruffed-grouse": {
+  "text": "His drum is one of the most welcome and beautiful sounds of spring.",
+  "attr": "John Burroughs, 1871"
+ },
+ "bobwhite": {
+  "text": "Shoot maybe. No shoot, no maybe.",
+  "attr": "Jeff Butler"
+ },
+ "western-quail": {
+  "text": "The grouse and mountain quail, with their broods of precious fluffy chickens.",
+  "attr": "John Muir, 1894"
+ },
+ "woodcock": {
+  "text": "He hovers around in a wild, irregular manner, making a sort of murmuring sound; then descends with rapidity as he rose.",
+  "attr": "Alexander Wilson, 1812"
+ },
+ "snipe": {
+  "text": "They are perhaps the most difficult to shoot of all our birds, as they fly in sudden zigzag lines, and very rapidly.",
+  "attr": "Alexander Wilson, 1812"
+ },
+ "gray-partridge": {
+  "text": "A partridge will tumble along before a sportsman in order to draw away the dogs from her helpless covey.",
+  "attr": "Gilbert White, 1789"
+ },
+ "ptarmigan": {
+  "text": "Among the barren rocks are Ptarmigan in garments that are painted in the patterns of their rocks.",
+  "attr": "Seton, 1911"
+ },
+ "prairie-chicken": {
+  "text": "Before sunrise, or at the close of day, I heard its curious boomings, witnessed its obstinate battles.",
+  "attr": "Audubon, 1834"
+ },
+ "crow": {
+  "text": "The Crow is an extremely shy bird, having found familiarity with man no way to his advantage.",
+  "attr": "Audubon, 1834"
+ },
+ "band-tailed-pigeon": {
+  "text": "The air was literally filled with Pigeons; the light of noon-day was obscured as by an eclipse.",
+  "attr": "Audubon, 1831"
+ },
+ "tundra-swan": {
+  "text": "Congregating in great flocks, its snowy plumage and musical call notes are pleasing features of this wide water.",
+  "attr": "Grinnell, 1901"
+ },
+ "sandhill-crane": {
+  "text": "The air was filled with the loud and shrill hooping of the wary sharp-sighted crane.",
+  "attr": "Bartram, 1791"
+ },
+ "alligator": {
+  "text": "Clouds of smoke issue from his dilated nostrils. The earth trembles with his thunder.",
+  "attr": "Bartram, 1791"
+ },
+ "sage-grouse": {
+  "text": "The guttural booming and clucking of the prairie fowl and the great sage fowl in spring.",
+  "attr": "Roosevelt, 1893"
+ },
+ "sharptail-grouse": {
+  "text": "Prairie fowl swept off, clucking and calling, or strutted about with their sharp tails erect.",
+  "attr": "Roosevelt, 1893"
+ },
+ "spruce-grouse": {
+  "text": "The mountain men call this bird the fool-hen; and most certainly it deserves the name.",
+  "attr": "Roosevelt, 1893"
+ },
+ "deer": {
+  "text": "The white-tail is the most beautiful of all deer when in motion, because of the springy, bounding grace of its trot and canter.",
+  "attr": "Roosevelt, 1904"
+ },
+ "elk": {
+  "text": "The call of the wapiti is one of the grandest and most beautiful sounds in nature.",
+  "attr": "Roosevelt, 1893"
+ },
+ "moose": {
+  "text": "The moose is the giant of all deer; and many hunters esteem it the noblest of American game.",
+  "attr": "Roosevelt, 1893"
+ },
+ "bear": {
+  "text": "Bears are a peaceable people, and mind their own business, instead of going about like the devil seeking whom they may devour.",
+  "attr": "John Muir, 1901"
+ },
+ "pronghorn": {
+  "text": "It appeared reather the rappid flight of birds than the motion of quadrupeds.",
+  "attr": "Meriwether Lewis, 1804"
+ },
+ "bighorn-sheep": {
+  "text": "The wild sheep ranks highest among the animal mountaineers of the Sierra.",
+  "attr": "John Muir, 1894"
+ },
+ "dall-sheep": {
+  "text": "My success with the white sheep had come only with the hardest kind of work.",
+  "attr": "James H. Kidder, 1904"
+ },
+ "mountain-goat": {
+  "text": "Verily the white goat is the fool-hen among beasts of the chase.",
+  "attr": "Roosevelt, 1893"
+ },
+ "mountain-lion": {
+  "text": "The cougar is a very singular beast, shy and elusive to an extraordinary degree.",
+  "attr": "Roosevelt, 1905"
+ },
+ "bison": {
+  "text": "No other species has ever marshaled such innumerable hosts as those of the American bison.",
+  "attr": "Hornaday, 1889"
+ },
+ "muskox": {
+  "text": "He looked like a South African Buffalo and a Prairie Bison combined, and seemed to get bigger at every moment.",
+  "attr": "Seton, 1911"
+ },
+ "caribou": {
+  "text": "The Caribou is a travelsome beast, always in a hurry, going against the wind.",
+  "attr": "Seton, 1911"
+ },
+ "javelina": {
+  "text": "An enraged Peccary, athirst for blood, is a formidable antagonist.",
+  "attr": "Hornaday, 1904"
+ },
+ "wild-hog": {
+  "text": "One of the big half-wild boars that ranged free through the woods had no fear of any number of wolves.",
+  "attr": "Roosevelt, 1905"
+ },
+ "wolf": {
+  "text": "Old Lobo was a giant among wolves, and was cunning and strong in proportion to his size.",
+  "attr": "Seton, 1898"
+ },
+ "coyote": {
+  "text": "The cayote is a living, breathing allegory of Want. He is always hungry.",
+  "attr": "Mark Twain, 1872"
+ },
+ "fox": {
+  "text": "The wild, buoyant creature, how beautiful he is!",
+  "attr": "John Burroughs, 1900"
+ },
+ "bobcat": {
+  "text": "Wildlife should be just that, wild.",
+  "attr": "Jack Elrod"
+ },
+ "raccoon": {
+  "text": "In March that brief summary of a bear, the raccoon, comes out of his den in the ledges.",
+  "attr": "John Burroughs, 1900"
+ },
+ "wolverine": {
+  "text": "It is safer to molest a mother Bear than a mother Wolverine when accompanied by the cubs.",
+  "attr": "Seton, 1911"
+ },
+ "marten": {
+  "text": "The Marten is not a poultry-killer, nor a wanton murderer … he lives by honest hunting of wild game.",
+  "attr": "Hornaday, 1904"
+ },
+ "fisher": {
+  "text": "The fisher, that big sable — almost a wolverine — which preys on everything, from a coon to a fawn.",
+  "attr": "Roosevelt, 1893"
+ },
+ "squirrel": {
+  "text": "He is the mocking-bird of squirrels, pouring forth mixed chatter and song like a perennial fountain.",
+  "attr": "John Muir, 1894"
+ },
+ "rabbit": {
+  "text": "The Cottontails had enemies on every side. Their daily life was a series of escapes.",
+  "attr": "Seton, 1898"
+ },
+ "snowshoe-hare": {
+  "text": "Away it scud with an elastic spring over the snow crust, straightening its body and its limbs into graceful length.",
+  "attr": "Thoreau, 1854"
+ },
+ "ringtail": {
+  "text": "A strange little creature like a small pine marten with a long, bushy tail.",
+  "attr": "Hornaday, 1904"
+ }
+}
