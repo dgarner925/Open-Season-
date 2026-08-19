@@ -3,7 +3,7 @@ import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { ActivityIndicator, Alert, Pressable, ScrollView, Share, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AppText, Card } from '@/components/ui';
-import { Engraving, engravingFor } from '@/components/Engraving';
+import quotes from '@/assets/quotes.json';
 import { VerifiedStamp, SourceLink } from '@/components/Provenance';
 import { useFollowedSeasons } from '@/features/reference/queries';
 import { useReportDate, promptReport } from '@/features/reports/queries';
@@ -75,7 +75,8 @@ export default function SpeciesDetail() {
   const parts = name.trim().split(' ');
   const accent = parts.pop() ?? name;
   const lead = parts.length ? parts.join(' ') : '';
-  const heroArt = engravingFor(name);
+  const speciesKey = seasons[0]?.species?.key ?? '';
+  const quote = (quotes as Record<string, { text: string; attr: string }>)[speciesKey] ?? null;
 
   // Soonest still-upcoming opener — used for the calendar add and share blurb.
   const iso = todayISO();
@@ -143,19 +144,22 @@ export default function SpeciesDetail() {
               </View>
             </View>
 
-            <View style={styles.headerBlock}>
-              {heroArt ? (
-                <View pointerEvents="none" style={styles.heroArt}>
-                  <Engraving data={heroArt} size={lead ? 168 : 108} color={theme.color.accent} opacity={0.16} />
+            <View style={styles.headerRow}>
+              <View style={{ flexShrink: 1 }}>
+                <Text style={styles.title}>
+                  {lead ? `${lead}\n` : ''}
+                  <Text style={styles.titleAccent}>{accent}</Text>
+                </Text>
+                <AppText variant="caption" color={theme.color.textMuted} style={{ marginTop: spacing.sm }}>
+                  {stateNames.join(' · ') || 'Your follows'}
+                </AppText>
+              </View>
+              {quote ? (
+                <View style={styles.quoteCol}>
+                  <Text style={styles.quoteText}>{`“${quote.text}”`}</Text>
+                  <Text style={styles.quoteAttr}>{quote.attr.toUpperCase()}</Text>
                 </View>
               ) : null}
-              <Text style={styles.title}>
-                {lead ? `${lead}\n` : ''}
-                <Text style={styles.titleAccent}>{accent}</Text>
-              </Text>
-              <AppText variant="caption" color={theme.color.textMuted} style={{ marginTop: spacing.sm }}>
-                {stateNames.join(' · ') || 'Your follows'}
-              </AppText>
             </View>
 
             {groups.length > 0 ? (
@@ -255,8 +259,18 @@ const styles = StyleSheet.create({
   navActions: { flexDirection: 'row', gap: spacing.sm },
   circle: { width: 38, height: 38, borderRadius: 19, backgroundColor: theme.color.surfaceFlat, alignItems: 'center', justifyContent: 'center' },
 
-  headerBlock: { position: 'relative', marginHorizontal: -spacing.xl, paddingHorizontal: spacing.xl, paddingBottom: spacing.sm, overflow: 'hidden' },
-  heroArt: { position: 'absolute', right: 84, top: 10 },
+  headerRow: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.lg, paddingBottom: spacing.sm },
+  quoteCol: {
+    flex: 1,
+    minWidth: 116,
+    marginTop: 40,
+    paddingTop: 12,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: 'rgba(217, 169, 126, 0.4)',
+    alignItems: 'flex-end',
+  },
+  quoteText: { fontFamily: fontFamily.serifItalic, fontSize: 13, lineHeight: 20, color: '#b8ac9a', textAlign: 'right' },
+  quoteAttr: { fontFamily: fontFamily.sansSemiBold, fontSize: 9, letterSpacing: 1.6, color: '#a68a6d', marginTop: 8, textAlign: 'right' },
   title: { fontFamily: fontFamily.serif, fontSize: 50, lineHeight: 56, color: theme.color.textPrimary, marginTop: spacing.xl, paddingTop: 4 },
   titleAccent: { fontFamily: fontFamily.serifItalic, color: theme.color.accent },
 
