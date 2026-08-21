@@ -134,8 +134,10 @@ export default function Home() {
           )}
         </View>
 
-        <NotificationsOffBanner />
-        <ProUpsellCard />
+        <View style={{ marginTop: spacing.xl }}>
+          <NotificationsOffBanner />
+          <ProUpsellCard />
+        </View>
 
         <View style={styles.stats}>
           <StatTile value={openCount} label="Open now" onPress={() => router.push('/calendar')} />
