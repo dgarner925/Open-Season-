@@ -14,7 +14,7 @@ const STEPS = [
   },
   {
     title: 'Get reminded',
-    body: 'In Settings → Alerts, choose how far ahead you want a heads-up — from a year out down to the day of. We push a notification when it lands.',
+    body: 'In Profile → Alerts, choose how far ahead you want a heads-up — from a year out down to the day of. We push a notification when it lands.',
   },
   {
     title: 'Track your applications',

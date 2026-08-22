@@ -54,7 +54,7 @@ export default function Party() {
     await Share.share({
       message:
         `Join my hunting party for the ${label} draw on Open Season. ` +
-        `Open the app → Settings → Join a hunting party → code ${party!.invite_code}. ` +
+        `Open the app → Profile → Join a hunting party → code ${party!.invite_code}. ` +
         `Don't have the app? ${STORE_URL}`,
     }).catch(() => {});
   }
@@ -148,7 +148,7 @@ export default function Party() {
         </AppText>
         <Text style={styles.code}>{party.invite_code}</Text>
         <AppText variant="caption" color={theme.color.textMuted}>
-          Friends join in the app: Settings → Join a hunting party.
+          Friends join in the app: Profile → Join a hunting party.
         </AppText>
       </Card>
 

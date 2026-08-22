@@ -45,7 +45,7 @@ export default function TabsLayout() {
       <Tabs.Screen name="calendar" options={{ title: 'Seasons', tabBarIcon: icon('calendar') }} />
       <Tabs.Screen name="applications" options={{ title: 'Tags', tabBarIcon: icon('pricetag') }} />
       <Tabs.Screen name="regs" options={{ title: 'Regs', tabBarIcon: icon('document-text') }} />
-      <Tabs.Screen name="settings" options={{ title: 'Settings', tabBarIcon: icon('settings') }} />
+      <Tabs.Screen name="settings" options={{ title: 'Profile', tabBarIcon: icon('person') }} />
       {/* Admin — hidden from the bar, reached from Settings */}
       <Tabs.Screen name="admin" options={{ href: null }} />
     </Tabs>
