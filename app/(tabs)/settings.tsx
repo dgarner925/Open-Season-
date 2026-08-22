@@ -121,11 +121,11 @@ export default function Settings() {
         </View>
         <View style={{ flex: 1 }}>
           <Text style={styles.identityName}>{displayName || 'Add your name'}</Text>
-          <AppText variant="caption" color={theme.color.textMuted} style={{ marginTop: 2 }}>
-            {user?.email ?? 'Signed in'}
-            {residentStateName ? ` · ${residentStateName}` : ''}
-            {isAdmin ? ' · Admin' : ''}
-          </AppText>
+          {residentStateName || isAdmin ? (
+            <AppText variant="caption" color={theme.color.textMuted} style={{ marginTop: 2 }}>
+              {[residentStateName, isAdmin ? 'Admin' : null].filter(Boolean).join(' · ')}
+            </AppText>
+          ) : null}
           {fieldSince ? <Text style={styles.fieldSince}>IN THE FIELD SINCE {fieldSince}</Text> : null}
         </View>
         <Pressable onPress={() => setEditingName((v) => !v)} hitSlop={10} style={({ pressed }) => pressed && { opacity: 0.6 }}>
@@ -137,6 +137,7 @@ export default function Settings() {
         <Card>
           <AppText variant="caption" color={theme.color.textMuted}>
             Used to greet you on the home screen.
+            {user?.email ? ` Signed in as ${user.email}.` : ''}
           </AppText>
           <TextInput
             value={name}
