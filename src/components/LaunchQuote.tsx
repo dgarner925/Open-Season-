@@ -12,7 +12,16 @@ import quotes from '@/assets/quotes.json';
 import { fontFamily, spacing, theme } from '@/theme';
 
 const FIRST_LAUNCH_KEY = 'launch-quote-shown';
-const ROTATION = ['bobcat', 'elk', 'goose', 'bear', 'deer', 'duck', 'moose', 'coyote', 'alligator', 'ruffed-grouse'];
+const LAST_SHOWN_KEY = 'launch-quote-last';
+// Every line that stands on its own out of species context. Excluded on purpose:
+// the clause-fragments (marten, fisher, muskox, sage/sharptail) that need their page.
+const ROTATION = [
+  'bobcat', 'elk', 'goose', 'bear', 'deer', 'duck', 'moose', 'coyote', 'alligator',
+  'ruffed-grouse', 'pheasant', 'fox', 'wolf', 'turkey', 'dove', 'bison', 'pronghorn',
+  'bighorn-sheep', 'caribou', 'squirrel', 'rabbit', 'snowshoe-hare', 'woodcock',
+  'snipe', 'prairie-chicken', 'ptarmigan', 'wolverine', 'sandhill-crane',
+  'mountain-lion', 'crow', 'tundra-swan', 'spruce-grouse', 'bobwhite',
+];
 
 const QUOTE_FADE_IN = 900;
 const QUOTE_HOLD = 4000;
@@ -50,11 +59,18 @@ export function LaunchQuote({ onDone }: { onDone: () => void }) {
     (async () => {
       let key = ROTATION[Math.floor(Math.random() * ROTATION.length)];
       try {
-        const seen = await AsyncStorage.getItem(FIRST_LAUNCH_KEY);
+        const [seen, last] = await Promise.all([
+          AsyncStorage.getItem(FIRST_LAUNCH_KEY),
+          AsyncStorage.getItem(LAST_SHOWN_KEY),
+        ]);
         if (!seen) {
           key = 'bobcat';
           AsyncStorage.setItem(FIRST_LAUNCH_KEY, '1').catch(() => {});
+        } else if (last && ROTATION.length > 1) {
+          const fresh = ROTATION.filter((k) => k !== last);
+          key = fresh[Math.floor(Math.random() * fresh.length)];
         }
+        AsyncStorage.setItem(LAST_SHOWN_KEY, key).catch(() => {});
       } catch {}
       if (cancelled) return;
       setQ(all[key] ?? all.elk);
