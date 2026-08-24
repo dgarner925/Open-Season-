@@ -97,6 +97,20 @@ export function StatusPill({ status, style }: { status: SpeciesStatus; style?: S
 }
 
 /**
+ * Section header set like a rule in a field ledger: hairline — label — hairline.
+ * The Midnight way to break a page into chapters (Profile, Follows).
+ */
+export function SectionRule({ label }: { label: string }) {
+  return (
+    <View style={styles.sectionRule}>
+      <View style={styles.ruleLine} />
+      <Text style={[type.overline, { color: theme.color.textMuted }]}>{label.toUpperCase()}</Text>
+      <View style={styles.ruleLine} />
+    </View>
+  );
+}
+
+/**
  * The editorial metric — an italic-serif copper numeral with a small unit
  * ("12" + "d"). Used for countdowns in lists and the stat cards.
  */
@@ -126,6 +140,8 @@ export function Metric({
 }
 
 const styles = StyleSheet.create({
+  sectionRule: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, marginTop: spacing.xl },
+  ruleLine: { flex: 1, height: StyleSheet.hairlineWidth, backgroundColor: theme.color.border },
   badgeBase: { alignItems: 'center', justifyContent: 'center' },
   statusPill: {
     alignSelf: 'flex-start',

@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'expo-router';
 import { Alert, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { AppText, Button, Card, Screen } from '@/components/ui';
-import { PageTitle } from '@/components/midnight';
+import { PageTitle, SectionRule } from '@/components/midnight';
 import { useAuth } from '@/providers/AuthProvider';
 import { useActiveStates } from '@/features/reference/queries';
 import { supabase } from '@/lib/supabase';
@@ -16,19 +16,6 @@ const colophonArt = engravingFor('deer');
 
 const PRIVACY_POLICY_URL = 'https://dgarner925.github.io/OpenSeason-Legal/';
 const TERMS_URL = 'https://dgarner925.github.io/OpenSeason-Legal/terms.html';
-
-/** Section header set like a rule in a field ledger: hairline — label — hairline. */
-function SectionRule({ label }: { label: string }) {
-  return (
-    <View style={styles.sectionRule}>
-      <View style={styles.ruleLine} />
-      <AppText variant="overline" color={theme.color.textMuted}>
-        {label}
-      </AppText>
-      <View style={styles.ruleLine} />
-    </View>
-  );
-}
 
 /** One row inside a grouped section card: title, optional caption, chevron. */
 function Row({
@@ -243,8 +230,6 @@ const styles = StyleSheet.create({
     marginTop: 6,
   },
 
-  sectionRule: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, marginTop: spacing.xl },
-  ruleLine: { flex: 1, height: StyleSheet.hairlineWidth, backgroundColor: theme.color.border },
   colophon: { alignItems: 'center', gap: spacing.sm, marginTop: spacing.lg },
   group: { paddingVertical: 0, paddingHorizontal: 0 },
   row: {

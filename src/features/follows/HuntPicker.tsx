@@ -2,9 +2,10 @@ import { Ionicons } from '@expo/vector-icons';
 import { useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
 import { AppText } from '@/components/ui';
+import { SectionRule, SpeciesBadge } from '@/components/midnight';
 import { useActiveStates, useSpecies, useStateSpecies } from '@/features/reference/queries';
 import { useFollows, useToggleFollow } from '@/features/follows/queries';
-import { radius, spacing, theme, withAlpha } from '@/theme';
+import { radius, spacing, theme } from '@/theme';
 
 const CATEGORIES: { key: string; label: string }[] = [
   { key: 'big_game', label: 'BIG GAME' },
@@ -39,22 +40,38 @@ export function HuntPicker() {
 
   return (
     <View style={{ gap: spacing.md }}>
-      {/* Current hunts */}
+      {/* Current hunts, set as a field ledger grouped by state. */}
       {follows.length > 0 ? (
-        <View style={styles.chipWrap}>
-          {follows.map((f) => (
-            <Pressable
-              key={f.id}
-              onPress={() => toggle.mutate({ stateId: f.state_id, speciesId: f.species_id, existingId: f.id })}
-              style={styles.followChip}
-            >
-              <AppText variant="caption" color={theme.color.accentSoft}>
-                {codeOf(f.state_id)} · {nameOf(f.species_id, species)}
-              </AppText>
-              <Ionicons name="close" size={13} color={theme.color.accentSoft} />
-            </Pressable>
-          ))}
-        </View>
+        [...new Set(follows.map((f) => f.state_id))]
+          .sort((a, b) => nameOf(a, states).localeCompare(nameOf(b, states)))
+          .map((sid) => {
+            const rows = follows
+              .filter((f) => f.state_id === sid)
+              .sort((a, b) => nameOf(a.species_id, species).localeCompare(nameOf(b.species_id, species)));
+            return (
+              <View key={sid}>
+                <SectionRule label={nameOf(sid, states) || codeOf(sid)} />
+                <View style={styles.ledger}>
+                  {rows.map((f, i) => (
+                    <View key={f.id} style={[styles.ledgerRow, i > 0 && styles.menuDivider]}>
+                      <SpeciesBadge name={nameOf(f.species_id, species)} size={34} muted />
+                      <AppText variant="bodyStrong" style={{ flex: 1 }}>
+                        {nameOf(f.species_id, species)}
+                      </AppText>
+                      <Pressable
+                        hitSlop={10}
+                        disabled={toggle.isPending}
+                        onPress={() => toggle.mutate({ stateId: f.state_id, speciesId: f.species_id, existingId: f.id })}
+                        style={({ pressed }) => pressed && { opacity: 0.5 }}
+                      >
+                        <Ionicons name="close" size={15} color={theme.color.textMuted} />
+                      </Pressable>
+                    </View>
+                  ))}
+                </View>
+              </View>
+            );
+          })
       ) : (
         <AppText variant="caption" color={theme.color.textMuted}>
           No hunts yet — add your first below.
@@ -62,6 +79,7 @@ export function HuntPicker() {
       )}
 
       {/* One dropdown for all states */}
+      <SectionRule label="ADD A HUNT" />
       <Pressable style={styles.dropdown} onPress={() => setDropdownOpen((o) => !o)}>
         <AppText variant="bodyStrong" color={selectedState ? theme.color.textPrimary : theme.color.textMuted}>
           {selectedState ? selectedState.name : 'Choose a state'}
@@ -141,16 +159,20 @@ export function HuntPicker() {
 
 const styles = StyleSheet.create({
   chipWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
-  followChip: {
+  ledger: {
+    marginTop: spacing.md,
+    backgroundColor: theme.color.surfaceFlat,
+    borderRadius: radius.md,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: theme.color.borderFlat,
+    overflow: 'hidden',
+  },
+  ledgerRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: spacing.md,
-    paddingVertical: 7,
-    borderRadius: radius.pill,
-    backgroundColor: withAlpha(theme.color.accent, 0.14),
-    borderWidth: 1,
-    borderColor: withAlpha(theme.color.accent, 0.35),
+    gap: spacing.md,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
   },
   dropdown: {
     flexDirection: 'row',
