@@ -43,6 +43,10 @@ def looks_like_hunt(name: str, description: str) -> bool:
     # (catches USACE entities named after the lake alone). Description-only
     # passing mentions of hunting (campgrounds, day-use) stay excluded.
     n, d = name.lower(), description.lower()
+    # Lodging/facility entities mention hunting in their descriptions but are
+    # not managed hunts (Tongass cabins, visitor centers, campgrounds).
+    if any(x in n for x in ("cabin", "campground", "visitor center", "lookout", "day use")) and "hunt" not in n:
+        return False
     return "hunt" in n or "hunting permit" in d or "hunting pass" in d
 
 
