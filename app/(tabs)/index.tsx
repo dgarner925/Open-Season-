@@ -113,8 +113,8 @@ export default function Home() {
             </AppText>
           </Pressable>
           <View style={styles.topRight}>
-            <Pressable onPress={() => router.push('/notifications')} hitSlop={10} style={styles.bellBtn}>
-              <Ionicons name="notifications-outline" size={20} color={theme.color.textSecondary} />
+            <Pressable onPress={() => router.push('/search')} hitSlop={10} style={styles.bellBtn}>
+              <Ionicons name="search" size={19} color={theme.color.textSecondary} />
             </Pressable>
             <Text style={styles.wordmark}>O·S</Text>
           </View>
