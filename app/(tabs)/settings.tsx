@@ -176,6 +176,7 @@ export default function Settings() {
         <Row first title="How it works" onPress={() => router.push('/how-to')} />
         <Row title="Privacy policy" onPress={() => openExternalUrl(PRIVACY_POLICY_URL)} />
         <Row title="Terms of service" onPress={() => openExternalUrl(TERMS_URL)} />
+        <Row title="Update delivery" caption="Diagnostics" onPress={() => router.push('/updates-debug')} />
       </Card>
 
       <View style={{ marginTop: spacing.lg, gap: spacing.sm }}>
