@@ -32,7 +32,7 @@
       "buildNumber": "50"
     },
     "android": {
-      "package": "com.openseason.app",
+      "package": "com.osdatesanddraws.app",
       "versionCode": 1,
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
