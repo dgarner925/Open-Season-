@@ -25,6 +25,7 @@
     "production": {
       "channel": "production",
       "autoIncrement": true,
+      "environment": "production",
       "env": {
         "EXPO_PUBLIC_SUPABASE_URL": "https://soxglmgbhmpuxhngcsvx.supabase.co",
         "EXPO_PUBLIC_SUPABASE_ANON_KEY": "sb_publishable_5rIoEtCHn8PcWgHit5NgzQ_Qjpn2AHc",
