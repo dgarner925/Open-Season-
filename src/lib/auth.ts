@@ -26,12 +26,43 @@ export async function signInWithApple(): Promise<void> {
 
 export const isAppleSignInSupported = Platform.OS === 'ios';
 
+const GOOGLE_WEB_CLIENT_ID = '82659984820-46jihvfrgo9grvsrcmn8el9p8ebg60kc.apps.googleusercontent.com';
+const GOOGLE_IOS_CLIENT_ID = '82659984820-sapcn4c71tocngfevm1pafkrqtrqv8e7.apps.googleusercontent.com';
+
+/**
+ * Native Google sign-in (account-picker sheet, like the Apple button) with the
+ * browser OAuth flow as fallback. The native module only exists in builds that
+ * include it (>= 1.3.5), so it's require()d lazily — earlier binaries running
+ * newer JS fall back to the browser rather than crash on import.
+ */
+export async function signInWithGoogle(): Promise<void> {
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const { GoogleSignin } = require('@react-native-google-signin/google-signin');
+    GoogleSignin.configure({ webClientId: GOOGLE_WEB_CLIENT_ID, iosClientId: GOOGLE_IOS_CLIENT_ID });
+    const response = await GoogleSignin.signIn();
+    if (response?.type === 'cancelled') return;
+    const idToken: string | undefined = response?.data?.idToken ?? response?.idToken;
+    if (!idToken) throw new Error('No identity token returned from Google.');
+    const { error } = await supabase.auth.signInWithIdToken({ provider: 'google', token: idToken });
+    if (error) throw error;
+    return;
+  } catch (e) {
+    const err = e as Error & { code?: string };
+    // User backed out of the native sheet — not an error, not a fallback case.
+    if (err.code === 'SIGN_IN_CANCELLED' || err.code === '-5') return;
+    // Native module missing (older binary) — fall through to the browser flow.
+    if (!/could not be found|doesn't seem to be linked|RNGoogleSignin/i.test(err.message ?? '')) throw e;
+  }
+  await signInWithGoogleBrowser();
+}
+
 /**
  * Google via Supabase OAuth in a system browser (works on iOS + Android).
  * Requires: Supabase dashboard: Auth > Providers > Google enabled, and this
  * app's scheme (openseason://) added to the provider's redirect allow-list.
  */
-export async function signInWithGoogle(): Promise<void> {
+async function signInWithGoogleBrowser(): Promise<void> {
   const redirectTo = Linking.createURL('/auth-callback');
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: 'google',
