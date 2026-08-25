@@ -124,8 +124,8 @@ export function HuntPicker() {
                   <AppText variant="overline" color={theme.color.textMuted}>
                     {cat.label}
                   </AppText>
-                  <View style={styles.chipWrap}>
-                    {inCat.map((sp) => {
+                  <View style={styles.ledger}>
+                    {inCat.map((sp, i) => {
                       const existingId = followKey.get(`${selectedState.id}:${sp.id}`);
                       const on = Boolean(existingId);
                       return (
@@ -133,16 +133,21 @@ export function HuntPicker() {
                           key={sp.id}
                           disabled={toggle.isPending}
                           onPress={() => toggle.mutate({ stateId: selectedState.id, speciesId: sp.id, existingId })}
-                          style={[
-                            styles.speciesChip,
-                            on
-                              ? { backgroundColor: theme.color.accent, borderColor: theme.color.accent }
-                              : { backgroundColor: 'transparent', borderColor: theme.color.border },
-                          ]}
+                          style={({ pressed }) => [styles.ledgerRow, i > 0 && styles.menuDivider, pressed && { opacity: 0.65 }]}
                         >
-                          <AppText variant="bodyStrong" color={on ? theme.color.onAccent : theme.color.textSecondary}>
+                          <SpeciesBadge name={sp.name} size={34} muted={!on} />
+                          <AppText
+                            variant="bodyStrong"
+                            color={on ? theme.color.textPrimary : theme.color.textSecondary}
+                            style={{ flex: 1 }}
+                          >
                             {sp.name}
                           </AppText>
+                          <Ionicons
+                            name={on ? 'checkmark-circle' : 'add'}
+                            size={on ? 19 : 17}
+                            color={on ? theme.color.accent : theme.color.textMuted}
+                          />
                         </Pressable>
                       );
                     })}
@@ -158,7 +163,6 @@ export function HuntPicker() {
 }
 
 const styles = StyleSheet.create({
-  chipWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
   ledger: {
     marginTop: spacing.md,
     backgroundColor: theme.color.surfaceFlat,
@@ -200,10 +204,4 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.md,
   },
   menuDivider: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: theme.color.border },
-  speciesChip: {
-    paddingHorizontal: spacing.lg,
-    paddingVertical: 10,
-    borderRadius: radius.pill,
-    borderWidth: StyleSheet.hairlineWidth,
-  },
 });
