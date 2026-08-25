@@ -233,6 +233,13 @@ export type FederalPermitHuntRow = {
   created_at: string;
 };
 
+export type PermitFollowRow = {
+  id: string;
+  user_id: string;
+  permit_id: string;
+  created_at: string;
+};
+
 export type DevicePushTokenRow = Timestamps & {
   id: string;
   user_id: string;
@@ -296,6 +303,7 @@ export type Database = {
       state_species: Table<StateSpeciesRow, StateSpeciesRow>;
       follows: Table<FollowRow, Omit<FollowRow, 'id' | 'created_at'> & { id?: string }>;
       federal_permit_hunts: Table<FederalPermitHuntRow, Omit<FederalPermitHuntRow, 'id' | 'created_at'> & { id?: string }>;
+      permit_follows: Table<PermitFollowRow, Omit<PermitFollowRow, 'id' | 'created_at'> & { id?: string }>;
       alert_preferences: Table<AlertPreferenceRow, Omit<AlertPreferenceRow, 'created_at' | 'updated_at'>>;
       device_push_tokens: Table<DevicePushTokenRow, Omit<DevicePushTokenRow, Gen> & { id?: string }>;
       sent_notifications: Table<SentNotificationRow, Omit<SentNotificationRow, 'id' | 'sent_at' | 'hidden_at'> & { id?: string; hidden_at?: string | null }>;

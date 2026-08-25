@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
-import type { FollowRow } from '@/lib/database.types';
+import type { FederalPermitHuntRow, FollowRow, PermitFollowRow } from '@/lib/database.types';
 import { useAuth } from '@/providers/AuthProvider';
 
 export function useFollows() {
@@ -121,6 +121,45 @@ export function useMethodReminder(stateId: string | undefined, speciesId: string
   });
 
   return { follow, methods, isArmed, toggle, loading: prefs.isLoading };
+}
+
+export type PermitFollowWithHunt = PermitFollowRow & { hunt: FederalPermitHuntRow | null };
+
+/** Federal permit hunts (Recreation.gov entities) the user follows, with details. */
+export function usePermitFollows() {
+  const { user } = useAuth();
+  return useQuery({
+    queryKey: ['permit_follows', user?.id],
+    enabled: Boolean(user),
+    queryFn: async (): Promise<PermitFollowWithHunt[]> => {
+      const { data, error } = await supabase
+        .from('permit_follows')
+        .select('*, hunt:federal_permit_hunts(*)')
+        .eq('user_id', user!.id);
+      if (error) throw error;
+      return (data ?? []) as unknown as PermitFollowWithHunt[];
+    },
+  });
+}
+
+/** Add or remove a federal permit hunt follow. */
+export function useTogglePermitFollow() {
+  const { user } = useAuth();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ permitId, existingId }: { permitId: string; existingId?: string }) => {
+      if (!user) throw new Error('Not signed in.');
+      if (existingId) {
+        const { error } = await supabase.from('permit_follows').delete().eq('id', existingId);
+        if (error) throw error;
+        return { followed: false };
+      }
+      const { error } = await supabase.from('permit_follows').insert({ user_id: user.id, permit_id: permitId });
+      if (error) throw error;
+      return { followed: true };
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['permit_follows'] }),
+  });
 }
 
 /** Mark onboarding complete once the user has picked at least one follow. */

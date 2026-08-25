@@ -4,7 +4,8 @@ import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
 import { AppText } from '@/components/ui';
 import { SectionRule, SpeciesBadge } from '@/components/midnight';
 import { useActiveStates, useSpecies, useStateSpecies } from '@/features/reference/queries';
-import { useFollows, useToggleFollow } from '@/features/follows/queries';
+import { useFollows, usePermitFollows, useTogglePermitFollow, useToggleFollow } from '@/features/follows/queries';
+import { openExternalUrl } from '@/lib/openUrl';
 import { radius, spacing, theme } from '@/theme';
 
 const CATEGORIES: { key: string; label: string }[] = [
@@ -25,7 +26,9 @@ export function HuntPicker() {
   const { data: states = [], isLoading } = useActiveStates();
   const { data: species = [] } = useSpecies();
   const { data: follows = [] } = useFollows();
+  const { data: permitFollows = [] } = usePermitFollows();
   const toggle = useToggleFollow();
+  const togglePermit = useTogglePermitFollow();
 
   const [stateId, setStateId] = useState<string | null>(null);
   const [dropdownOpen, setDropdownOpen] = useState(false);
@@ -77,6 +80,41 @@ export function HuntPicker() {
           No hunts yet — add your first below.
         </AppText>
       )}
+
+      {/* Followed federal permit hunts (Recreation.gov), removable like any hunt. */}
+      {permitFollows.filter((f) => f.hunt).length > 0 ? (
+        <View>
+          <SectionRule label="FEDERAL PERMIT HUNTS" />
+          <View style={styles.ledger}>
+            {permitFollows
+              .filter((f) => f.hunt)
+              .sort((a, b) => (a.hunt!.name < b.hunt!.name ? -1 : 1))
+              .map((f, i) => (
+                <View key={f.id} style={[styles.ledgerRow, i > 0 && styles.menuDivider]}>
+                  <View style={styles.permitTile}>
+                    <Ionicons name="ribbon-outline" size={15} color={theme.color.textMuted} />
+                  </View>
+                  <Pressable style={{ flex: 1 }} onPress={() => openExternalUrl(f.hunt!.url)}>
+                    <AppText variant="bodyStrong" numberOfLines={1}>
+                      {f.hunt!.name}
+                    </AppText>
+                    <AppText variant="caption" color={theme.color.textMuted} numberOfLines={1}>
+                      {[f.hunt!.agency, f.hunt!.state_code].filter(Boolean).join(' · ')}
+                    </AppText>
+                  </Pressable>
+                  <Pressable
+                    hitSlop={10}
+                    disabled={togglePermit.isPending}
+                    onPress={() => togglePermit.mutate({ permitId: f.permit_id, existingId: f.id })}
+                    style={({ pressed }) => pressed && { opacity: 0.5 }}
+                  >
+                    <Ionicons name="close" size={15} color={theme.color.textMuted} />
+                  </Pressable>
+                </View>
+              ))}
+          </View>
+        </View>
+      ) : null}
 
       {/* One dropdown for all states */}
       <SectionRule label="ADD A HUNT" />
@@ -177,6 +215,16 @@ const styles = StyleSheet.create({
     gap: spacing.md,
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.md,
+  },
+  permitTile: {
+    width: 34,
+    height: 34,
+    borderRadius: 10,
+    backgroundColor: theme.color.surfaceElevated,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: theme.color.border,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   dropdown: {
     flexDirection: 'row',

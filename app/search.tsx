@@ -5,6 +5,7 @@ import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, TextInput, Vi
 import { AppText, Screen } from '@/components/ui';
 import { PageTitle, SpeciesBadge } from '@/components/midnight';
 import { useAuth } from '@/providers/AuthProvider';
+import { usePermitFollows, useTogglePermitFollow } from '@/features/follows/queries';
 import { useActiveStates } from '@/features/reference/queries';
 import { useSearchMemo, type SearchResult } from '@/features/search/useSearch';
 import { openExternalUrl } from '@/lib/openUrl';
@@ -35,6 +36,11 @@ export default function Search() {
     myState: myState ? myStateCode : null,
     deadlinesOnly,
   });
+
+  // Permit hunts are followable straight from the results list.
+  const { data: permitFollows = [] } = usePermitFollows();
+  const togglePermit = useTogglePermitFollow();
+  const permitFollowId = new Map(permitFollows.map((f) => [f.permit_id, f.id]));
 
   function open(r: SearchResult) {
     if (r.type === 'season') router.push(`/season/${r.id}`);
@@ -119,7 +125,18 @@ export default function Search() {
                 </Text>
               </View>
               {r.type === 'permit' ? (
-                <Ionicons name="open-outline" size={13} color={theme.color.textMuted} />
+                <Pressable
+                  hitSlop={12}
+                  disabled={togglePermit.isPending}
+                  onPress={() => togglePermit.mutate({ permitId: r.id, existingId: permitFollowId.get(r.id) })}
+                  style={({ pressed }) => pressed && { opacity: 0.5 }}
+                >
+                  <Ionicons
+                    name={permitFollowId.has(r.id) ? 'checkmark-circle' : 'add-circle-outline'}
+                    size={20}
+                    color={permitFollowId.has(r.id) ? theme.color.accent : theme.color.textMuted}
+                  />
+                </Pressable>
               ) : (
                 <Ionicons name="chevron-forward" size={13} color={theme.color.textMuted} />
               )}

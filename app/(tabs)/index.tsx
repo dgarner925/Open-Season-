@@ -8,7 +8,8 @@ import { PageTitle, SpeciesBadge } from '@/components/midnight';
 import { NotificationsOffBanner } from '@/components/NotificationsOffBanner';
 import { ProUpsellCard } from '@/components/ProUpsellCard';
 import { useAuth } from '@/providers/AuthProvider';
-import { useFollows } from '@/features/follows/queries';
+import { useFollows, usePermitFollows } from '@/features/follows/queries';
+import { openExternalUrl } from '@/lib/openUrl';
 import { useActiveStates, useFollowedSeasons, useFollowedWindows, useSpecies, useUpcomingCountdown } from '@/features/reference/queries';
 import type { SeasonWithRefs } from '@/features/reference/types';
 import { queryClient } from '@/lib/queryClient';
@@ -45,6 +46,7 @@ export default function Home() {
   const router = useRouter();
   const { profile } = useAuth();
   const { data: follows = [] } = useFollows();
+  const { data: permitFollows = [] } = usePermitFollows();
   const { data: seasons = [], isLoading } = useFollowedSeasons();
   const { data: allSpecies = [] } = useSpecies();
   const { data: states = [] } = useActiveStates();
@@ -163,6 +165,37 @@ export default function Home() {
           </View>
         )}
 
+        {permitFollows.length > 0 ? (
+          <View style={styles.section}>
+            <AppText variant="overline" color={theme.color.textMuted}>
+              PERMIT HUNTS
+            </AppText>
+            {permitFollows
+              .filter((f) => f.hunt)
+              .sort((a, b) => (a.hunt!.name < b.hunt!.name ? -1 : 1))
+              .map((f, i) => (
+                <Pressable
+                  key={f.id}
+                  onPress={() => openExternalUrl(f.hunt!.url)}
+                  style={({ pressed }) => [styles.row, i > 0 && styles.rowDivider, pressed && styles.pressed]}
+                >
+                  <View style={styles.permitTile}>
+                    <Ionicons name="ribbon-outline" size={17} color={theme.color.textMuted} />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <AppText variant="bodyStrong" numberOfLines={1}>
+                      {f.hunt!.name}
+                    </AppText>
+                    <AppText variant="caption" color={theme.color.textMuted} numberOfLines={1}>
+                      {[f.hunt!.agency, f.hunt!.state_code].filter(Boolean).join(' · ')}
+                    </AppText>
+                  </View>
+                  <Ionicons name="open-outline" size={13} color={theme.color.textMuted} />
+                </Pressable>
+              ))}
+          </View>
+        ) : null}
+
         <View style={styles.footer}>
           <FooterLink icon="options-outline" label="Manage your hunts" onPress={() => router.push('/follows')} />
         </View>
@@ -241,6 +274,16 @@ const styles = StyleSheet.create({
   emptyCard: { marginTop: spacing.lg, padding: spacing.xl, borderRadius: radius.lg, backgroundColor: theme.color.surfaceFlat, borderWidth: StyleSheet.hairlineWidth, borderColor: theme.color.borderFlat, gap: spacing.xs },
 
   row: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, paddingVertical: spacing.md },
+  permitTile: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: theme.color.surfaceFlat,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: theme.color.borderFlat,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   rowDivider: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: theme.color.hairline },
   rowMetric: { fontFamily: fontFamily.sansSemiBold, fontSize: 13, marginLeft: spacing.md },
 
