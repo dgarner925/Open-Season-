@@ -216,6 +216,23 @@ export type AlertPreferenceRow = Timestamps & {
   methods?: string[] | null;
 };
 
+export type FederalPermitHuntRow = {
+  id: string;
+  entity_id: string;
+  name: string;
+  agency: string | null;
+  state_code: string | null;
+  city: string | null;
+  description: string | null;
+  lat: number | null;
+  lng: number | null;
+  reservable: boolean;
+  url: string;
+  image_url: string | null;
+  last_seen_at: string | null;
+  created_at: string;
+};
+
 export type DevicePushTokenRow = Timestamps & {
   id: string;
   user_id: string;
@@ -278,6 +295,7 @@ export type Database = {
       user_locations: Table<UserLocationRow, Omit<UserLocationRow, 'id' | 'created_at'> & { id?: string }>;
       state_species: Table<StateSpeciesRow, StateSpeciesRow>;
       follows: Table<FollowRow, Omit<FollowRow, 'id' | 'created_at'> & { id?: string }>;
+      federal_permit_hunts: Table<FederalPermitHuntRow, Omit<FederalPermitHuntRow, 'id' | 'created_at'> & { id?: string }>;
       alert_preferences: Table<AlertPreferenceRow, Omit<AlertPreferenceRow, 'created_at' | 'updated_at'>>;
       device_push_tokens: Table<DevicePushTokenRow, Omit<DevicePushTokenRow, Gen> & { id?: string }>;
       sent_notifications: Table<SentNotificationRow, Omit<SentNotificationRow, 'id' | 'sent_at' | 'hidden_at'> & { id?: string; hidden_at?: string | null }>;

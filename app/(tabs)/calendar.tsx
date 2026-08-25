@@ -1,3 +1,4 @@
+import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
@@ -73,9 +74,18 @@ export default function Seasons() {
     <SafeAreaView style={styles.screen} edges={['top', 'left', 'right']}>
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.header}>
-          <AppText variant="overline" color={theme.color.textMuted}>
-            SEASON DATES
-          </AppText>
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+            <AppText variant="overline" color={theme.color.textMuted}>
+              SEASON DATES
+            </AppText>
+            <Pressable
+              onPress={() => router.push('/search')}
+              hitSlop={10}
+              style={({ pressed }) => [styles.searchBtn, pressed && { opacity: 0.7 }]}
+            >
+              <Ionicons name="search" size={17} color={theme.color.textPrimary} />
+            </Pressable>
+          </View>
           <PageTitle lead="Your " accent="seasons." style={{ fontSize: 44, lineHeight: 50, marginTop: spacing.xs, paddingTop: 3 }} />
           <AppText variant="body" color={theme.color.textSecondary} style={{ marginTop: spacing.sm }}>
             When each species opens and closes, for everything you track.
@@ -176,6 +186,7 @@ function SeasonRow({ item, onPress }: { item: Item; onPress: () => void }) {
 }
 
 const styles = StyleSheet.create({
+  searchBtn: { width: 34, height: 34, borderRadius: 17, backgroundColor: theme.color.surfaceFlat, alignItems: 'center', justifyContent: 'center' },
   screen: { flex: 1, backgroundColor: theme.color.background },
   content: { paddingHorizontal: spacing.xl, paddingTop: spacing.lg, paddingBottom: spacing.xxl },
   header: {},
