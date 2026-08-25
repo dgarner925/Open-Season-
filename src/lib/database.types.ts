@@ -212,6 +212,8 @@ export type AlertPreferenceRow = Timestamps & {
   opener_offsets: number[];
   deadline_offsets: number[];
   results_offsets: number[];
+  /** null = all methods (legacy default), [] = none, ['archery'] = only those. */
+  methods?: string[] | null;
 };
 
 export type DevicePushTokenRow = Timestamps & {

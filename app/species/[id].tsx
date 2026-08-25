@@ -178,7 +178,12 @@ export default function SpeciesDetail() {
                   </View>
                   <View style={{ gap: spacing.sm }}>
                     {g.rows.map((r) => (
-                      <Card key={r.season.id} variant={r.open ? 'gradient' : 'flat'} style={styles.methodCard}>
+                      <Card
+                        key={r.season.id}
+                        variant={r.open ? 'gradient' : 'flat'}
+                        style={styles.methodCard}
+                        onPress={() => router.push(`/season/${r.season.id}`)}
+                      >
                         <View style={{ flex: 1 }}>
                           <AppText variant="bodyStrong">{r.season.label ?? cap(r.season.method)}</AppText>
                           <AppText variant="caption" color={theme.color.textMuted} style={{ marginTop: 2 }}>
@@ -189,6 +194,7 @@ export default function SpeciesDetail() {
                         <Text style={[styles.methodRight, { color: r.open ? theme.color.accent : r.rank === 1 ? theme.color.textSecondary : theme.color.textMuted }]}>
                           {r.right}
                         </Text>
+                        <Ionicons name="chevron-forward" size={14} color={theme.color.textMuted} />
                       </Card>
                     ))}
                   </View>
