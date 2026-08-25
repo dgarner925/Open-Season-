@@ -8,7 +8,7 @@ import { PageTitle, SpeciesBadge } from '@/components/midnight';
 import { NotificationsOffBanner } from '@/components/NotificationsOffBanner';
 import { ProUpsellCard } from '@/components/ProUpsellCard';
 import { useAuth } from '@/providers/AuthProvider';
-import { useFollows, usePermitFollows } from '@/features/follows/queries';
+import { nextPermitSegment, useFollows, usePermitFollows } from '@/features/follows/queries';
 import { openExternalUrl } from '@/lib/openUrl';
 import { useActiveStates, useFollowedSeasons, useFollowedWindows, useSpecies, useUpcomingCountdown } from '@/features/reference/queries';
 import type { SeasonWithRefs } from '@/features/reference/types';
@@ -190,6 +190,15 @@ export default function Home() {
                       {[f.hunt!.agency, f.hunt!.state_code].filter(Boolean).join(' · ')}
                     </AppText>
                   </View>
+                  {(() => {
+                    const seg = nextPermitSegment(f.hunt, iso);
+                    if (!seg || seg.open_date <= iso) return null;
+                    return (
+                      <Text style={[styles.rowMetric, { color: theme.color.accentSoft }]}>
+                        in {diffDays(iso, seg.open_date)}d
+                      </Text>
+                    );
+                  })()}
                   <Ionicons name="open-outline" size={13} color={theme.color.textMuted} />
                 </Pressable>
               ))}

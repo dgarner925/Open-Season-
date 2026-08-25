@@ -8,7 +8,9 @@ dry-run report: counts by agency and state, plus a sample.
 Re-runnable: the migration upserts on entity_id, so refreshes are safe.
 """
 import argparse
+import datetime
 import json
+import re
 import sys
 import time
 import urllib.parse
@@ -162,11 +164,146 @@ def emit_migration(rows: list[dict], path: str) -> None:
         f.write("\n".join(lines) + "\n")
 
 
+MONTHS = {m.lower(): i + 1 for i, m in enumerate(
+    ["January", "February", "March", "April", "May", "June",
+     "July", "August", "September", "October", "November", "December"])}
+MONTH_RX = r"(January|February|March|April|May|June|July|August|September|October|November|December)"
+# Current hunting-season year: seasons open Aug Y .. Jul Y+1.
+SEASON_YEAR = datetime.date.today().year if datetime.date.today().month >= 7 else datetime.date.today().year - 1
+
+
+def fetch_permit_description(entity_id: str) -> str:
+    """Full description text from the permitcontent API (search results truncate it)."""
+    req = urllib.request.Request(
+        f"https://www.recreation.gov/api/permitcontent/{entity_id}", headers={"User-Agent": UA})
+    for attempt in range(4):
+        try:
+            with urllib.request.urlopen(req, timeout=30) as r:
+                payload = json.load(r).get("payload") or {}
+            desc = payload.get("description") or ""
+            # description is often itself a JSON blob of sections
+            if isinstance(desc, str) and desc.lstrip().startswith("{"):
+                try:
+                    desc = " ".join(str(v) for v in json.loads(desc).values())
+                except Exception:
+                    pass
+            elif isinstance(desc, dict):
+                desc = " ".join(str(v) for v in desc.values())
+            return re.sub(r"<[^>]+>", " ", str(desc))
+        except Exception:
+            if attempt == 3:
+                return ""
+            time.sleep(2 * (attempt + 1))
+    return ""
+
+
+def parse_hunt_dates(text: str) -> list[dict]:
+    """Extract explicit season date ranges with a strict freshness gate.
+
+    Only trusts text that names the CURRENT season year (e.g. "2026 hunt
+    dates"); stale pages (Lanier still says 2025) yield nothing rather than a
+    wrong reminder. Months Jan-Jun belong to the following calendar year.
+    """
+    # The season year must come from the DATE CONTEXT, not anywhere on the
+    # page — Lanier's page says "The 2025 hunt dates are: November 6-9" while a
+    # stray 2026 sits in its policy text. Accept only an explicit
+    # "<year> hunt dates"-style marker, or a year within 60 chars of the first
+    # parsed date; anything else (or a stale year) yields nothing.
+    marker = re.search(r"\b(20\d\d)(?:\s*[–—-]\s*(?:20)?\d\d)?\s+(?:hunt|hunting|season)\s+dates?\b", text, re.I)
+    base = None
+    if marker:
+        base = int(marker.group(1))
+    else:
+        first = re.search(MONTH_RX + r"\.?\s+\d{1,2}\s*[–—-]", text, re.I)
+        if first:
+            window = text[max(0, first.start() - 60): first.end() + 60]
+            near = re.findall(r"\b(20\d\d)\b", window)
+            if near:
+                base = int(near[0])
+    if base is None or base < SEASON_YEAR:
+        return []
+
+    out = []
+    # "November 6-9" / "November 6 - December 2" / "Nov. 6 – 9"
+    rx = re.compile(MONTH_RX + r"\.?\s+(\d{1,2})\s*[–—-]\s*(?:" + MONTH_RX + r"\.?\s+)?(\d{1,2})", re.I)
+    for m in rx.finditer(text):
+        om, od, cm, cd = m.group(1), int(m.group(2)), m.group(3), int(m.group(4))
+        om_n = MONTHS[om.lower()]
+        cm_n = MONTHS[cm.lower()] if cm else om_n
+        oy = base if om_n >= 7 else base + 1
+        cy = base if cm_n >= 7 else base + 1
+        if (cy, cm_n, cd) < (oy, om_n, od):
+            continue
+        try:
+            open_d = datetime.date(oy, om_n, od)
+            close_d = datetime.date(cy, cm_n, cd)
+        except ValueError:
+            continue
+        label = f"{om.capitalize()} {od}" + (f" – {cm.capitalize()} {cd}" if cm else f"–{cd}")
+        out.append({"label": label, "open": open_d.isoformat(), "close": close_d.isoformat()})
+    # de-dupe, keep order, cap at 12 segments per hunt (defensive)
+    seen, uniq = set(), []
+    for d in out:
+        k = (d["open"], d["close"])
+        if k not in seen:
+            seen.add(k)
+            uniq.append(d)
+    return uniq[:12]
+
+
+def emit_dates_migration(entity_ids: list[str], path: str) -> None:
+    """Fetch + parse dates for the given entities; write a replace-style migration."""
+    found: dict[str, list[dict]] = {}
+    for eid in entity_ids:
+        text = fetch_permit_description(eid)
+        dates = parse_hunt_dates(text) if text else []
+        if dates:
+            found[eid] = dates
+            print(f"  {eid}: {len(dates)} segments ({dates[0]['open']} .. {dates[-1]['close']})")
+        time.sleep(0.4)
+    print(f"dates parsed for {len(found)}/{len(entity_ids)} entities (freshness gate: {SEASON_YEAR})")
+    if not found:
+        print("nothing fresh to emit; no migration written")
+        return
+    lines = [
+        "-- Permit hunt dates parsed from Recreation.gov descriptions",
+        f"-- (generated by scripts/ingest_recgov_permits.py --emit-dates-migration; season year {SEASON_YEAR}).",
+        "-- Replace-style: clears and refills each parsed permit's rows.",
+        "delete from public.federal_permit_hunt_dates where permit_id in (",
+        "  select id from public.federal_permit_hunts where entity_id in ("
+        + ", ".join(sql_quote(e) for e in found) + "));",
+        "insert into public.federal_permit_hunt_dates (permit_id, label, open_date, close_date)",
+        "select p.id, v.label, v.open_date::date, v.close_date::date",
+        "from (values",
+    ]
+    vals = []
+    for eid, dates in found.items():
+        for d in dates:
+            vals.append("  (%s, %s, %s, %s)" % (
+                sql_quote(eid), sql_quote(d["label"]), sql_quote(d["open"]), sql_quote(d["close"])))
+    lines.append(",\n".join(vals))
+    lines.append(") as v(entity_id, label, open_date, close_date)")
+    lines.append("join public.federal_permit_hunts p on p.entity_id = v.entity_id;")
+    with open(path, "w", encoding="utf-8") as f:
+        f.write("\n".join(lines) + "\n")
+    print(f"wrote {path}")
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--emit-migration", metavar="PATH", help="write an upsert migration to PATH")
+    ap.add_argument("--emit-dates-migration", metavar="PATH",
+                    help="fetch descriptions for entities listed in --entity-ids-file (one per line) and write a dates migration")
+    ap.add_argument("--entity-ids-file", metavar="PATH", help="entity ids to parse dates for")
     ap.add_argument("--state", help="only report this state in the sample")
     args = ap.parse_args()
+
+    if args.emit_dates_migration:
+        if not args.entity_ids_file:
+            sys.exit("--emit-dates-migration requires --entity-ids-file")
+        ids = [l.strip() for l in open(args.entity_ids_file, encoding="utf-8") if l.strip()]
+        emit_dates_migration(ids, args.emit_dates_migration)
+        return
 
     rows = sorted(sweep().values(), key=lambda r: ((r["state"] or "~"), r["name"]))
     by_agency: dict[str, int] = {}

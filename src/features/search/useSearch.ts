@@ -92,7 +92,7 @@ export function useSearchCorpus() {
           .select('id,name,closes_at,state:states(code,name),species:species(name)')
           .eq('status', 'published')
           .limit(1000),
-        supabase.from('federal_permit_hunts').select('*').limit(500),
+        supabase.from('federal_permit_hunts').select('*, dates:federal_permit_hunt_dates(label,open_date,close_date)').limit(500),
         supabase.from('states').select('code,name').eq('is_active', true),
       ]);
       const err = seasons.error ?? windows.error ?? permits.error ?? states.error;
@@ -127,17 +127,24 @@ export function useSearchCorpus() {
         });
       }
       const stateByName = new Map((states.data ?? []).map((st: any) => [st.name, st.code]));
-      for (const p of (permits.data ?? []) as FederalPermitHuntRow[]) {
+      const today = new Date();
+      const todayISO = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+      for (const p of (permits.data ?? []) as (FederalPermitHuntRow & { dates?: { label: string | null; open_date: string; close_date: string | null }[] })[]) {
         const code = p.state_code ? (stateByName.get(p.state_code) ?? p.state_code) : null;
+        // Parsed hunt dates (freshness-gated at ingest): surface the next
+        // upcoming segment so permits sort and filter like real seasons.
+        const segs = (p.dates ?? []).sort((a, b) => a.open_date.localeCompare(b.open_date));
+        const next = segs.find((d) => (d.close_date ?? d.open_date) >= todayISO) ?? segs[segs.length - 1] ?? null;
+        const dateCaption = next ? ` · ${fmt(next.open_date)}${next.close_date && next.close_date !== next.open_date ? ` – ${fmt(next.close_date)}` : ''}` : '';
         out.push({
           type: 'permit',
           id: p.id,
           title: p.name,
-          caption: `${p.agency ?? 'Federal'}${p.city ? ` · ${p.city}` : ''}`,
+          caption: `${p.agency ?? 'Federal'}${p.city ? ` · ${p.city}` : ''}${dateCaption}`,
           stateCode: code && code.length === 2 ? code : null,
           speciesName: null,
-          openDate: null,
-          closeDate: null,
+          openDate: next?.open_date ?? null,
+          closeDate: next?.close_date ?? null,
           url: p.url,
           hay: norm(`${p.name} ${p.agency} ${p.state_code} ${p.city} permit federal`),
         });
@@ -191,7 +198,7 @@ export function runSearch(
     if (stateCode && r.stateCode !== stateCode) return false;
     if (text && !r.hay.includes(text)) return false;
     if (openNow) {
-      if (r.type === 'permit') return !text ? false : true; // permits have no dates; keep only when explicitly searched
+      if (r.type === 'permit' && !r.openDate) return !text ? false : true; // dateless permits: keep only when explicitly searched
       if (!r.openDate || r.openDate > todayISO) return false;
       if (r.type === 'season' && r.closeDate && r.closeDate < todayISO) return false;
       if (r.type === 'deadline' && r.closeDate && r.closeDate < todayISO) return false;

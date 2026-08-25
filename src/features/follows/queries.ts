@@ -123,7 +123,10 @@ export function useMethodReminder(stateId: string | undefined, speciesId: string
   return { follow, methods, isArmed, toggle, loading: prefs.isLoading };
 }
 
-export type PermitFollowWithHunt = PermitFollowRow & { hunt: FederalPermitHuntRow | null };
+export type PermitHuntDate = { label: string | null; open_date: string; close_date: string | null };
+export type PermitFollowWithHunt = PermitFollowRow & {
+  hunt: (FederalPermitHuntRow & { dates?: PermitHuntDate[] }) | null;
+};
 
 /** Federal permit hunts (Recreation.gov entities) the user follows, with details. */
 export function usePermitFollows() {
@@ -134,12 +137,18 @@ export function usePermitFollows() {
     queryFn: async (): Promise<PermitFollowWithHunt[]> => {
       const { data, error } = await supabase
         .from('permit_follows')
-        .select('*, hunt:federal_permit_hunts(*)')
+        .select('*, hunt:federal_permit_hunts(*, dates:federal_permit_hunt_dates(label,open_date,close_date))')
         .eq('user_id', user!.id);
       if (error) throw error;
       return (data ?? []) as unknown as PermitFollowWithHunt[];
     },
   });
+}
+
+/** Next upcoming (or most recent) parsed date segment for a followed hunt. */
+export function nextPermitSegment(hunt: PermitFollowWithHunt['hunt'], todayISO: string): PermitHuntDate | null {
+  const segs = (hunt?.dates ?? []).slice().sort((a, b) => a.open_date.localeCompare(b.open_date));
+  return segs.find((d) => (d.close_date ?? d.open_date) >= todayISO) ?? segs[segs.length - 1] ?? null;
 }
 
 /** Add or remove a federal permit hunt follow. */
