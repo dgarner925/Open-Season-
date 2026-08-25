@@ -231,17 +231,6 @@ export default function SpeciesDetail() {
               </View>
             ) : null}
           </ScrollView>
-
-          <View style={styles.actionBar}>
-            <Pressable style={styles.primaryBtn} onPress={() => router.push({ pathname: '/alerts', params: { species: id } })}>
-              <Text style={styles.primaryLabel}>Set reminder</Text>
-            </Pressable>
-            {licenseUrl ? (
-              <Pressable style={styles.squareBtn} onPress={() => openExternalUrl(licenseUrl)}>
-                <Ionicons name="open-outline" size={20} color={theme.color.textPrimary} />
-              </Pressable>
-            ) : null}
-          </View>
         </>
       )}
     </SafeAreaView>
@@ -258,7 +247,7 @@ function CircleButton({ children, onPress }: { children: React.ReactNode; onPres
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: theme.color.background },
-  content: { paddingHorizontal: spacing.xl, paddingTop: spacing.lg, paddingBottom: 120 },
+  content: { paddingHorizontal: spacing.xl, paddingTop: spacing.lg, paddingBottom: 48 },
 
   navRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   navActions: { flexDirection: 'row', gap: spacing.sm },
@@ -290,8 +279,4 @@ const styles = StyleSheet.create({
   methodCard: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, padding: spacing.lg },
   methodRight: { fontFamily: fontFamily.sansSemiBold, fontSize: 11 },
 
-  actionBar: { position: 'absolute', left: 0, right: 0, bottom: 0, flexDirection: 'row', gap: spacing.md, paddingHorizontal: spacing.xl, paddingTop: spacing.md, paddingBottom: spacing.xl, backgroundColor: theme.color.background },
-  primaryBtn: { flex: 1, height: 52, borderRadius: 26, backgroundColor: theme.color.accent, alignItems: 'center', justifyContent: 'center' },
-  primaryLabel: { fontFamily: fontFamily.sansBold, fontSize: 15, color: theme.color.onAccent },
-  squareBtn: { width: 52, height: 52, borderRadius: 26, borderWidth: 1, borderColor: 'rgba(255,255,255,0.14)', alignItems: 'center', justifyContent: 'center' },
 });
