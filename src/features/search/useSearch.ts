@@ -31,6 +31,41 @@ const MONTHS = [
   'july', 'august', 'september', 'october', 'november', 'december',
 ];
 
+/**
+ * Hunter's vocabulary — regional and colloquial names folded into the index
+ * so "kodiak" finds Brown/grizzly bear and "speed goat" finds Pronghorn.
+ * Key = lowercase fragment of the species display name; values get appended
+ * to that species' search haystack.
+ */
+const SPECIES_ALIASES: Record<string, string[]> = {
+  'brown/grizzly': ['kodiak', 'brownie', 'grizzly bear', 'brown bear'],
+  'black bear': ['bruin'],
+  bison: ['buffalo'],
+  'mountain lion': ['cougar', 'puma', 'panther', 'catamount'],
+  elk: ['wapiti', 'bull'],
+  deer: ['whitetail', 'white tail', 'muley', 'mule deer', 'blacktail', 'buck'],
+  pronghorn: ['antelope', 'speed goat'],
+  'wild hog': ['boar', 'pig', 'razorback', 'feral hog'],
+  goose: ['honker', 'canada goose', 'specklebelly'],
+  geese: ['honker', 'canada goose', 'specklebelly'],
+  duck: ['mallard', 'greenhead', 'pintail', 'wood duck', 'wigeon'],
+  turkey: ['gobbler', 'tom', 'longbeard'],
+  alligator: ['gator'],
+  bobwhite: ['quail'],
+  coyote: ['yote', 'song dog'],
+  'sandhill crane': ['ribeye of the sky'],
+};
+
+function aliasTermsFor(speciesName: string | null | undefined): string {
+  if (!speciesName) return '';
+  const n = speciesName.toLowerCase();
+  const out: string[] = [];
+  for (const [frag, aliases] of Object.entries(SPECIES_ALIASES)) {
+    if (n.includes(frag)) out.push(...aliases);
+  }
+  return out.join(' ');
+}
+
 function norm(s: string): string {
   return s.toLowerCase().replace(/[^a-z0-9]/g, '');
 }
@@ -75,7 +110,7 @@ export function useSearchCorpus() {
           speciesName: s.species?.name ?? null,
           openDate: s.open_date,
           closeDate: s.close_date,
-          hay: norm(`${s.species?.name} ${label} ${s.method} ${s.state?.name} ${s.state?.code}`),
+          hay: norm(`${s.species?.name} ${label} ${s.method} ${s.state?.name} ${s.state?.code} ${aliasTermsFor(s.species?.name)}`),
         });
       }
       for (const w of (windows.data ?? []) as any[]) {
@@ -88,7 +123,7 @@ export function useSearchCorpus() {
           speciesName: w.species?.name ?? null,
           openDate: w.closes_at,
           closeDate: w.closes_at,
-          hay: norm(`${w.species?.name} ${w.name} draw deadline tag ${w.state?.name} ${w.state?.code}`),
+          hay: norm(`${w.species?.name} ${w.name} draw deadline tag ${w.state?.name} ${w.state?.code} ${aliasTermsFor(w.species?.name)}`),
         });
       }
       const stateByName = new Map((states.data ?? []).map((st: any) => [st.name, st.code]));
