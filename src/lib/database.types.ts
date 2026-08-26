@@ -177,6 +177,8 @@ export type ProfileRow = Timestamps & {
   resident_state_id: string | null;
   is_premium: boolean;
   grandfathered: boolean;
+  /** Friday-morning Weekend Brief push (Pro). Default true. */
+  weekend_brief?: boolean;
 };
 
 export type DateReportRow = {

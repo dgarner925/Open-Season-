@@ -1,11 +1,13 @@
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
-import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, Switch, View } from 'react-native';
 import { AppText, Card, Screen } from '@/components/ui';
 import { NotificationsOffBanner } from '@/components/NotificationsOffBanner';
 import { ProUpsellCard } from '@/components/ProUpsellCard';
 import { useAlertPreferences, useToggleOffset, type AlertPref } from '@/features/alerts/queries';
 import { useRequirePro } from '@/hooks/useRequirePro';
+import { useAuth } from '@/providers/AuthProvider';
 import { useFollowedWindows } from '@/features/reference/queries';
+import { supabase } from '@/lib/supabase';
 import { radius, spacing, theme } from '@/theme';
 
 // Cadence ladder from a year out down to the day of. Values must stay within the
@@ -68,6 +70,8 @@ export default function Alerts() {
       <NotificationsOffBanner />
       <ProUpsellCard context="alerts" />
 
+      {!speciesFilter ? <WeekendBriefToggle requirePro={requirePro} /> : null}
+
       {isLoading ? (
         <ActivityIndicator color={theme.color.accent} style={{ marginTop: spacing.xl }} />
       ) : shown.length === 0 ? (
@@ -93,6 +97,41 @@ export default function Alerts() {
         ))
       )}
     </Screen>
+  );
+}
+
+/**
+ * The Weekend Brief — one Friday-morning push composed from your follows
+ * (openers, last chances, deadlines). On by default for Pro; silent on empty
+ * weekends, so the toggle is mostly for people who want no digest at all.
+ */
+function WeekendBriefToggle({ requirePro }: { requirePro: () => boolean }) {
+  const { user, profile, refreshProfile } = useAuth();
+  const on = profile?.weekend_brief !== false;
+
+  async function setBrief(value: boolean) {
+    if (!requirePro() || !user) return;
+    await supabase.from('profiles').update({ weekend_brief: value }).eq('id', user.id);
+    await refreshProfile();
+  }
+
+  return (
+    <Card>
+      <View style={styles.briefRow}>
+        <View style={{ flex: 1, gap: 2 }}>
+          <AppText variant="h3">The Weekend Brief</AppText>
+          <AppText variant="caption" color={theme.color.textSecondary}>
+            One Friday-morning note: what opens, what closes, and deadlines ahead — only on weekends that matter.
+          </AppText>
+        </View>
+        <Switch
+          value={on}
+          onValueChange={setBrief}
+          trackColor={{ true: theme.color.accent, false: theme.color.border }}
+          thumbColor="#f4f1ea"
+        />
+      </View>
+    </Card>
   );
 }
 
@@ -175,6 +214,7 @@ function OffsetRow({
 }
 
 const styles = StyleSheet.create({
+  briefRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.lg },
   row: { gap: spacing.sm, marginTop: spacing.md },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
   chip: {

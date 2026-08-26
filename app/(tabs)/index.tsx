@@ -141,6 +141,8 @@ export default function Home() {
           <ProUpsellCard />
         </View>
 
+        <WeekendBriefCard seasons={seasons} windows={windows} onPress={() => router.push('/calendar')} />
+
         <View style={styles.stats}>
           <StatTile value={openCount} label="Open now" onPress={() => router.push('/calendar')} />
           <StatTile value={openerCount} label="Openers" onPress={() => router.push('/calendar')} />
@@ -213,6 +215,86 @@ export default function Home() {
   );
 }
 
+/**
+ * The Weekend Brief, in-app: visible Friday through Sunday, only when the
+ * weekend has content (openers Fri-Sun, last-chance closers, deadlines within
+ * a week). The Friday push says the same thing; this card is for everyone.
+ */
+function WeekendBriefCard({
+  seasons,
+  windows,
+  onPress,
+}: {
+  seasons: SeasonWithRefs[];
+  windows: { closes_at: string | null; species?: { name: string } | null; state?: { code: string; name?: string } | null }[];
+  onPress: () => void;
+}) {
+  const now = new Date();
+  const dow = now.getDay(); // 5 Fri, 6 Sat, 0 Sun
+  const iso = todayISO();
+  if (dow !== 5 && dow !== 6 && dow !== 0) return null;
+
+  const addDays = (base: string, n: number) => {
+    const [y, m, d] = base.split('-').map(Number);
+    const dt = new Date(Date.UTC(y, m - 1, d + n));
+    return dt.toISOString().slice(0, 10);
+  };
+  const sunday = addDays(iso, dow === 5 ? 2 : dow === 6 ? 1 : 0);
+  const dayLabel = (dateISO: string) => {
+    const diff = diffDays(iso, dateISO);
+    if (diff === 0) return 'today';
+    if (diff === 1) return 'tomorrow';
+    return ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][new Date(dateISO + 'T12:00:00Z').getUTCDay()];
+  };
+
+  const lines: { priority: number; d: string; text: string }[] = [];
+  for (const s of seasons) {
+    if (!s.open_date) continue;
+    if (s.open_date >= iso && s.open_date <= sunday) {
+      lines.push({ priority: 1, d: s.open_date, text: `${s.species?.name} opens ${dayLabel(s.open_date)} in ${s.state?.name ?? s.state?.code}.` });
+    } else if (s.close_date && s.open_date <= iso && s.close_date >= iso && s.close_date <= sunday) {
+      lines.push({ priority: 2, d: s.close_date, text: `${s.species?.name} closes ${dayLabel(s.close_date)} in ${s.state?.name ?? s.state?.code} — the last days.` });
+    }
+  }
+  for (const w of windows) {
+    if (w.closes_at && w.closes_at >= iso && w.closes_at <= addDays(iso, 7)) {
+      lines.push({
+        priority: 3,
+        d: w.closes_at,
+        text: `The ${w.state?.name ?? w.state?.code} ${(w.species?.name ?? '').toLowerCase()} draw closes ${dayLabel(w.closes_at)}.`,
+      });
+    }
+  }
+  if (lines.length === 0) return null;
+  const shown = lines.sort((a, b) => a.priority - b.priority || a.d.localeCompare(b.d)).slice(0, 3);
+
+  // Masthead date range: "AUG 29–31" (Fri–Sun of this weekend).
+  const MON = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
+  const friday = addDays(iso, dow === 5 ? 0 : dow === 6 ? -1 : -2);
+  const [, fm, fd] = friday.split('-').map(Number);
+  const [, sm, sd] = sunday.split('-').map(Number);
+  const range = fm === sm ? `${MON[fm - 1]} ${fd}–${sd}` : `${MON[fm - 1]} ${fd} – ${MON[sm - 1]} ${sd}`;
+
+  return (
+    <Pressable onPress={onPress} style={({ pressed }) => [styles.briefCard, pressed && styles.pressed]}>
+      <View style={styles.briefHead}>
+        <AppText variant="overline" color={theme.color.accentSoft}>
+          THE WEEKEND BRIEF
+        </AppText>
+        <AppText variant="overline" color={theme.color.textMuted}>
+          {range}
+        </AppText>
+      </View>
+      <View style={styles.briefRule} />
+      {shown.map((l, i) => (
+        <Text key={i} style={styles.briefLine}>
+          {l.text}
+        </Text>
+      ))}
+    </Pressable>
+  );
+}
+
 function StatTile({ value, label, onPress }: { value: number; label: string; onPress: () => void }) {
   return (
     <Pressable onPress={onPress} style={({ pressed }) => [styles.tile, pressed && styles.pressed]}>
@@ -274,6 +356,21 @@ const styles = StyleSheet.create({
   dateLine: { marginTop: spacing.lg },
   greeting: { fontFamily: fontFamily.sansMedium, fontSize: 15, color: theme.color.textSecondary, marginTop: spacing.xs },
   greetingName: { fontFamily: fontFamily.sansSemiBold, color: theme.color.accent },
+
+  briefCard: {
+    marginTop: spacing.lg,
+    padding: spacing.lg,
+    borderRadius: radius.lg,
+    backgroundColor: theme.color.surfaceFlat,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: theme.color.borderFlat,
+    borderLeftWidth: 2,
+    borderLeftColor: theme.color.accent,
+    gap: 6,
+  },
+  briefHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  briefRule: { height: StyleSheet.hairlineWidth, backgroundColor: theme.color.borderFlat, marginVertical: 4 },
+  briefLine: { fontFamily: fontFamily.serifItalic, fontSize: 16.5, lineHeight: 24, color: theme.color.textPrimary },
 
   stats: { flexDirection: 'row', gap: spacing.sm, marginTop: spacing.xl },
   tile: { flex: 1, padding: spacing.lg, borderRadius: radius.md, backgroundColor: theme.color.surfaceFlat, borderWidth: StyleSheet.hairlineWidth, borderColor: theme.color.borderFlat, gap: 2 },
