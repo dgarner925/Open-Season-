@@ -6,6 +6,7 @@ import { ProvenanceBlock } from '@/components/Provenance';
 import { useAuth } from '@/providers/AuthProvider';
 import { useSeasonById } from '@/features/reference/queries';
 import { useMethodReminder } from '@/features/follows/queries';
+import { useLegalLight } from '@/features/legalLight/useLegalLight';
 import { useRequirePro } from '@/hooks/useRequirePro';
 import { addToCalendar } from '@/lib/calendar';
 import { daysUntil, formatDateRange, isOpenNow } from '@/lib/date';
@@ -114,6 +115,8 @@ export default function SeasonDetail() {
         )}
       </View>
 
+      <LegalLightLine stateCode={season.state?.code} open={open} />
+
       <View style={styles.actions}>
         <Pressable
           onPress={onNotify}
@@ -180,7 +183,31 @@ function cap(s: string) {
   return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
+/**
+ * Today's legal shooting light — computed on-device from GPS (or the state's
+ * center, marked ≈) plus the state's verified big-game rule. One quiet line;
+ * shows for open and upcoming seasons, hidden where no rule exists (AK).
+ */
+function LegalLightLine({ stateCode, open }: { stateCode: string | null | undefined; open: boolean }) {
+  const light = useLegalLight(stateCode);
+  if (!light) return null;
+  return (
+    <View style={styles.lightRow}>
+      <Text style={styles.lightLabel}>LEGAL LIGHT {open ? 'TODAY' : ''}</Text>
+      <Text style={styles.lightWindow}>
+        {light.approx ? '≈ ' : ''}
+        {light.window}
+      </Text>
+      {light.note ? <Text style={styles.lightNote}>{light.note}</Text> : null}
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
+  lightRow: { marginTop: spacing.lg, gap: 2 },
+  lightLabel: { fontFamily: fontFamily.sansSemiBold, fontSize: 10, letterSpacing: 1.8, color: theme.color.textMuted },
+  lightWindow: { fontFamily: fontFamily.serifItalic, fontSize: 21, color: theme.color.textPrimary },
+  lightNote: { fontFamily: fontFamily.sans, fontSize: 12, color: theme.color.textMuted },
   context: {
     fontFamily: fontFamily.sansSemiBold,
     fontSize: 11,

@@ -78,6 +78,12 @@
         {
           "iosUrlScheme": "com.googleusercontent.apps.82659984820-sapcn4c71tocngfevm1pafkrqtrqv8e7"
         }
+      ],
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Open Season uses your location to compute today's legal shooting light where you stand. Your location never leaves this phone."
+        }
       ]
     ],
     "experiments": {

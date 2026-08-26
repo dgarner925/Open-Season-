@@ -1,0 +1,209 @@
+{
+  "AL": {
+    "before": 30,
+    "after": 30
+  },
+  "AR": {
+    "before": 30,
+    "after": 30
+  },
+  "FL": {
+    "before": 30,
+    "after": 30
+  },
+  "GA": {
+    "before": 30,
+    "after": 30
+  },
+  "KY": {
+    "before": 30,
+    "after": 30
+  },
+  "LA": {
+    "before": 30,
+    "after": 30
+  },
+  "MS": {
+    "before": 30,
+    "after": 30
+  },
+  "NC": {
+    "before": 30,
+    "after": 30
+  },
+  "TN": {
+    "before": 30,
+    "after": 30
+  },
+  "VA": {
+    "before": 30,
+    "after": 30
+  },
+  "WV": {
+    "before": 30,
+    "after": 30
+  },
+  "TX": {
+    "before": 30,
+    "after": 30
+  },
+  "DE": {
+    "before": 30,
+    "after": 30
+  },
+  "MA": {
+    "before": 30,
+    "after": 30
+  },
+  "MD": {
+    "before": 30,
+    "after": 30
+  },
+  "ME": {
+    "before": 30,
+    "after": 30
+  },
+  "NH": {
+    "before": 30,
+    "after": 30
+  },
+  "NJ": {
+    "before": 30,
+    "after": 30
+  },
+  "NY": {
+    "before": 30,
+    "after": 30
+  },
+  "PA": {
+    "before": 30,
+    "after": 30
+  },
+  "RI": {
+    "before": 30,
+    "after": 30
+  },
+  "VT": {
+    "before": 30,
+    "after": 30
+  },
+  "OH": {
+    "before": 30,
+    "after": 30
+  },
+  "MI": {
+    "before": 30,
+    "after": 30
+  },
+  "IA": {
+    "before": 30,
+    "after": 30
+  },
+  "IL": {
+    "before": 30,
+    "after": 30
+  },
+  "IN": {
+    "before": 30,
+    "after": 30
+  },
+  "KS": {
+    "before": 30,
+    "after": 30
+  },
+  "MN": {
+    "before": 30,
+    "after": 30
+  },
+  "MO": {
+    "before": 30,
+    "after": 30
+  },
+  "ND": {
+    "before": 30,
+    "after": 30,
+    "note": "Deer gun season opens at noon on opening day."
+  },
+  "NE": {
+    "before": 30,
+    "after": 30
+  },
+  "OK": {
+    "before": 30,
+    "after": 30
+  },
+  "SD": {
+    "before": 30,
+    "after": 30
+  },
+  "MT": {
+    "before": 30,
+    "after": 30
+  },
+  "CA": {
+    "before": 30,
+    "after": 30
+  },
+  "CO": {
+    "before": 30,
+    "after": 30
+  },
+  "HI": {
+    "before": 30,
+    "after": 30
+  },
+  "ID": {
+    "before": 30,
+    "after": 30
+  },
+  "NM": {
+    "before": 30,
+    "after": 30
+  },
+  "NV": {
+    "before": 30,
+    "after": 30
+  },
+  "OR": {
+    "before": 30,
+    "after": 30
+  },
+  "UT": {
+    "before": 30,
+    "after": 30
+  },
+  "WA": {
+    "before": 30,
+    "after": 30
+  },
+  "WY": {
+    "before": 30,
+    "after": 30
+  },
+  "CT": {
+    "before": 30,
+    "after": 0,
+    "note": "Connecticut deer hours end at sunset."
+  },
+  "SC": {
+    "before": 60,
+    "after": 60,
+    "note": "South Carolina allows a full hour before sunrise and after sunset."
+  },
+  "AZ": {
+    "before": 0,
+    "after": 0,
+    "note": "Arizona big-game hours are sunrise to sunset."
+  },
+  "WI": {
+    "before": 30,
+    "after": 20,
+    "note": "Wisconsin closes 20 minutes after sunset."
+  },
+  "AK": {
+    "before": 0,
+    "after": 0,
+    "none": true,
+    "note": "Alaska sets no shooting hours for big game."
+  }
+}

@@ -9,6 +9,7 @@ import { NotificationsOffBanner } from '@/components/NotificationsOffBanner';
 import { ProUpsellCard } from '@/components/ProUpsellCard';
 import { useAuth } from '@/providers/AuthProvider';
 import { nextPermitSegment, useFollows, usePermitFollows } from '@/features/follows/queries';
+import { useLegalLight } from '@/features/legalLight/useLegalLight';
 import { openExternalUrl } from '@/lib/openUrl';
 import { useActiveStates, useFollowedSeasons, useFollowedWindows, useSpecies, useUpcomingCountdown } from '@/features/reference/queries';
 import type { SeasonWithRefs } from '@/features/reference/types';
@@ -141,7 +142,12 @@ export default function Home() {
           <ProUpsellCard />
         </View>
 
-        <WeekendBriefCard seasons={seasons} windows={windows} onPress={() => router.push('/calendar')} />
+        <WeekendBriefCard
+          seasons={seasons}
+          windows={windows}
+          stateCode={states.find((s) => s.id === profile?.resident_state_id)?.code ?? trackedStates[0] ?? null}
+          onPress={() => router.push('/calendar')}
+        />
 
         <View style={styles.stats}>
           <StatTile value={openCount} label="Open now" onPress={() => router.push('/calendar')} />
@@ -223,12 +229,15 @@ export default function Home() {
 function WeekendBriefCard({
   seasons,
   windows,
+  stateCode,
   onPress,
 }: {
   seasons: SeasonWithRefs[];
   windows: { closes_at: string | null; species?: { name: string } | null; state?: { code: string; name?: string } | null }[];
+  stateCode: string | null;
   onPress: () => void;
 }) {
+  const light = useLegalLight(stateCode);
   const now = new Date();
   const dow = now.getDay(); // 5 Fri, 6 Sat, 0 Sun
   const iso = todayISO();
@@ -291,6 +300,12 @@ function WeekendBriefCard({
           {l.text}
         </Text>
       ))}
+      {light ? (
+        <Text style={styles.briefLight}>
+          Legal light today: {light.approx ? '≈ ' : ''}
+          {light.window}
+        </Text>
+      ) : null}
     </Pressable>
   );
 }
@@ -371,6 +386,7 @@ const styles = StyleSheet.create({
   briefHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   briefRule: { height: StyleSheet.hairlineWidth, backgroundColor: theme.color.borderFlat, marginVertical: 4 },
   briefLine: { fontFamily: fontFamily.serifItalic, fontSize: 16.5, lineHeight: 24, color: theme.color.textPrimary },
+  briefLight: { fontFamily: fontFamily.sansMedium, fontSize: 12.5, color: theme.color.textMuted, marginTop: 4 },
 
   stats: { flexDirection: 'row', gap: spacing.sm, marginTop: spacing.xl },
   tile: { flex: 1, padding: spacing.lg, borderRadius: radius.md, backgroundColor: theme.color.surfaceFlat, borderWidth: StyleSheet.hairlineWidth, borderColor: theme.color.borderFlat, gap: 2 },
