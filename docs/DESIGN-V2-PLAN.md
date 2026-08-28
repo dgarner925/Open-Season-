@@ -12,8 +12,9 @@ Status: season detail is the ONLY converted screen. Everything else is pre-v2 (l
 - v2 has NO form vocabulary yet — both edit screens block on inventing one (see D9).
 
 ## DECISIONS (gate Pass 3 — David's calls, with recommendations)
+- **STATUS 2026-08-27: David approved all recommendations EXCEPT D2 (overridden — keep tiles) and D4/D10 sentence treatments (pending renders).**
 - **D1 Wordmark & PageTitle.** Retire `PageTitle` (serif + italic-copper accent word) from all content screens — native header + opening Sentence; serif heroes only where the subject is real (species/date/count). EXCEPTION: the wordmark itself ("Open *Season*") on sign-in and LaunchQuote keeps the italic copper — it's the brand mark (icon/splash use it). — RECOMMENDED
-- **D2 Engraved badges.** Keep the art; delete the tile (no fill/border/radius), render dim/muted at row scale, retire the copper monogram-letter fallback (render nothing without art). — RECOMMENDED
+- **D2 Engraved badges.** DECIDED (David, 2026-08-27): KEEP the tiles — animals stay in their badge tiles as today. Retokenize fills to lang palette during conversion but the tile survives; monogram fallback survives. Copper-scarcity on rows is managed by muting everything else in the row.
 - **D3 Pills-as-state.** All filter chips / toggles / choice chips leave pill form. Search filters → tappable sentence spans or fold into query; alerts cadence ladder → see D10; unit picker (location) → hairline rows w/ copper check. — RECOMMENDED (mechanism per screen)
 - **D4 Home stat tiles.** Dissolve the three boxes into one sentence with tappable Serif counts ("Three species open, four openers ahead, one deadline this month."). — RECOMMENDED
 - **D5 Species quote epigraphs.** Adapt, don't cut: keep quote, attribution to dim, divider becomes Rule, position below hero. (Cutting loses the app's voice; keeping copper-as-is breaks rule 7.) — RECOMMENDED: adapt
