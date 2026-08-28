@@ -7,7 +7,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { type ReactNode } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View, type StyleProp, type TextStyle, type ViewStyle } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import Svg, { Circle, Defs, LinearGradient, Line, Path, Rect, Stop } from 'react-native-svg';
+import Svg, { Circle, Defs, LinearGradient, Line, Mask, Path, RadialGradient, Rect, Stop } from 'react-native-svg';
 import { lang } from '@/theme/tokens';
 
 const { color, space, radius, type } = lang;
@@ -111,30 +111,86 @@ export function Thread({ height }: { height: number }) {
 }
 
 /**
- * The sun's day-arc — only where legal light is the subject. `progress` places
- * the sun along the arc (0 = first light, 1 = last light).
+ * The sun's day-path with the legal-light window LIT along it — only where
+ * legal light is the subject. The x-axis is the 24-hour day; `startFrac` /
+ * `endFrac` mark first and last legal light as fractions of the day, and
+ * `nowFrac` places the glowing sun at the current hour. Design approved from
+ * David's mock, 2026-08-27.
  */
-export function SunArc({ width, progress = 0.22 }: { width: number; progress?: number }) {
-  const h = Math.round(width * 0.34);
-  const rx = width / 2 - 4;
-  const ry = h - 14;
-  const cx = width / 2;
-  const cy = h - 4;
-  const theta = Math.PI * (1 - Math.max(0, Math.min(1, progress)));
-  const sx = cx + rx * Math.cos(theta);
-  const sy = cy - ry * Math.sin(theta);
+export function SunArc({
+  width,
+  startFrac,
+  endFrac,
+  nowFrac,
+}: {
+  width: number;
+  startFrac: number;
+  endFrac: number;
+  nowFrac: number;
+}) {
+  // Mock geometry: viewBox 300x92, horizon y=74, path M0 74 Q150 -6 300 74.
+  const VW = 300;
+  const VH = 92;
+  const HOR = 74;
+  const h = Math.round((width * VH) / VW);
+  const clamp = (v: number) => Math.max(0.02, Math.min(0.98, v));
+  const s = clamp(startFrac);
+  const e = clamp(endFrac);
+  const n = Math.max(0, Math.min(1, nowFrac));
+  // Point on the quadratic at t: (1-t)²·74 + 2(1-t)t·(-6) + t²·74
+  const arcY = (t: number) => (1 - t) * (1 - t) * HOR + 2 * (1 - t) * t * -6 + t * t * HOR;
+  const pct = (v: number) => `${(v * 100).toFixed(1)}%`;
   return (
-    <Svg width={width} height={h} accessible={false}>
+    <Svg width={width} height={h} viewBox={`0 0 ${VW} ${VH}`} accessible={false}>
+      <Defs>
+        <LinearGradient id="sunRamp" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2={VW} y2="0">
+          <Stop offset={pct(s - 0.06)} stopColor={color.copper} stopOpacity="0" />
+          <Stop offset={pct(s)} stopColor={color.copperDim} stopOpacity="0.55" />
+          <Stop offset={pct(s + 0.15)} stopColor={color.copper} stopOpacity="1" />
+          <Stop offset={pct(e - 0.2)} stopColor={color.copper} stopOpacity="0.95" />
+          <Stop offset={pct(e)} stopColor={color.copperDim} stopOpacity="0.5" />
+          <Stop offset={pct(e + 0.03)} stopColor={color.copper} stopOpacity="0" />
+        </LinearGradient>
+        <LinearGradient id="sunRampMask" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2={VW} y2="0">
+          <Stop offset={pct(s - 0.06)} stopColor="#fff" stopOpacity="0" />
+          <Stop offset={pct(s + 0.04)} stopColor="#fff" stopOpacity="0.6" />
+          <Stop offset={pct((s + e) / 2)} stopColor="#fff" stopOpacity="1" />
+          <Stop offset={pct(e - 0.16)} stopColor="#fff" stopOpacity="0.85" />
+          <Stop offset={pct(e + 0.03)} stopColor="#fff" stopOpacity="0" />
+        </LinearGradient>
+        <LinearGradient id="sunFall" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="0" y2={HOR}>
+          <Stop offset="0%" stopColor={color.copper} stopOpacity="0.05" />
+          <Stop offset="100%" stopColor={color.copper} stopOpacity="0.26" />
+        </LinearGradient>
+        <RadialGradient id="sunGlow">
+          <Stop offset="0%" stopColor={color.bone} stopOpacity="0.55" />
+          <Stop offset="100%" stopColor={color.bone} stopOpacity="0" />
+        </RadialGradient>
+        <Mask id="sunLit">
+          <Rect x="0" y="0" width={VW} height={VH} fill="url(#sunRampMask)" />
+        </Mask>
+      </Defs>
+
+      {/* the wash under the arc, lit only inside the legal window */}
+      <Path d={`M0 ${HOR} Q${VW / 2} -6 ${VW} ${HOR} Z`} fill="url(#sunFall)" mask="url(#sunLit)" />
+      {/* horizon */}
+      <Line x1={0} y1={HOR} x2={VW} y2={HOR} stroke="rgba(255,255,255,0.10)" strokeWidth={1} />
+      {/* the full path of the sun, unlit */}
+      <Path d={`M0 ${HOR} Q${VW / 2} -6 ${VW} ${HOR}`} fill="none" stroke="rgba(224,164,128,0.13)" strokeWidth={1.25} />
+      {/* the lit portion */}
       <Path
-        d={`M ${cx - rx} ${cy} A ${rx} ${ry} 0 0 1 ${cx + rx} ${cy}`}
+        d={`M0 ${HOR} Q${VW / 2} -6 ${VW} ${HOR}`}
         fill="none"
-        stroke={color.dim}
-        strokeWidth={1.5}
-        strokeDasharray="1 5.5"
+        stroke="url(#sunRamp)"
+        strokeWidth={1.75}
         strokeLinecap="round"
       />
-      <Line x1={0} y1={cy} x2={width} y2={cy} stroke={color.hair} strokeWidth={1} />
-      <Circle cx={sx} cy={sy} r={5} fill={color.copper} />
+      {/* first and last light ticks */}
+      <Line x1={s * VW} y1={HOR} x2={s * VW} y2={arcY(s)} stroke="rgba(224,164,128,0.22)" strokeWidth={1} />
+      <Line x1={e * VW} y1={HOR} x2={e * VW} y2={arcY(e)} stroke="rgba(224,164,128,0.22)" strokeWidth={1} />
+      {/* the sun, now */}
+      <Circle cx={n * VW} cy={arcY(n)} r={13} fill="url(#sunGlow)" />
+      <Circle cx={n * VW} cy={arcY(n)} r={4} fill="#F7F3EE" />
     </Svg>
   );
 }

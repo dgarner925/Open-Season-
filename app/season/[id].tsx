@@ -88,12 +88,12 @@ export default function SeasonDetail() {
   const zonePart = season.zone?.name && season.zone.name !== 'Statewide' ? `${season.zone.name}, ` : '';
   const heroSentence = `${title} — ${zonePart}${season.state?.name ?? ''}.${residency ? ` ${cap(residency)} rules apply to you.` : ''}`;
 
-  // Sun position: during an open season, where today's light actually stands.
-  const now = Date.now();
-  const sunProgress =
-    open && light && now > light.startMs && now < light.endMs
-      ? (now - light.startMs) / (light.endMs - light.startMs)
-      : 0.22;
+  // Fraction of the 24-hour day for a timestamp, in local time — drives the
+  // lit window and the sun's position on the day-path.
+  const dayFrac = (ms: number) => {
+    const d = new Date(ms);
+    return (d.getHours() * 60 + d.getMinutes()) / 1440;
+  };
 
   // The rule, spoken. 30/30 is the common case; the outliers get their words.
   const lightPhrase = light
@@ -167,26 +167,33 @@ export default function SeasonDetail() {
         {light ? (
           <>
             <Rule />
-            <View style={{ marginHorizontal: -0 }}>
-              <SunArc width={arcWidth - 26} progress={sunProgress} />
-              <View style={styles.lightTimes}>
-                <View style={styles.lightCol}>
-                  <Serif size={26}>{light.approx ? `≈ ${light.startClock}` : light.startClock}</Serif>
-                  <Micro>First light</Micro>
-                </View>
-                <View style={[styles.lightCol, { alignItems: 'flex-end' }]}>
-                  <Serif size={26}>{light.approx ? `≈ ${light.endClock}` : light.endClock}</Serif>
-                  <Micro>Last light</Micro>
-                </View>
-              </View>
-            </View>
-            <Sentence style={{ marginTop: space.x16 }}>
+            <Sentence>
               {open ? 'Legal light today — ' : 'Legal light on opening day — '}
               <Serif italic size={19}>
                 {durH}h {String(durM).padStart(2, '0')}m
               </Serif>
               {`, ${lightPhrase}.`}
             </Sentence>
+            <Serif italic size={24} style={{ marginTop: space.x4 }}>
+              {light.approx ? '≈ ' : ''}
+              {light.startClock} – {light.endClock}
+            </Serif>
+            <View style={{ marginTop: space.x8 }}>
+              <SunArc
+                width={arcWidth - 26}
+                startFrac={dayFrac(light.startMs)}
+                endFrac={dayFrac(light.endMs)}
+                nowFrac={dayFrac(Date.now())}
+              />
+              <View style={styles.tickRow}>
+                <Micro style={{ position: 'absolute', left: Math.max(0, dayFrac(light.startMs) * (arcWidth - 26) - 34) }}>
+                  First light
+                </Micro>
+                <Micro style={{ position: 'absolute', left: Math.min(arcWidth - 120, dayFrac(light.endMs) * (arcWidth - 26) - 34) }}>
+                  Last light
+                </Micro>
+              </View>
+            </View>
             {light.note ? (
               <Sentence tone="dim" style={{ marginTop: space.x8, fontSize: 13 }}>
                 {light.note}
@@ -257,7 +264,6 @@ export default function SeasonDetail() {
 
 const styles = StyleSheet.create({
   threaded: { position: 'relative', paddingLeft: 26, marginTop: space.x8 },
-  lightTimes: { flexDirection: 'row', justifyContent: 'space-between', marginTop: space.x8 },
-  lightCol: { gap: 2 },
+  tickRow: { height: 16, marginTop: 2 },
   actions: { flexDirection: 'row', gap: space.x12 },
 });
