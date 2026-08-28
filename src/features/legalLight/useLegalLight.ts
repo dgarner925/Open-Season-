@@ -49,6 +49,15 @@ export type LegalLightToday = {
   window: string;
   sunrise: string;
   sunset: string;
+  /** Legal window edges, individually. */
+  startClock: string;
+  endClock: string;
+  startMs: number;
+  endMs: number;
+  durationMin: number;
+  /** The state rule's offsets, minutes (for phrasing the sentence). */
+  before: number;
+  after: number;
   /** True when computed from the state's center rather than device GPS. */
   approx: boolean;
   /** The rule's own wording note, when the state has one. */
@@ -84,6 +93,13 @@ export function useLegalLight(stateCode: string | null | undefined, dayOffset = 
         window: `${formatClock(ll.start)} – ${formatClock(ll.end)}`,
         sunrise: formatClock(ll.sunrise),
         sunset: formatClock(ll.sunset),
+        startClock: formatClock(ll.start),
+        endClock: formatClock(ll.end),
+        startMs: ll.start.getTime(),
+        endMs: ll.end.getTime(),
+        durationMin: Math.round((ll.end.getTime() - ll.start.getTime()) / 60000),
+        before: rule.before,
+        after: rule.after,
         approx: !fix,
         note: rule.note,
       });

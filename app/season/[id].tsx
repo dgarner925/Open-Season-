@@ -1,8 +1,7 @@
 import { Stack, useLocalSearchParams } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
-import { AppText, Button, Card, Divider, Pill, Screen } from '@/components/ui';
-import { ProvenanceBlock } from '@/components/Provenance';
+import { ActivityIndicator, Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { Micro, Pill, Rule, Screen, Sentence, Serif, SunArc, Thread } from '@/components/system';
 import { useAuth } from '@/providers/AuthProvider';
 import { useSeasonById } from '@/features/reference/queries';
 import { useMethodReminder } from '@/features/follows/queries';
@@ -12,13 +11,30 @@ import { addToCalendar } from '@/lib/calendar';
 import { daysUntil, formatDateRange, isOpenNow } from '@/lib/date';
 import { openExternalUrl } from '@/lib/openUrl';
 import { supabase } from '@/lib/supabase';
-import { fontFamily, radius, spacing, theme } from '@/theme';
+import { lang } from '@/theme/tokens';
 
+const { color, space, type } = lang;
+
+const WEEKDAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+
+function spoken(dateISO: string): { weekday: string; date: string } {
+  const [y, m, d] = dateISO.split('-').map(Number);
+  const dt = new Date(y, m - 1, d);
+  return { weekday: WEEKDAYS[dt.getDay()], date: `${MONTHS[m - 1]} ${d}` };
+}
+
+function cap(s: string) {
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
+/** The reference implementation of the field-journal language. */
 export default function SeasonDetail() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { data: season, isLoading } = useSeasonById(id);
   const { profile } = useAuth();
   const requirePro = useRequirePro();
+  const { width } = useWindowDimensions();
 
   const stateId = season?.state?.id ?? season?.state_id;
   const speciesId = season?.species?.id ?? season?.species_id;
@@ -41,31 +57,55 @@ export default function SeasonDetail() {
     },
   });
 
+  const open = season ? isOpenNow(season.open_date, season.close_date) : false;
+  const days = season?.open_date ? daysUntil(season.open_date) : null;
+  const light = useLegalLight(season?.state?.code, open ? 0 : Math.max(days ?? 0, 0));
+
   if (isLoading) {
     return (
       <Screen>
-        <ActivityIndicator color={theme.color.accent} style={{ marginTop: spacing.xxl }} />
+        <ActivityIndicator color={color.copper} style={{ marginTop: space.x38 }} />
       </Screen>
     );
   }
   if (!season) {
     return (
       <Screen>
-        <AppText variant="h3">Season not found</AppText>
+        <Sentence tone="bone" style={{ marginTop: space.section }}>
+          Season not found.
+        </Sentence>
       </Screen>
     );
   }
 
-  const open = isOpenNow(season.open_date, season.close_date);
-  const days = season.open_date ? daysUntil(season.open_date) : null;
   const title = season.label ?? cap(season.method);
   const armed = reminder.isArmed(season.method);
   const residency =
-    profile?.resident_state_id && stateId
-      ? profile.resident_state_id === stateId
-        ? 'RESIDENT'
-        : 'NONRESIDENT'
-      : null;
+    profile?.resident_state_id && stateId ? (profile.resident_state_id === stateId ? 'resident' : 'nonresident') : null;
+
+  // The hero sentence: what this hunt is, in one breath.
+  const zonePart = season.zone?.name && season.zone.name !== 'Statewide' ? `${season.zone.name}, ` : '';
+  const heroSentence = `${title} — ${zonePart}${season.state?.name ?? ''}.${residency ? ` ${cap(residency)} rules apply to you.` : ''}`;
+
+  // Sun position: during an open season, where today's light actually stands.
+  const now = Date.now();
+  const sunProgress =
+    open && light && now > light.startMs && now < light.endMs
+      ? (now - light.startMs) / (light.endMs - light.startMs)
+      : 0.22;
+
+  // The rule, spoken. 30/30 is the common case; the outliers get their words.
+  const lightPhrase = light
+    ? light.before === 30 && light.after === 30
+      ? 'half an hour past each edge of the sun'
+      : light.before === 0 && light.after === 0
+        ? 'sunrise to sunset, exactly'
+        : light.before === 60 && light.after === 60
+          ? 'a full hour past each edge of the sun'
+          : light.after === 0
+            ? `${light.before} minutes before sunrise, ending at sunset`
+            : `${light.before} minutes before sunrise to ${light.after} after sunset`
+    : '';
 
   function onNotify() {
     if (!requirePro()) return;
@@ -82,187 +122,136 @@ export default function SeasonDetail() {
     });
   }
 
+  const arcWidth = width - space.gutter * 2;
+  const durH = light ? Math.floor(light.durationMin / 60) : 0;
+  const durM = light ? light.durationMin % 60 : 0;
+
   return (
     <Screen scroll>
       <Stack.Screen options={{ headerShown: true, title: '' }} />
 
-      <Text style={styles.context}>
-        {(season.state?.name ?? '').toUpperCase()} · {(season.species?.name ?? '').toUpperCase()}
-        {residency ? `  ·  ${residency}` : ''}
-      </Text>
+      {/* The cascade: species first, then the hunt, then its dates, then its light. */}
+      <Serif size={type.size.hero} style={{ marginTop: space.x16, lineHeight: type.size.hero + 6 }}>
+        {season.species?.name ?? cap(season.method)}
+      </Serif>
+      <Sentence style={{ marginTop: space.x8 }}>{heroSentence}</Sentence>
 
-      <Text style={styles.title}>
-        {title}
-        <Text style={styles.titleAccent}> season.</Text>
-      </Text>
-      <AppText variant="body" color={theme.color.textSecondary} style={{ marginTop: spacing.sm }}>
-        {formatDateRange(season.open_date, season.close_date)}
-        {season.zone?.name && season.zone.name !== 'Statewide' ? ` · ${season.zone.name}` : ''}
-      </AppText>
+      <View style={styles.threaded}>
+        <Thread height={620} />
 
-      <View style={styles.countdownRow}>
-        {open ? (
-          <Pill label="Open now" color={theme.color.success} />
-        ) : days !== null && days >= 0 ? (
-          <Text style={styles.countdown}>
-            {days}
-            <Text style={styles.countdownUnit}> day{days === 1 ? '' : 's'} to the opener</Text>
-          </Text>
-        ) : (
-          <AppText variant="bodyStrong" color={theme.color.textMuted}>
-            Closed for the year
-          </AppText>
-        )}
+        <Serif size={30} style={{ marginTop: space.x32 }}>
+          {formatDateRange(season.open_date, season.close_date)}
+        </Serif>
+        <Sentence style={{ marginTop: space.x8 }}>
+          {open && season.close_date ? (
+            <>
+              <Serif italic copper size={20}>
+                Open now
+            </Serif>
+              {` — closes ${spoken(season.close_date).weekday}, ${spoken(season.close_date).date}.`}
+            </>
+          ) : days !== null && days >= 0 && season.open_date ? (
+            <>
+              {'Opens in '}
+              <Serif italic copper size={20}>
+                {days} {days === 1 ? 'day' : 'days'}
+              </Serif>
+              {` — ${spoken(season.open_date).weekday}, ${spoken(season.open_date).date}.`}
+            </>
+          ) : (
+            'Closed for the year.'
+          )}
+        </Sentence>
+
+        {light ? (
+          <>
+            <Rule />
+            <View style={{ marginHorizontal: -0 }}>
+              <SunArc width={arcWidth - 26} progress={sunProgress} />
+              <View style={styles.lightTimes}>
+                <View style={styles.lightCol}>
+                  <Serif size={26}>{light.approx ? `≈ ${light.startClock}` : light.startClock}</Serif>
+                  <Micro>First light</Micro>
+                </View>
+                <View style={[styles.lightCol, { alignItems: 'flex-end' }]}>
+                  <Serif size={26}>{light.approx ? `≈ ${light.endClock}` : light.endClock}</Serif>
+                  <Micro>Last light</Micro>
+                </View>
+              </View>
+            </View>
+            <Sentence style={{ marginTop: space.x16 }}>
+              {open ? 'Legal light today — ' : 'Legal light on opening day — '}
+              <Serif italic size={19}>
+                {durH}h {String(durM).padStart(2, '0')}m
+              </Serif>
+              {`, ${lightPhrase}.`}
+            </Sentence>
+            {light.note ? (
+              <Sentence tone="dim" style={{ marginTop: space.x8, fontSize: 13 }}>
+                {light.note}
+              </Sentence>
+            ) : null}
+          </>
+        ) : null}
+
+        <Rule />
+
+        {/* The rules of this hunt, as sentences. */}
+        {season.bag_limit_summary ? <Sentence>{season.bag_limit_summary}</Sentence> : null}
+        {season.notes ? <Sentence style={{ marginTop: season.bag_limit_summary ? space.x12 : 0 }}>{season.notes}</Sentence> : null}
+        {!season.bag_limit_summary && !season.notes ? (
+          <Sentence>No bag limit or notes on file — check the official regulations.</Sentence>
+        ) : null}
+        {season.last_verified_at ? (
+          <Pressable
+            onPress={season.source?.url ? () => openExternalUrl(season.source!.url) : undefined}
+            disabled={!season.source?.url}
+            accessibilityRole={season.source?.url ? 'link' : undefined}
+          >
+            <Sentence tone="dim" style={{ marginTop: space.x12, fontSize: 13 }}>
+              Verified against {season.source?.agency_name ?? season.state?.name ?? 'the state agency'},{' '}
+              {spoken(season.last_verified_at.slice(0, 10)).date}.{season.source?.url ? ' ›' : ''}
+            </Sentence>
+          </Pressable>
+        ) : null}
       </View>
 
-      <LegalLightLine stateCode={season.state?.code} open={open} daysToOpen={days} />
+      <Rule />
 
+      {/* The caveat sits directly above the action it qualifies. */}
+      {armed ? (
+        <Sentence tone="dim" style={{ marginBottom: space.x16, fontSize: 13 }}>
+          We'll remind you before the opener — adjust how far ahead in Profile.
+        </Sentence>
+      ) : null}
       <View style={styles.actions}>
-        <Pressable
+        <Pill
+          label={armed ? 'Notifying you ✓' : 'Notify me'}
+          variant={armed ? 'secondary' : 'primary'}
           onPress={onNotify}
           disabled={reminder.toggle.isPending}
-          style={({ pressed }) => [styles.notifyBtn, armed && styles.notifyBtnArmed, pressed && { opacity: 0.8 }]}
-        >
-          <Text style={[styles.notifyLabel, armed && styles.notifyLabelArmed]}>
-            {armed ? 'Notifying you ✓' : 'Notify me'}
-          </Text>
-        </Pressable>
-        <Pressable onPress={onCalendar} style={({ pressed }) => [styles.calBtn, pressed && { opacity: 0.7 }]}>
-          <Text style={styles.calLabel}>Add to calendar</Text>
-        </Pressable>
+          style={{ flex: 1.4 }}
+        />
+        <Pill label="Add to calendar" variant="secondary" onPress={onCalendar} style={{ flex: 1 }} />
       </View>
-      {armed ? (
-        <AppText variant="caption" color={theme.color.textMuted} style={{ marginTop: spacing.sm }}>
-          We'll remind you before the opener — adjust how far ahead in Profile → Reminders.
-        </AppText>
-      ) : null}
-
-      <Card style={{ marginTop: spacing.xl }}>
-        {season.bag_limit_summary ? (
-          <>
-            <AppText variant="overline" color={theme.color.textMuted}>
-              BAG LIMIT
-            </AppText>
-            <AppText variant="body">{season.bag_limit_summary}</AppText>
-          </>
-        ) : null}
-        {season.notes ? (
-          <>
-            {season.bag_limit_summary ? <Divider /> : null}
-            <AppText variant="overline" color={theme.color.textMuted}>
-              NOTES
-            </AppText>
-            <AppText variant="body">{season.notes}</AppText>
-          </>
-        ) : null}
-        {!season.bag_limit_summary && !season.notes ? (
-          <AppText variant="body" color={theme.color.textMuted}>
-            No bag limit or notes on file — check the official regulations.
-          </AppText>
-        ) : null}
-      </Card>
 
       {season.state?.license_url ? (
-        <Button
-          variant="secondary"
-          title="Buy a license / tag"
-          onPress={() => openExternalUrl(season.state!.license_url)}
-        />
+        <>
+          <Rule />
+          <Pressable onPress={() => openExternalUrl(season.state!.license_url)} accessibilityRole="link">
+            <Sentence>
+              Buy your {season.state?.name ?? ''} license before you go. <Text style={{ color: color.dim }}>›</Text>
+            </Sentence>
+          </Pressable>
+        </>
       ) : null}
-
-      <ProvenanceBlock
-        verifiedAt={season.last_verified_at}
-        agencyName={season.source?.agency_name ?? season.state?.name ?? null}
-        url={season.source?.url ?? null}
-      />
     </Screen>
   );
 }
 
-function cap(s: string) {
-  return s.charAt(0).toUpperCase() + s.slice(1);
-}
-
-/**
- * Today's legal shooting light — computed on-device from GPS (or the state's
- * center, marked ≈) plus the state's verified big-game rule. One quiet line;
- * shows for open and upcoming seasons, hidden where no rule exists (AK).
- */
-function LegalLightLine({
-  stateCode,
-  open,
-  daysToOpen,
-}: {
-  stateCode: string | null | undefined;
-  open: boolean;
-  daysToOpen: number | null;
-}) {
-  // Open season: today's light (the in-field case). Upcoming: opening day's —
-  // today's light is meaningless for a hunt weeks away.
-  const offset = open ? 0 : Math.max(daysToOpen ?? 0, 0);
-  const light = useLegalLight(stateCode, offset);
-  if (!light) return null;
-  return (
-    <View style={styles.lightRow}>
-      <Text style={styles.lightLabel}>{open ? 'LEGAL LIGHT TODAY' : 'LEGAL LIGHT ON OPENING DAY'}</Text>
-      <Text style={styles.lightWindow}>
-        {light.approx ? '≈ ' : ''}
-        {light.window}
-      </Text>
-      {light.note ? <Text style={styles.lightNote}>{light.note}</Text> : null}
-    </View>
-  );
-}
-
 const styles = StyleSheet.create({
-  lightRow: { marginTop: spacing.lg, gap: 2 },
-  lightLabel: { fontFamily: fontFamily.sansSemiBold, fontSize: 10, letterSpacing: 1.8, color: theme.color.textMuted },
-  lightWindow: { fontFamily: fontFamily.serifItalic, fontSize: 21, color: theme.color.textPrimary },
-  lightNote: { fontFamily: fontFamily.sans, fontSize: 12, color: theme.color.textMuted },
-  context: {
-    fontFamily: fontFamily.sansSemiBold,
-    fontSize: 11,
-    letterSpacing: 1.6,
-    color: theme.color.textMuted,
-    marginTop: spacing.sm,
-  },
-  title: {
-    fontFamily: fontFamily.serif,
-    fontSize: 40,
-    lineHeight: 46,
-    color: theme.color.textPrimary,
-    marginTop: spacing.md,
-  },
-  titleAccent: { fontFamily: fontFamily.serifItalic, color: theme.color.accent },
-
-  countdownRow: { marginTop: spacing.xl },
-  countdown: { fontFamily: fontFamily.serifItalic, fontSize: 44, color: theme.color.accent },
-  countdownUnit: { fontFamily: fontFamily.serifItalic, fontSize: 16, color: theme.color.textMuted },
-
-  actions: { flexDirection: 'row', gap: spacing.md, marginTop: spacing.lg },
-  notifyBtn: {
-    flex: 1.6,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: theme.color.accent,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  notifyBtnArmed: {
-    backgroundColor: theme.color.accentFill,
-    borderWidth: 1.2,
-    borderColor: theme.color.accent,
-  },
-  notifyLabel: { fontFamily: fontFamily.sansBold, fontSize: 14.5, color: theme.color.onAccent },
-  notifyLabelArmed: { color: theme.color.accent },
-  calBtn: {
-    flex: 1,
-    height: 48,
-    borderRadius: 24,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: theme.color.border,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  calLabel: { fontFamily: fontFamily.sansMedium, fontSize: 13.5, color: theme.color.textSecondary },
+  threaded: { position: 'relative', paddingLeft: 26, marginTop: space.x8 },
+  lightTimes: { flexDirection: 'row', justifyContent: 'space-between', marginTop: space.x8 },
+  lightCol: { gap: 2 },
+  actions: { flexDirection: 'row', gap: space.x12 },
 });
