@@ -2,16 +2,16 @@ import { Ionicons } from '@expo/vector-icons';
 import { Stack, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
-import { AppText, Screen } from '@/components/ui';
-import { PageTitle, SpeciesBadge } from '@/components/midnight';
+import { Screen, Sentence } from '@/components/system';
+import { SpeciesBadge } from '@/components/midnight';
 import { useAuth } from '@/providers/AuthProvider';
 import { usePermitFollows, useTogglePermitFollow } from '@/features/follows/queries';
 import { useActiveStates } from '@/features/reference/queries';
 import { useSearchMemo, type SearchResult } from '@/features/search/useSearch';
 import { openExternalUrl } from '@/lib/openUrl';
-import { fontFamily, radius, spacing, theme } from '@/theme';
+import { lang } from '@/theme/tokens';
 
-const BADGE_LABEL: Record<string, string> = { season: 'SEASON', deadline: 'DEADLINE', permit: 'PERMIT' };
+const { color, space, type, radius } = lang;
 
 export default function Search() {
   const router = useRouter();
@@ -52,16 +52,16 @@ export default function Search() {
 
   return (
     <Screen>
-      <Stack.Screen options={{ headerShown: true, title: '' }} />
-      <PageTitle lead="Find your " accent="hunt." />
+      <Stack.Screen options={{ headerShown: true, title: 'Search' }} />
 
+      {/* The field is the only pill on this screen. */}
       <View style={styles.inputWrap}>
-        <Ionicons name="search" size={16} color={theme.color.textMuted} />
+        <Ionicons name="search" size={16} color={color.dim} />
         <TextInput
           value={raw}
           onChangeText={setRaw}
           placeholder='Species, state, month, or "open now"'
-          placeholderTextColor={theme.color.textMuted}
+          placeholderTextColor={color.dim}
           style={styles.input}
           autoFocus
           autoCorrect={false}
@@ -69,37 +69,38 @@ export default function Search() {
         />
         {raw ? (
           <Pressable onPress={() => setRaw('')} hitSlop={8}>
-            <Ionicons name="close-circle" size={16} color={theme.color.textMuted} />
+            <Ionicons name="close-circle" size={16} color={color.dim} />
           </Pressable>
         ) : null}
       </View>
 
-      <View style={styles.chips}>
-        <Chip label="Open now" on={openNow} onPress={() => setOpenNow((v) => !v)} />
-        {myStateCode ? <Chip label="My state" on={myState} onPress={() => setMyState((v) => !v)} /> : null}
-        <Chip label="Deadlines" on={deadlinesOnly} onPress={() => setDeadlinesOnly((v) => !v)} />
+      {/* Filters as tappable words — state, not pills. */}
+      <View style={styles.filterRow}>
+        <FilterWord label="Open now" on={openNow} onPress={() => setOpenNow((v) => !v)} />
+        {myStateCode ? <FilterWord label="My state" on={myState} onPress={() => setMyState((v) => !v)} /> : null}
+        <FilterWord label="Deadlines" on={deadlinesOnly} onPress={() => setDeadlinesOnly((v) => !v)} />
       </View>
 
       {!ready || isLoading ? (
-        <ActivityIndicator color={theme.color.accent} style={{ marginTop: spacing.xxl }} />
+        <ActivityIndicator color={color.copper} style={{ marginTop: space.x38 }} />
       ) : shown.length === 0 ? (
-        <AppText variant="body" color={theme.color.textMuted} style={{ marginTop: spacing.xxl, textAlign: 'center' }}>
+        <Sentence style={{ marginTop: space.x38 }}>
           {query.trim() || openNow || myState || deadlinesOnly
             ? 'Nothing matches — try a species, a state, or a month.'
             : 'Search every season, deadline, and federal permit hunt in all 50 states.'}
-        </AppText>
+        </Sentence>
       ) : (
         <FlatList
           data={shown}
           keyExtractor={(r) => `${r.type}:${r.id}`}
           keyboardShouldPersistTaps="handled"
-          contentContainerStyle={{ paddingTop: spacing.lg, paddingBottom: spacing.xxl }}
+          contentContainerStyle={{ paddingTop: space.x16, paddingBottom: space.x38 }}
           ItemSeparatorComponent={() => <View style={styles.sep} />}
           ListFooterComponent={
             results.length > shown.length ? (
-              <AppText variant="caption" color={theme.color.textMuted} style={{ textAlign: 'center', marginTop: spacing.lg }}>
-                {results.length - shown.length} more — narrow the search
-              </AppText>
+              <Sentence tone="dim" style={{ textAlign: 'center', marginTop: space.x16, fontSize: 13 }}>
+                Narrow the search — {results.length - shown.length} more match.
+              </Sentence>
             ) : null
           }
           renderItem={({ item: r }) => (
@@ -108,20 +109,15 @@ export default function Search() {
                 <SpeciesBadge name={r.speciesName} size={38} muted />
               ) : (
                 <View style={styles.permitTile}>
-                  <Ionicons name="ribbon-outline" size={17} color={theme.color.textMuted} />
+                  <Ionicons name="ribbon-outline" size={17} color={color.dim} />
                 </View>
               )}
               <View style={{ flex: 1 }}>
-                <AppText variant="bodyStrong" numberOfLines={1}>
+                <Text style={styles.rowTitle} numberOfLines={1}>
                   {r.title}
-                </AppText>
-                <AppText variant="caption" color={theme.color.textMuted} numberOfLines={1} style={{ marginTop: 2 }}>
+                </Text>
+                <Text style={styles.rowSub} numberOfLines={1}>
                   {r.caption}
-                </AppText>
-              </View>
-              <View style={[styles.typeBadge, r.type !== 'season' && styles.typeBadgeAccent]}>
-                <Text style={[styles.typeBadgeText, r.type !== 'season' && { color: theme.color.accent }]}>
-                  {BADGE_LABEL[r.type]}
                 </Text>
               </View>
               {r.type === 'permit' ? (
@@ -129,16 +125,15 @@ export default function Search() {
                   hitSlop={12}
                   disabled={togglePermit.isPending}
                   onPress={() => togglePermit.mutate({ permitId: r.id, existingId: permitFollowId.get(r.id) })}
-                  style={({ pressed }) => pressed && { opacity: 0.5 }}
                 >
                   <Ionicons
                     name={permitFollowId.has(r.id) ? 'checkmark-circle' : 'add-circle-outline'}
                     size={20}
-                    color={permitFollowId.has(r.id) ? theme.color.accent : theme.color.textMuted}
+                    color={permitFollowId.has(r.id) ? color.copper : color.dim}
                   />
                 </Pressable>
               ) : (
-                <Ionicons name="chevron-forward" size={13} color={theme.color.textMuted} />
+                <Ionicons name="chevron-forward" size={13} color={color.dim} />
               )}
             </Pressable>
           )}
@@ -148,10 +143,10 @@ export default function Search() {
   );
 }
 
-function Chip({ label, on, onPress }: { label: string; on: boolean; onPress: () => void }) {
+function FilterWord({ label, on, onPress }: { label: string; on: boolean; onPress: () => void }) {
   return (
-    <Pressable onPress={onPress} style={[styles.chip, on && styles.chipOn]}>
-      <Text style={[styles.chipText, on && styles.chipTextOn]}>{label}</Text>
+    <Pressable onPress={onPress} hitSlop={8} accessibilityRole="button" accessibilityLabel={`${label} filter`}>
+      <Text style={[styles.filterWord, on && styles.filterWordOn]}>{label}</Text>
     </Pressable>
   );
 }
@@ -160,51 +155,32 @@ const styles = StyleSheet.create({
   inputWrap: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.sm,
-    marginTop: spacing.lg,
-    paddingHorizontal: spacing.lg,
+    gap: space.x8,
+    marginTop: space.x16,
+    paddingHorizontal: space.x16,
     height: 48,
-    borderRadius: 24,
-    backgroundColor: theme.color.surfaceFlat,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: theme.color.borderFlat,
-  },
-  input: { flex: 1, color: theme.color.textPrimary, fontSize: 15, fontFamily: fontFamily.sansMedium },
-
-  chips: { flexDirection: 'row', gap: spacing.sm, marginTop: spacing.md },
-  chip: {
-    paddingHorizontal: spacing.lg,
-    height: 32,
-    borderRadius: 16,
+    borderRadius: radius.pill,
     borderWidth: 1,
-    borderColor: theme.color.border,
-    alignItems: 'center',
-    justifyContent: 'center',
+    borderColor: color.hair,
   },
-  chipOn: { backgroundColor: theme.color.accent, borderColor: theme.color.accent },
-  chipText: { fontFamily: fontFamily.sansMedium, fontSize: 12.5, color: theme.color.textSecondary },
-  chipTextOn: { color: theme.color.onAccent },
+  input: { flex: 1, color: color.bone, fontSize: 15, fontFamily: type.ui },
 
-  row: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, paddingVertical: spacing.md },
-  sep: { height: StyleSheet.hairlineWidth, backgroundColor: theme.color.border, marginLeft: 50 },
+  filterRow: { flexDirection: 'row', gap: space.section, marginTop: space.x16 },
+  filterWord: { fontFamily: type.uiMedium, fontSize: 14, color: color.dim },
+  filterWordOn: { color: color.copper },
+
+  row: { flexDirection: 'row', alignItems: 'center', gap: space.x12, paddingVertical: space.x12, minHeight: 44 },
+  rowTitle: { fontFamily: type.ui, fontSize: type.size.body + 0.5, color: color.bone },
+  rowSub: { fontFamily: type.ui, fontSize: 13, color: color.muted, marginTop: 2 },
+  sep: { height: StyleSheet.hairlineWidth, backgroundColor: color.hair, marginHorizontal: -space.gutter },
   permitTile: {
     width: 38,
     height: 38,
     borderRadius: 12,
-    backgroundColor: theme.color.surfaceFlat,
+    backgroundColor: color.surface,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: theme.color.borderFlat,
+    borderColor: color.hair,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  typeBadge: {
-    paddingHorizontal: spacing.sm,
-    height: 17,
-    borderRadius: 8.5,
-    backgroundColor: theme.color.surfaceFlat,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  typeBadgeAccent: { backgroundColor: theme.color.accentFill },
-  typeBadgeText: { fontFamily: fontFamily.sansSemiBold, fontSize: 8.5, letterSpacing: 1, color: theme.color.textMuted },
 });

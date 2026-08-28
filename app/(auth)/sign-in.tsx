@@ -1,8 +1,7 @@
 import { useState } from 'react';
 import * as AppleAuthentication from 'expo-apple-authentication';
-import { KeyboardAvoidingView, Platform, StyleSheet, TextInput, View } from 'react-native';
-import { AppText, Button, Screen } from '@/components/ui';
-import { PageTitle } from '@/components/midnight';
+import { KeyboardAvoidingView, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Pill, Rule, Screen, Sentence, Serif } from '@/components/system';
 import {
   isAppleSignInSupported,
   sendPasswordReset,
@@ -11,7 +10,9 @@ import {
   signInWithGoogle,
   signUpWithEmail,
 } from '@/lib/auth';
-import { radius, spacing, theme } from '@/theme';
+import { lang } from '@/theme/tokens';
+
+const { color, space, type } = lang;
 
 type Mode = 'sign-in' | 'sign-up';
 
@@ -77,74 +78,80 @@ export default function SignIn() {
   return (
     <Screen scroll>
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        {/* The wordmark — the one sanctioned italic-copper serif (it's the brand mark). */}
         <View style={styles.hero}>
-          <PageTitle lead={'Open\n'} accent="season." style={styles.wordmark} />
-          <AppText variant="body" color={theme.color.textSecondary} style={{ marginTop: spacing.md }}>
+          <Serif size={54} style={{ lineHeight: 60 }}>
+            Open{'\n'}
+            <Serif italic copper size={54}>
+              season.
+            </Serif>
+          </Serif>
+          <Sentence style={{ marginTop: space.x16 }}>
             Never miss an opener or a tag deadline — season dates and draw deadlines for every state you hunt.
-          </AppText>
+          </Sentence>
         </View>
 
-        <View style={styles.form}>
-          <TextInput
-            placeholder="Email"
-            placeholderTextColor={theme.color.textMuted}
-            autoCapitalize="none"
-            keyboardType="email-address"
-            autoComplete="email"
-            value={email}
-            onChangeText={setEmail}
-            style={styles.input}
-          />
-          <TextInput
-            placeholder="Password"
-            placeholderTextColor={theme.color.textMuted}
-            secureTextEntry
-            value={password}
-            onChangeText={setPassword}
-            style={styles.input}
-          />
-          {notice ? (
-            <AppText
-              variant="bodyStrong"
-              color={notice.tone === 'error' ? theme.color.danger : theme.color.accentStrong}
-            >
-              {notice.text}
-            </AppText>
-          ) : null}
-          <Button
-            title={mode === 'sign-in' ? 'Sign in' : 'Create account'}
-            onPress={handleEmail}
-            loading={busy === 'email'}
-          />
-          <Button
-            variant="ghost"
-            title={mode === 'sign-in' ? "New here? Create an account" : 'Have an account? Sign in'}
+        <TextInput
+          placeholder="Email"
+          placeholderTextColor={color.dim}
+          autoCapitalize="none"
+          keyboardType="email-address"
+          autoComplete="email"
+          value={email}
+          onChangeText={setEmail}
+          style={styles.input}
+        />
+        <TextInput
+          placeholder="Password"
+          placeholderTextColor={color.dim}
+          secureTextEntry
+          value={password}
+          onChangeText={setPassword}
+          style={styles.input}
+        />
+
+        {notice ? (
+          <Sentence tone="bone" style={[{ marginTop: space.x16 }, notice.tone === 'error' && { color: '#c96f5a' }]}>
+            {notice.text}
+          </Sentence>
+        ) : null}
+
+        <Pill
+          label={busy === 'email' ? 'One moment…' : mode === 'sign-in' ? 'Sign in' : 'Create account'}
+          onPress={handleEmail}
+          disabled={busy !== null}
+          style={{ marginTop: space.section }}
+        />
+
+        <View style={styles.linkRow}>
+          <Pressable
             onPress={() => {
               setNotice(null);
               setMode(mode === 'sign-in' ? 'sign-up' : 'sign-in');
             }}
-          />
+            hitSlop={8}
+          >
+            <Sentence tone="muted">
+              {mode === 'sign-in' ? 'New here? Create an account.' : 'Have an account? Sign in.'}
+            </Sentence>
+          </Pressable>
           {mode === 'sign-in' ? (
-            <Button variant="ghost" title="Forgot password?" onPress={handleForgotPassword} />
+            <Pressable onPress={handleForgotPassword} hitSlop={8}>
+              <Sentence tone="dim">Forgot password?</Sentence>
+            </Pressable>
           ) : null}
         </View>
 
-        <View style={styles.dividerRow}>
-          <View style={styles.line} />
-          <AppText variant="caption" color={theme.color.textMuted}>
-            or
-          </AppText>
-          <View style={styles.line} />
-        </View>
+        <Rule />
 
-        <View style={styles.providers}>
+        <View style={{ gap: space.x12 }}>
           {isAppleSignInSupported && (
             // Apple's system-drawn button — required by App Review (Guideline 4):
             // official artwork and styling come from the OS, not our theme.
             <AppleAuthentication.AppleAuthenticationButton
               buttonType={AppleAuthentication.AppleAuthenticationButtonType.CONTINUE}
               buttonStyle={AppleAuthentication.AppleAuthenticationButtonStyle.WHITE}
-              cornerRadius={radius.md}
+              cornerRadius={16}
               style={styles.appleButton}
               onPress={() => {
                 if (busy) return;
@@ -152,12 +159,16 @@ export default function SignIn() {
               }}
             />
           )}
-          <Button
-            variant="secondary"
-            title="Continue with Google"
+          {/* Google matches Apple's geometry so the providers read as one OS block. */}
+          <Pressable
             onPress={() => handleProvider('google')}
-            loading={busy === 'google'}
-          />
+            disabled={busy !== null}
+            accessibilityRole="button"
+            accessibilityLabel="Continue with Google"
+            style={({ pressed }) => [styles.googleButton, pressed && { opacity: 0.85 }]}
+          >
+            <Text style={styles.googleLabel}>{busy === 'google' ? 'One moment…' : 'Continue with Google'}</Text>
+          </Pressable>
         </View>
       </KeyboardAvoidingView>
     </Screen>
@@ -165,21 +176,24 @@ export default function SignIn() {
 }
 
 const styles = StyleSheet.create({
-  hero: { marginTop: spacing.xxl, marginBottom: spacing.xl },
-  wordmark: { fontSize: 56, lineHeight: 60, paddingTop: 4 },
-  form: { gap: spacing.md },
+  hero: { marginTop: space.x38, marginBottom: space.x16 },
   input: {
-    backgroundColor: theme.color.surface,
-    borderRadius: radius.md,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
-    color: theme.color.textPrimary,
+    fontFamily: type.ui,
     fontSize: 16,
-    borderWidth: 1,
-    borderColor: theme.color.border,
+    color: color.bone,
+    paddingVertical: space.x12,
+    marginTop: space.x16,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: color.hair,
   },
-  dividerRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, marginVertical: spacing.xl },
-  line: { flex: 1, height: StyleSheet.hairlineWidth, backgroundColor: theme.color.border },
-  providers: { gap: spacing.md },
+  linkRow: { gap: space.x12, marginTop: space.x16 },
   appleButton: { height: 54, width: '100%' },
+  googleButton: {
+    height: 54,
+    borderRadius: 16,
+    backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  googleLabel: { fontFamily: type.uiSemiBold, fontSize: 17, color: '#1a1a1a' },
 });

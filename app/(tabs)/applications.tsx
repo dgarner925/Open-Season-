@@ -1,13 +1,15 @@
 import { useRouter } from 'expo-router';
-import { ActivityIndicator, FlatList, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { AppText, Card, GlassChip } from '@/components/ui';
-import { PageTitle } from '@/components/midnight';
+import { Sentence, Serif } from '@/components/system';
+import { SpeciesBadge } from '@/components/midnight';
 import { useFollowedWindows } from '@/features/reference/queries';
 import type { ApplicationWindowWithRefs } from '@/features/reference/types';
-import { countdownLabel, daysUntil, formatDate } from '@/lib/date';
+import { daysUntil, formatDate } from '@/lib/date';
 import { drawTitle } from '@/lib/titles';
-import { spacing, speciesColors, theme, urgencyColor, type SpeciesKey } from '@/theme';
+import { lang } from '@/theme/tokens';
+
+const { color, space, type } = lang;
 
 export default function Applications() {
   const router = useRouter();
@@ -16,7 +18,7 @@ export default function Applications() {
   if (isLoading) {
     return (
       <SafeAreaView style={styles.center} edges={['top']}>
-        <ActivityIndicator color={theme.color.accent} />
+        <ActivityIndicator color={color.copper} />
       </SafeAreaView>
     );
   }
@@ -35,59 +37,65 @@ export default function Applications() {
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
         ListHeaderComponent={
-          <View style={styles.header}>
-            <PageTitle lead="Tag " accent="deadlines" style={{ fontSize: 44, lineHeight: 50, paddingTop: 3 }} />
-            <AppText variant="body" color={theme.color.textSecondary}>
+          <View style={{ marginBottom: space.x16 }}>
+            <Serif size={40} style={{ lineHeight: 46 }}>
+              Tag deadlines
+            </Serif>
+            <Sentence style={{ marginTop: space.x8 }}>
               Draw and application windows. Miss a deadline, miss the season.
-            </AppText>
+            </Sentence>
+            <View style={styles.rule} />
           </View>
         }
-        renderItem={({ item }) => <WindowRow window={item} onPress={() => router.push(`/window/${item.id}`)} />}
-        ItemSeparatorComponent={() => <View style={{ height: spacing.md }} />}
+        renderItem={({ item, index }) => (
+          <WindowRow window={item} last={index === upcoming.length - 1} onPress={() => router.push(`/window/${item.id}`)} />
+        )}
         ListEmptyComponent={
-          <AppText color={theme.color.textMuted} style={{ marginTop: spacing.xl }}>
+          <Sentence style={{ marginTop: space.x16 }}>
             No upcoming tag deadlines for your follows right now.
-          </AppText>
+          </Sentence>
         }
       />
     </SafeAreaView>
   );
 }
 
-function WindowRow({ window: w, onPress }: { window: ApplicationWindowWithRefs; onPress: () => void }) {
-  const color = speciesColors[(w.species?.key ?? 'default') as SpeciesKey] ?? speciesColors.default;
+function WindowRow({ window: w, last, onPress }: { window: ApplicationWindowWithRefs; last: boolean; onPress: () => void }) {
   const d = daysUntil(w.closes_at);
-  const urgency = urgencyColor(d);
   return (
-    <Card onPress={onPress} accentColor={color}>
-      <View style={styles.rowTop}>
-        <AppText variant="h3" numberOfLines={1} style={{ flex: 1 }}>
+    <Pressable onPress={onPress} style={({ pressed }) => [styles.row, pressed && { opacity: 0.75 }]}>
+      <SpeciesBadge name={w.species?.name} size={40} muted />
+      <View style={{ flex: 1 }}>
+        <Text style={styles.rowTitle} numberOfLines={1}>
           {w.state?.code} {drawTitle(w.species?.name, w.name)}
-        </AppText>
-        <GlassChip label="Deadline" />
+        </Text>
+        <Text style={styles.rowSub} numberOfLines={1}>
+          Closes {formatDate(w.closes_at)}.{w.fee_summary ? ` ${w.fee_summary}` : ''}
+        </Text>
       </View>
-      <AppText variant="body" color={theme.color.textSecondary}>
-        Closes {formatDate(w.closes_at)}
-      </AppText>
-      <View style={styles.rowBottom}>
-        <AppText variant="bodyStrong" color={urgency}>
-          {countdownLabel(d)}
-        </AppText>
-      </View>
-      {w.fee_summary ? (
-        <AppText variant="caption" color={theme.color.textMuted} numberOfLines={2} style={{ marginTop: spacing.xs }}>
-          {w.fee_summary}
-        </AppText>
+      {d !== null && d >= 0 ? (
+        <Text style={styles.metric}>{d === 0 ? 'today' : `${d}d`}</Text>
       ) : null}
-    </Card>
+      {!last ? <View style={styles.rowRule} /> : null}
+    </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: theme.color.background },
-  center: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: theme.color.background },
-  content: { paddingHorizontal: spacing.xl, paddingTop: spacing.lg, paddingBottom: spacing.xxl },
-  header: { gap: spacing.xs, marginBottom: spacing.lg },
-  rowTop: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
-  rowBottom: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: spacing.xs },
+  screen: { flex: 1, backgroundColor: color.bg },
+  center: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: color.bg },
+  content: { paddingHorizontal: space.gutter, paddingTop: space.x16, paddingBottom: space.x38 },
+  rule: { height: StyleSheet.hairlineWidth, backgroundColor: color.hair, marginHorizontal: -space.gutter, marginTop: space.section },
+  row: { flexDirection: 'row', alignItems: 'center', gap: space.x12, paddingVertical: space.x12, minHeight: 44 },
+  rowRule: {
+    position: 'absolute',
+    left: 52,
+    right: -space.gutter,
+    bottom: 0,
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: color.hair,
+  },
+  rowTitle: { fontFamily: type.ui, fontSize: type.size.body + 0.5, color: color.bone },
+  rowSub: { fontFamily: type.ui, fontSize: 13, color: color.muted, marginTop: 2 },
+  metric: { fontFamily: type.displayItalic, fontSize: 19, color: color.copper, marginLeft: space.x8 },
 });

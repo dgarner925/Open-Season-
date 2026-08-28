@@ -1,11 +1,13 @@
 import { Stack, useLocalSearchParams } from 'expo-router';
-import { ActivityIndicator } from 'react-native';
-import { AppText, Button, Card, Screen } from '@/components/ui';
+import { ActivityIndicator, Pressable, Text } from 'react-native';
+import { Rule, Screen, Sentence, Serif } from '@/components/system';
 import { MiniMarkdown } from '@/components/MiniMarkdown';
 import { ProvenanceBlock } from '@/components/Provenance';
 import { useRegById } from '@/features/reference/queries';
 import { openExternalUrl } from '@/lib/openUrl';
-import { spacing, theme } from '@/theme';
+import { lang } from '@/theme/tokens';
+
+const { color, space, type } = lang;
 
 export default function RegsDetail() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -14,33 +16,40 @@ export default function RegsDetail() {
   if (isLoading) {
     return (
       <Screen>
-        <ActivityIndicator color={theme.color.accent} style={{ marginTop: spacing.xxl }} />
+        <ActivityIndicator color={color.copper} style={{ marginTop: space.x38 }} />
       </Screen>
     );
   }
   if (!reg) {
     return (
       <Screen>
-        <AppText variant="h3">Summary not found</AppText>
+        <Sentence tone="bone" style={{ marginTop: space.section }}>
+          Summary not found.
+        </Sentence>
       </Screen>
     );
   }
 
   return (
     <Screen scroll>
-      <Stack.Screen options={{ headerShown: true, title: `${reg.state?.code ?? ''} ${reg.species?.name ?? ''} Regs` }} />
-      <AppText variant="h1">
-        {reg.state?.name} · {reg.species?.name}
-      </AppText>
-      <Card>
-        <MiniMarkdown body={reg.body} />
-      </Card>
+      <Stack.Screen options={{ headerShown: true, title: 'Regulations' }} />
+      <Serif size={type.size.hero - 8} style={{ marginTop: space.x16, lineHeight: type.size.hero - 2 }}>
+        {reg.species?.name}
+      </Serif>
+      <Sentence style={{ marginTop: space.x8 }}>{reg.state?.name} regulations, in plain English.</Sentence>
+
+      <Rule />
+      <MiniMarkdown body={reg.body} />
+
       {reg.state?.license_url ? (
-        <Button
-          variant="secondary"
-          title="Buy a license / tag"
-          onPress={() => openExternalUrl(reg.state!.license_url)}
-        />
+        <>
+          <Rule />
+          <Pressable onPress={() => openExternalUrl(reg.state!.license_url)} accessibilityRole="link">
+            <Sentence>
+              Buy your {reg.state?.name ?? ''} license before you go. <Text style={{ color: color.dim }}>›</Text>
+            </Sentence>
+          </Pressable>
+        </>
       ) : null}
 
       <ProvenanceBlock

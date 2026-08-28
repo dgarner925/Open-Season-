@@ -10,6 +10,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Animated, Pressable, StyleSheet, Text, View } from 'react-native';
 import quotes from '@/assets/quotes.json';
 import { fontFamily, spacing, theme } from '@/theme';
+import { lang } from '@/theme/tokens';
 
 const FIRST_LAUNCH_KEY = 'launch-quote-shown';
 const LAST_SHOWN_KEY = 'launch-quote-last';
@@ -105,6 +106,7 @@ export function LaunchQuote({ onDone }: { onDone: () => void }) {
           {attrTitle(q.attr) ? <Text style={styles.attrTitle}>{attrTitle(q.attr)}</Text> : null}
         </Animated.View>
       ) : null}
+      <Text style={styles.skipHint}>TAP TO SKIP</Text>
       <Animated.View style={[styles.center, { opacity: welcomeOpacity }]} pointerEvents="none">
         <Text style={styles.welcomeEyebrow}>WELCOME TO</Text>
         <View style={{ height: spacing.md }} />
@@ -142,7 +144,7 @@ const styles = StyleSheet.create({
     fontFamily: fontFamily.serifItalic,
     fontSize: 24,
     lineHeight: 37,
-    color: '#cfc4b4',
+    color: lang.color.bone,
     textAlign: 'center',
     paddingHorizontal: 10,
   },
@@ -150,7 +152,7 @@ const styles = StyleSheet.create({
     fontFamily: fontFamily.sansSemiBold,
     fontSize: 12,
     letterSpacing: 2.2,
-    color: '#d9a97e',
+    color: lang.color.copper,
     marginTop: spacing.lg,
     textAlign: 'center',
   },
@@ -158,11 +160,12 @@ const styles = StyleSheet.create({
     fontFamily: fontFamily.sansSemiBold,
     fontSize: 9.5,
     letterSpacing: 1.8,
-    color: '#8d8377',
+    color: lang.color.muted,
     marginTop: 6,
     textAlign: 'center',
   },
-  welcomeEyebrow: { fontFamily: fontFamily.serif, fontSize: 15, letterSpacing: 3, color: theme.color.textMuted },
-  welcomeTitle: { fontFamily: fontFamily.serif, fontSize: 40, color: theme.color.textPrimary },
-  welcomeAccent: { fontFamily: fontFamily.serifItalic, color: theme.color.accent },
+  welcomeEyebrow: { fontFamily: fontFamily.sansSemiBold, fontSize: 10.5, letterSpacing: 3, color: lang.color.dim },
+  welcomeTitle: { fontFamily: fontFamily.serif, fontSize: 40, color: lang.color.bone },
+  welcomeAccent: { fontFamily: fontFamily.serifItalic, color: lang.color.copper },
+  skipHint: { position: 'absolute', bottom: 60, alignSelf: 'center', fontFamily: fontFamily.sansSemiBold, fontSize: 10.5, letterSpacing: 2.4, color: lang.color.dim },
 });

@@ -1,27 +1,29 @@
 import { Stack, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Alert, Platform, Pressable, StyleSheet, View } from 'react-native';
+import { Alert, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import Purchases, { type PurchasesPackage } from 'react-native-purchases';
-import { AppText, Button, Screen } from '@/components/ui';
-import { PageTitle } from '@/components/midnight';
+import { Micro, Pill, Rule, Screen, Sentence, Serif } from '@/components/system';
 import { usePremium } from '@/providers/PremiumProvider';
 import { openExternalUrl } from '@/lib/openUrl';
-import { spacing, theme } from '@/theme';
+import { lang } from '@/theme/tokens';
+
+const { color, space, radius } = lang;
 
 const PRIVACY_POLICY_URL = 'https://dgarner925.github.io/OpenSeason-Legal/';
 const TERMS_URL = 'https://dgarner925.github.io/OpenSeason-Legal/terms.html';
 
 const PITCH: { title: string; body: string }[] = [
-  { title: 'Never miss an opener', body: 'Reminders before every season you follow — you pick how far ahead.' },
-  { title: 'Every tag deadline', body: 'Draw application windows and results dates, tracked and pushed.' },
-  { title: 'Hunt with your party', body: 'Share a code, see who has applied, everyone gets the deadline.' },
-  { title: 'Your applications & points', body: 'Track what you applied for and the points you are banking.' },
+  { title: 'Never miss an opener.', body: 'Reminders before every season you follow — you pick how far ahead.' },
+  { title: 'Every tag deadline.', body: 'Draw application windows and results dates, tracked and pushed.' },
+  { title: 'Hunt with your party.', body: 'Share a code, see who has applied, everyone gets the deadline.' },
+  { title: 'Your applications and points.', body: 'Track what you applied for and the points you are banking.' },
 ];
 
 /**
  * The Pro paywall. Free users browse every date in the app; following, alerts,
  * parties, and tracking require the annual subscription. Grandfathered
  * paid-era users never see this screen (gates check isPro first).
+ * The plan card is the one sanctioned card here, and the price is the only serif.
  */
 export default function Paywall() {
   const router = useRouter();
@@ -42,7 +44,8 @@ export default function Paywall() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isPro]);
 
-  const price = pkg?.product.priceString ?? '$9.99';
+  // No hardcoded fallback: a wrong price in confident serif is worse than a dash.
+  const price = pkg?.product.priceString ?? null;
 
   async function buy() {
     if (!pkg) return;
@@ -73,67 +76,62 @@ export default function Paywall() {
   }
 
   return (
-    <Screen scroll contentStyle={{ paddingBottom: spacing.xxl }}>
-      <Stack.Screen options={{ headerShown: true, title: '' }} />
-      <View style={styles.hero}>
-        <AppText variant="overline" color={theme.color.textMuted}>
-          OPEN SEASON PRO
-        </AppText>
-        <PageTitle lead={'Every season.\n'} accent="Zero missed." style={styles.title} />
-        <AppText variant="body" color={theme.color.textSecondary} style={{ marginTop: spacing.sm }}>
-          Browsing is free, forever. Pro is the reminder machine — it works while you don't.
-        </AppText>
+    <Screen scroll>
+      <Stack.Screen options={{ headerShown: true, title: 'Open Season Pro' }} />
+
+      <Sentence tone="bone" style={{ marginTop: space.x16 }}>
+        Browsing is free, forever. Pro is the reminder machine — it works while you don't.
+      </Sentence>
+
+      {PITCH.map((p) => (
+        <View key={p.title}>
+          <Rule />
+          <Sentence tone="bone">{p.title}</Sentence>
+          <Sentence style={{ marginTop: 2 }}>{p.body}</Sentence>
+        </View>
+      ))}
+
+      <Rule />
+
+      {/* The plan — the one card this screen earns; the price is the only serif. */}
+      <View style={styles.plan}>
+        <Sentence>One plan. Everything above, all year.</Sentence>
+        {price ? (
+          <Serif size={44} style={{ marginTop: space.x8 }}>
+            {price}
+          </Serif>
+        ) : (
+          <Sentence tone="dim" style={{ marginTop: space.x8 }}>
+            Loading the price from the App Store…
+          </Sentence>
+        )}
+        <Micro style={{ marginTop: space.x4 }}>Per year · renews automatically</Micro>
       </View>
 
-      <View style={styles.pitch}>
-        {PITCH.map((p) => (
-          <View key={p.title} style={styles.pitchRow}>
-            <View style={styles.tick} />
-            <View style={{ flex: 1 }}>
-              <AppText variant="bodyStrong">{p.title}</AppText>
-              <AppText variant="caption" color={theme.color.textSecondary}>
-                {p.body}
-              </AppText>
-            </View>
-          </View>
-        ))}
-      </View>
+      <Pill
+        label={busy === 'buy' ? 'Opening App Store…' : 'Go Pro'}
+        onPress={buy}
+        disabled={!pkg || busy !== null}
+        style={{ marginTop: space.x16 }}
+      />
 
-      <View style={styles.cta}>
-        <Button
-          title={busy === 'buy' ? 'Opening App Store…' : `Go Pro — ${price} / year`}
-          onPress={buy}
-          loading={busy === 'buy'}
-          disabled={!pkg || busy !== null}
-        />
-        <Button
-          variant="ghost"
-          title={busy === 'restore' ? 'Restoring…' : 'Restore purchases'}
-          onPress={restore}
-          loading={busy === 'restore'}
-          disabled={busy !== null}
-        />
-      </View>
+      <Pressable onPress={restore} disabled={busy !== null} accessibilityRole="button" style={{ marginTop: space.section }}>
+        <Sentence tone="dim">
+          {busy === 'restore' ? 'Restoring…' : 'Bought Pro before, or the app back when it was paid? Restore purchases.'}
+        </Sentence>
+      </Pressable>
 
-      <AppText variant="caption" color={theme.color.textMuted} style={styles.legal}>
-        Annual subscription, {price}/year. Payment is charged to your Apple ID at confirmation. Renews
-        automatically unless canceled at least 24 hours before the end of the period. Manage or cancel
-        anytime in your App Store account settings. Bought the app before it went free? Your access is
-        permanent — tap Restore purchases if it doesn't show.
-      </AppText>
+      <Sentence tone="dim" style={{ marginTop: space.x16, fontSize: 13, lineHeight: 19 }}>
+        Payment is charged to your Apple ID at confirmation. Renews automatically unless canceled at least
+        24 hours before the end of the period. Manage or cancel anytime in your App Store account settings.
+      </Sentence>
       <View style={styles.legalLinks}>
         <Pressable onPress={() => openExternalUrl(TERMS_URL)} hitSlop={8}>
-          <AppText variant="caption" color={theme.color.accent}>
-            Terms of Service
-          </AppText>
+          <Text style={styles.legalLink}>Terms of Service</Text>
         </Pressable>
-        <AppText variant="caption" color={theme.color.textMuted}>
-          {'  ·  '}
-        </AppText>
+        <Text style={styles.legalDot}> · </Text>
         <Pressable onPress={() => openExternalUrl(PRIVACY_POLICY_URL)} hitSlop={8}>
-          <AppText variant="caption" color={theme.color.accent}>
-            Privacy Policy
-          </AppText>
+          <Text style={styles.legalLink}>Privacy Policy</Text>
         </Pressable>
       </View>
     </Screen>
@@ -141,18 +139,14 @@ export default function Paywall() {
 }
 
 const styles = StyleSheet.create({
-  hero: { marginTop: spacing.md },
-  title: { fontSize: 40, lineHeight: 46, marginTop: spacing.xs, paddingTop: 3 },
-  pitch: { marginTop: spacing.xl, gap: spacing.lg },
-  pitchRow: { flexDirection: 'row', gap: spacing.md, alignItems: 'flex-start' },
-  tick: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: theme.color.accent,
-    marginTop: 7,
+  plan: {
+    backgroundColor: color.surface,
+    borderRadius: radius.card,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: color.hair,
+    padding: space.gutter,
   },
-  cta: { marginTop: spacing.xl, gap: spacing.sm },
-  legal: { marginTop: spacing.lg, lineHeight: 18 },
-  legalLinks: { flexDirection: 'row', justifyContent: 'center', marginTop: spacing.md },
+  legalLinks: { flexDirection: 'row', marginTop: space.x12 },
+  legalLink: { fontFamily: lang.type.ui, fontSize: 13, color: color.dim, textDecorationLine: 'underline' },
+  legalDot: { fontFamily: lang.type.ui, fontSize: 13, color: color.dim },
 });
