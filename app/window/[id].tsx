@@ -1,6 +1,6 @@
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
-import { ActivityIndicator, Alert, Pressable, Share, StyleSheet, View } from 'react-native';
-import { AppText, Button, Card, Divider, GlassChip, Screen } from '@/components/ui';
+import { ActivityIndicator, Alert, Pressable, Share, StyleSheet, Text, View } from 'react-native';
+import { Pill, Rule, Screen, Sentence, Serif, Thread } from '@/components/system';
 import { ProvenanceBlock } from '@/components/Provenance';
 import { useWindowById } from '@/features/reference/queries';
 import { useCreateParty, useMyParties } from '@/features/parties/queries';
@@ -8,13 +8,23 @@ import { useReportDate, promptReport } from '@/features/reports/queries';
 import { useAuth } from '@/providers/AuthProvider';
 import { useRequirePro } from '@/hooks/useRequirePro';
 import { addToCalendar } from '@/lib/calendar';
-import { countdownLabel, daysUntil, formatDate } from '@/lib/date';
+import { daysUntil, formatDate } from '@/lib/date';
 import { openExternalUrl } from '@/lib/openUrl';
 import { drawTitle } from '@/lib/titles';
-import { spacing, speciesColors, theme, urgencyColor, type SpeciesKey } from '@/theme';
+import { lang } from '@/theme/tokens';
 
+const { color, space, type } = lang;
 const SITE_URL = 'https://osdatesanddraws.com';
 
+const WEEKDAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+function spoken(dateISO: string): string {
+  const [y, m, d] = dateISO.split('-').map(Number);
+  const dt = new Date(y, m - 1, d);
+  return `${WEEKDAYS[dt.getDay()]}, ${MONTHS[m - 1]} ${d}`;
+}
+
+/** The draw-deadline detail — the second Thread screen: opens → deadline → results. */
 export default function WindowDetail() {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -41,31 +51,31 @@ export default function WindowDetail() {
   if (isLoading) {
     return (
       <Screen>
-        <ActivityIndicator color={theme.color.accent} style={{ marginTop: spacing.xxl }} />
+        <ActivityIndicator color={color.copper} style={{ marginTop: space.x38 }} />
       </Screen>
     );
   }
   if (!w) {
     return (
       <Screen>
-        <AppText variant="h3">Application window not found</AppText>
+        <Sentence tone="bone" style={{ marginTop: space.section }}>
+          Application window not found.
+        </Sentence>
       </Screen>
     );
   }
 
-  const color = speciesColors[(w.species?.key ?? 'default') as SpeciesKey] ?? speciesColors.default;
   const d = daysUntil(w.closes_at);
-  const urgency = urgencyColor(d);
-
   const title = drawTitle(w.species?.name, w.name);
   const label = `${w.state?.code ?? ''} ${title}`.trim();
-  // Residency context — only shown once the user has set a home state.
   const residency =
     profile?.resident_state_id && w.state?.id
       ? w.state.id === profile.resident_state_id
         ? 'Resident'
         : 'Nonresident'
       : null;
+  const zonePart = w.zone?.name && w.zone.name !== 'Statewide' ? `${w.zone.name}, ` : '';
+  const heroSentence = `${zonePart}${w.state?.name ?? ''}.${residency ? ` ${residency} rules apply to you.` : ''}`;
 
   async function onShare() {
     const when = w!.closes_at ? formatDate(w!.closes_at) : 'soon';
@@ -90,71 +100,79 @@ export default function WindowDetail() {
 
   return (
     <Screen scroll>
-      <Stack.Screen options={{ headerShown: true, title: `${w.state?.code ?? ''} ${w.species?.name ?? ''} Tag` }} />
+      <Stack.Screen options={{ headerShown: true, title: '' }} />
 
-      <View style={{ gap: spacing.xs }}>
-        <AppText variant="h1">{title}</AppText>
-        <AppText variant="body" color={theme.color.textSecondary}>
-          {w.state?.name} · {w.zone?.name ?? 'Statewide'}
-        </AppText>
-        {residency ? (
-          <View style={styles.pillRow}>
-            <GlassChip label={residency} />
-          </View>
+      {/* The cascade: the tag, then the window's dates on the thread. */}
+      <Serif size={type.size.hero - 10} style={{ marginTop: space.x16, lineHeight: type.size.hero - 4 }}>
+        {title}
+      </Serif>
+      <Sentence style={{ marginTop: space.x8 }}>{heroSentence}</Sentence>
+
+      <View style={styles.threaded}>
+        <Thread height={430} />
+
+        {w.opens_at ? (
+          <Sentence style={{ marginTop: space.x32 }}>The window opened {spoken(w.opens_at)}.</Sentence>
         ) : null}
+
+        {w.closes_at ? (
+          <>
+            <Serif size={30} style={{ marginTop: w.opens_at ? space.x16 : space.x32 }}>
+              {formatDate(w.closes_at)}
+            </Serif>
+            <Sentence style={{ marginTop: space.x8 }}>
+              {d !== null && d >= 0 ? (
+                <>
+                  {'Applications close in '}
+                  <Serif italic copper size={20}>
+                    {d} {d === 1 ? 'day' : 'days'}
+                  </Serif>
+                  {` — ${spoken(w.closes_at)}.`}
+                </>
+              ) : (
+                `This window closed ${spoken(w.closes_at)}.`
+              )}
+            </Sentence>
+          </>
+        ) : (
+          <Sentence style={{ marginTop: space.x32 }}>The closing date hasn't been posted yet.</Sentence>
+        )}
+
+        {w.results_expected_at ? (
+          <Sentence style={{ marginTop: space.x16 }}>Results expected {spoken(w.results_expected_at)}.</Sentence>
+        ) : null}
+
+        <Rule />
+
+        {w.fee_summary ? <Sentence>{w.fee_summary}</Sentence> : null}
+        {w.notes ? <Sentence style={{ marginTop: w.fee_summary ? space.x12 : 0 }}>{w.notes}</Sentence> : null}
+        {!w.fee_summary && !w.notes ? <Sentence>No fees or notes on file — check the official source.</Sentence> : null}
       </View>
 
-      <Card accentColor={theme.color.danger}>
-        <View style={styles.row}>
-          <GlassChip label="Application deadline" />
-          <AppText variant="bodyStrong" color={urgency}>
-            {countdownLabel(d)}
-          </AppText>
-        </View>
-        <AppText variant="h2" style={{ marginTop: spacing.xs }}>
-          {formatDate(w.closes_at)}
-        </AppText>
+      <Rule />
 
-        <Divider />
-        <Row label="Opens" value={formatDate(w.opens_at)} />
-        <Row label="Closes" value={formatDate(w.closes_at)} />
-        <Row label="Results" value={formatDate(w.results_expected_at)} />
-        {w.fee_summary ? (
-          <View style={styles.feeBlock}>
-            <AppText variant="overline" color={theme.color.textMuted}>
-              FEES
-            </AppText>
-            <AppText variant="body" color={theme.color.textSecondary}>
-              {w.fee_summary}
-            </AppText>
-          </View>
-        ) : null}
-        {w.notes ? (
-          <View style={styles.feeBlock}>
-            <AppText variant="overline" color={theme.color.textMuted}>
-              NOTES
-            </AppText>
-            <AppText variant="body" color={theme.color.textSecondary}>
-              {w.notes}
-            </AppText>
-          </View>
-        ) : null}
-      </Card>
-
+      {/* The caveat sits above the action that leaves the app. */}
       {w.application_url ? (
-        <Button title="Apply on the official site" onPress={() => openExternalUrl(w.application_url)} />
+        <Sentence tone="dim" style={{ marginBottom: space.x16, fontSize: 13, paddingLeft: 26 }}>
+          The application itself happens on the state's official site.
+        </Sentence>
       ) : null}
-      <Button
-        variant="secondary"
-        title={myParty ? 'View your party' : 'Hunt with your party'}
-        onPress={onParty}
-        loading={createParty.isPending}
-      />
-
-      {w.closes_at ? (
-        <Button
+      <View style={styles.actions}>
+        {w.application_url ? (
+          <Pill label="Apply on the official site" onPress={() => openExternalUrl(w.application_url)} style={{ flex: 1.4 }} />
+        ) : null}
+        <Pill
+          label={myParty ? 'View your party' : 'Hunt with your party'}
           variant="secondary"
-          title="Add deadline to Calendar"
+          onPress={onParty}
+          disabled={createParty.isPending}
+          style={{ flex: 1 }}
+        />
+      </View>
+
+      <Rule />
+      {w.closes_at ? (
+        <Pressable
           onPress={() =>
             addToCalendar({
               title: `${label} — draw deadline`,
@@ -163,27 +181,24 @@ export default function WindowDetail() {
               url: w.application_url ?? w.state?.license_url ?? undefined,
             })
           }
-        />
+          accessibilityRole="button"
+        >
+          <Sentence>
+            Add the deadline to your calendar. <Text style={{ color: color.dim }}>›</Text>
+          </Sentence>
+        </Pressable>
       ) : null}
       {w.results_expected_at ? (
-        <Button
-          variant="secondary"
-          title="Add results date to Calendar"
-          onPress={() =>
-            addToCalendar({ title: `${label} — draw results`, date: w.results_expected_at! })
-          }
-        />
+        <Pressable
+          onPress={() => addToCalendar({ title: `${label} — draw results`, date: w.results_expected_at! })}
+          accessibilityRole="button"
+        >
+          <Sentence style={{ marginTop: space.x12 }}>
+            Add the results date too. <Text style={{ color: color.dim }}>›</Text>
+          </Sentence>
+        </Pressable>
       ) : null}
-      {w.state?.license_url ? (
-        <Button
-          variant="secondary"
-          title="Buy a license / tag"
-          onPress={() => openExternalUrl(w.state!.license_url)}
-        />
-      ) : null}
-      <Button
-        variant="secondary"
-        title="Track this application"
+      <Pressable
         onPress={() =>
           router.push({
             pathname: '/application-edit',
@@ -196,8 +211,24 @@ export default function WindowDetail() {
             },
           })
         }
-      />
-      <Button variant="secondary" title="Share" onPress={onShare} />
+        accessibilityRole="button"
+      >
+        <Sentence style={{ marginTop: space.x12 }}>
+          Track this application under Tags. <Text style={{ color: color.dim }}>›</Text>
+        </Sentence>
+      </Pressable>
+      {w.state?.license_url ? (
+        <Pressable onPress={() => openExternalUrl(w.state!.license_url)} accessibilityRole="link">
+          <Sentence style={{ marginTop: space.x12 }}>
+            Buy your {w.state?.name ?? ''} license. <Text style={{ color: color.dim }}>›</Text>
+          </Sentence>
+        </Pressable>
+      ) : null}
+      <Pressable onPress={onShare} accessibilityRole="button">
+        <Sentence style={{ marginTop: space.x12 }}>
+          Share this deadline with a buddy. <Text style={{ color: color.dim }}>›</Text>
+        </Sentence>
+      </Pressable>
 
       <ProvenanceBlock
         verifiedAt={w.last_verified_at}
@@ -205,33 +236,16 @@ export default function WindowDetail() {
         url={w.source?.url ?? null}
       />
 
-      <Pressable onPress={onReport} style={styles.reportBtn}>
-        <AppText variant="caption" color={theme.color.textMuted}>
-          Something look wrong? Report this date
-        </AppText>
+      <Pressable onPress={onReport} accessibilityRole="button" style={{ marginTop: space.x16 }}>
+        <Sentence tone="dim" style={{ fontSize: 13 }}>
+          Something look wrong? Report this date.
+        </Sentence>
       </Pressable>
     </Screen>
   );
 }
 
-function Row({ label, value }: { label: string; value: string }) {
-  return (
-    <View style={styles.dataRow}>
-      <AppText variant="body" color={theme.color.textMuted}>
-        {label}
-      </AppText>
-      <AppText variant="bodyStrong" style={styles.dataValue}>
-        {value}
-      </AppText>
-    </View>
-  );
-}
-
 const styles = StyleSheet.create({
-  row: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  pillRow: { flexDirection: 'row', marginTop: spacing.xs },
-  dataRow: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: spacing.md, paddingVertical: spacing.xs },
-  dataValue: { flex: 1, textAlign: 'right' },
-  feeBlock: { marginTop: spacing.sm, gap: 4 },
-  reportBtn: { alignItems: 'center', paddingVertical: spacing.md, marginTop: spacing.sm },
+  threaded: { position: 'relative', paddingLeft: 26, marginTop: space.x8 },
+  actions: { flexDirection: 'row', gap: space.x12 },
 });

@@ -17,6 +17,8 @@ import { queryClient } from '@/lib/queryClient';
 import { maybeRequestReview } from '@/lib/rateApp';
 import { pushWidgetEvent } from '@/lib/widget';
 import { fontFamily, radius, spacing, theme } from '@/theme';
+import { Serif } from '@/components/system';
+import { lang } from '@/theme/tokens';
 
 const WEEKDAYS = ['SUNDAY', 'MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY'];
 const MONTHS = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
@@ -115,12 +117,9 @@ export default function Home() {
               {locationLabel}
             </AppText>
           </Pressable>
-          <View style={styles.topRight}>
-            <Pressable onPress={() => router.push('/search')} hitSlop={10} style={styles.bellBtn}>
-              <Ionicons name="search" size={19} color={theme.color.textSecondary} />
-            </Pressable>
-            <Text style={styles.wordmark}>O·S</Text>
-          </View>
+          <Pressable onPress={() => router.push('/search')} hitSlop={10} style={styles.bellBtn} accessibilityRole="button" accessibilityLabel="Search">
+            <Ionicons name="search" size={19} color={lang.color.muted} />
+          </Pressable>
         </View>
 
         <View style={styles.heroBlock}>
@@ -164,9 +163,8 @@ export default function Home() {
           </Pressable>
         ) : (
           <View style={styles.section}>
-            <AppText variant="overline" color={theme.color.textMuted}>
-              YOUR SPECIES
-            </AppText>
+            <View style={styles.sectionRule} />
+            <Serif size={22}>Your species</Serif>
             {roster.map((r, i) => (
               <RosterRow key={r.speciesId} item={r} divider={i > 0} onPress={() => router.push({ pathname: '/species/[id]', params: { id: r.speciesId } })} />
             ))}
@@ -175,9 +173,8 @@ export default function Home() {
 
         {permitFollows.length > 0 ? (
           <View style={styles.section}>
-            <AppText variant="overline" color={theme.color.textMuted}>
-              PERMIT HUNTS
-            </AppText>
+            <View style={styles.sectionRule} />
+            <Serif size={22}>Permit hunts</Serif>
             {permitFollows
               .filter((f) => f.hunt)
               .sort((a, b) => (a.hunt!.name < b.hunt!.name ? -1 : 1))
@@ -359,41 +356,44 @@ function FooterLink({ icon, label, onPress }: { icon: keyof typeof Ionicons.glyp
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: theme.color.background },
-  content: { paddingHorizontal: spacing.xl, paddingTop: spacing.lg, paddingBottom: spacing.xxl },
+  screen: { flex: 1, backgroundColor: lang.color.bg },
+  content: { paddingHorizontal: lang.space.gutter, paddingTop: spacing.lg, paddingBottom: spacing.xxl },
+  sectionRule: {
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: lang.color.hair,
+    marginHorizontal: -lang.space.gutter,
+    marginBottom: lang.space.x16,
+  },
 
   topRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   locChip: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, flexShrink: 1 },
-  locDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: theme.color.accent },
+  locDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: lang.color.copper },
   topRight: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
   bellBtn: { width: 32, height: 32, alignItems: 'center', justifyContent: 'center' },
-  wordmark: { fontFamily: fontFamily.sansBold, fontSize: 11, letterSpacing: 3, color: theme.color.accent },
-
+  
   heroBlock: { marginTop: spacing.xl },
   hero: { fontSize: 62, lineHeight: 70, paddingTop: 4 },
   dateLine: { marginTop: spacing.lg },
   greeting: { fontFamily: fontFamily.sansMedium, fontSize: 15, color: theme.color.textSecondary, marginTop: spacing.xs },
-  greetingName: { fontFamily: fontFamily.sansSemiBold, color: theme.color.accent },
+  greetingName: { fontFamily: fontFamily.sansSemiBold, color: lang.color.copper },
 
   briefCard: {
     marginTop: spacing.lg,
     padding: spacing.lg,
-    borderRadius: radius.lg,
-    backgroundColor: theme.color.surfaceFlat,
+    borderRadius: lang.radius.card,
+    backgroundColor: lang.color.surface,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: theme.color.borderFlat,
-    borderLeftWidth: 2,
-    borderLeftColor: theme.color.accent,
+    borderColor: lang.color.hair,
     gap: 6,
   },
   briefHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   briefRule: { height: StyleSheet.hairlineWidth, backgroundColor: theme.color.borderFlat, marginVertical: 4 },
-  briefLine: { fontFamily: fontFamily.serifItalic, fontSize: 16.5, lineHeight: 24, color: theme.color.textPrimary },
+  briefLine: { fontFamily: fontFamily.serifItalic, fontSize: 16.5, lineHeight: 24, color: lang.color.bone },
   briefLight: { fontFamily: fontFamily.sansMedium, fontSize: 12.5, color: theme.color.textMuted, marginTop: 4 },
 
   stats: { flexDirection: 'row', gap: spacing.sm, marginTop: spacing.xl },
-  tile: { flex: 1, padding: spacing.lg, borderRadius: radius.md, backgroundColor: theme.color.surfaceFlat, borderWidth: StyleSheet.hairlineWidth, borderColor: theme.color.borderFlat, gap: 2 },
-  tileValue: { fontFamily: fontFamily.serif, fontSize: 30, color: theme.color.accent },
+  tile: { flex: 1, padding: spacing.lg, borderRadius: lang.radius.card, backgroundColor: lang.color.surface, borderWidth: StyleSheet.hairlineWidth, borderColor: lang.color.hair, gap: 2 },
+  tileValue: { fontFamily: fontFamily.serif, fontSize: 30, color: lang.color.copper },
 
   section: { marginTop: spacing.xl, gap: spacing.sm },
   emptyCard: { marginTop: spacing.lg, padding: spacing.xl, borderRadius: radius.lg, backgroundColor: theme.color.surfaceFlat, borderWidth: StyleSheet.hairlineWidth, borderColor: theme.color.borderFlat, gap: spacing.xs },
@@ -409,7 +409,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  rowDivider: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: theme.color.hairline },
+  rowDivider: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: lang.color.hair },
   rowMetric: { fontFamily: fontFamily.sansSemiBold, fontSize: 13, marginLeft: spacing.md },
 
   footer: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginTop: spacing.xxl },

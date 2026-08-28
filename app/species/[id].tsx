@@ -2,19 +2,19 @@ import { Ionicons } from '@expo/vector-icons';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { ActivityIndicator, Alert, Pressable, ScrollView, Share, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { AppText, Card } from '@/components/ui';
+import { Rule, Sentence, Serif } from '@/components/system';
 import quotes from '@/assets/quotes.json';
 import { attrName, attrTitle } from '@/components/LaunchQuote';
-import { VerifiedStamp, SourceLink } from '@/components/Provenance';
+import { ProvenanceBlock } from '@/components/Provenance';
 import { useFollowedSeasons } from '@/features/reference/queries';
 import { useReportDate, promptReport } from '@/features/reports/queries';
 import { useAuth } from '@/providers/AuthProvider';
 import type { SeasonWithRefs } from '@/features/reference/types';
 import { addToCalendar } from '@/lib/calendar';
 import { daysUntil, formatDate } from '@/lib/date';
-import { openExternalUrl } from '@/lib/openUrl';
-import { fontFamily, spacing, theme } from '@/theme';
+import { lang } from '@/theme/tokens';
 
+const { color, space, type } = lang;
 const SITE_URL = 'https://osdatesanddraws.com';
 
 function todayISO(): string {
@@ -72,10 +72,6 @@ export default function SpeciesDetail() {
   groups.sort((a, b) => Number(b.anyOpen) - Number(a.anyOpen) || Number(b.anyUpcoming) - Number(a.anyUpcoming) || a.name.localeCompare(b.name));
 
   const stateNames = groups.map((g) => g.name);
-
-  const parts = name.trim().split(' ');
-  const accent = parts.pop() ?? name;
-  const lead = parts.length ? parts.join(' ') : '';
   const speciesKey = seasons[0]?.species?.key ?? '';
   const quote = (quotes as Record<string, { text: string; attr: string }>)[speciesKey] ?? null;
 
@@ -112,7 +108,7 @@ export default function SpeciesDetail() {
 
   function onAddCalendar() {
     if (!nextOpener?.open_date) {
-      Alert.alert('No upcoming opener', 'There\'s no upcoming season date to add yet.');
+      Alert.alert('No upcoming opener', "There's no upcoming season date to add yet.");
       return;
     }
     addToCalendar({
@@ -127,156 +123,130 @@ export default function SpeciesDetail() {
     <SafeAreaView style={styles.screen} edges={['top', 'left', 'right']}>
       <Stack.Screen options={{ headerShown: false }} />
       {isLoading ? (
-        <ActivityIndicator color={theme.color.accent} style={{ marginTop: spacing.xxl }} />
+        <ActivityIndicator color={color.copper} style={{ marginTop: space.x38 }} />
       ) : (
-        <>
-          <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-            <View style={styles.navRow}>
-              <CircleButton onPress={() => router.back()}>
-                <Ionicons name="chevron-back" size={18} color={theme.color.textPrimary} />
-              </CircleButton>
-              <View style={styles.navActions}>
-                <CircleButton onPress={onAddCalendar}>
-                  <Ionicons name="calendar-outline" size={17} color={theme.color.textPrimary} />
-                </CircleButton>
-                <CircleButton onPress={onShare}>
-                  <Ionicons name="share-outline" size={17} color={theme.color.textPrimary} />
-                </CircleButton>
-              </View>
+        <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+          <View style={styles.navRow}>
+            <Pressable onPress={() => router.back()} hitSlop={10} accessibilityRole="button" accessibilityLabel="Back">
+              <Ionicons name="chevron-back" size={22} color={color.bone} />
+            </Pressable>
+            <View style={styles.navActions}>
+              <Pressable onPress={onAddCalendar} hitSlop={10} accessibilityRole="button" accessibilityLabel="Add to calendar">
+                <Ionicons name="calendar-outline" size={20} color={color.muted} />
+              </Pressable>
+              <Pressable onPress={onShare} hitSlop={10} accessibilityRole="button" accessibilityLabel="Share">
+                <Ionicons name="share-outline" size={20} color={color.muted} />
+              </Pressable>
             </View>
+          </View>
 
-            <View style={styles.headerRow}>
-              <View style={{ flexShrink: 1 }}>
-                <Text style={styles.title}>
-                  {lead ? `${lead}\n` : ''}
-                  <Text style={styles.titleAccent}>{accent}</Text>
-                </Text>
-              </View>
-              {quote ? (
-                <View style={styles.quoteCol}>
-                  <Text style={styles.quoteText}>{`“${quote.text}”`}</Text>
-                  <Text style={styles.quoteAttrName}>{attrName(quote.attr)}</Text>
-                  {attrTitle(quote.attr) ? <Text style={styles.quoteAttrTitle}>{attrTitle(quote.attr)}</Text> : null}
-                </View>
-              ) : null}
+          <Serif size={type.size.hero - 4} style={{ marginTop: space.section, lineHeight: type.size.hero + 2 }}>
+            {name}
+          </Serif>
+
+          {/* The epigraph — the species' line from the sporting canon, kept quiet. */}
+          {quote ? (
+            <View style={styles.quoteBlock}>
+              <Text style={styles.quoteText}>{`“${quote.text}”`}</Text>
+              <Text style={styles.quoteAttrName}>{attrName(quote.attr)}</Text>
+              {attrTitle(quote.attr) ? <Text style={styles.quoteAttrTitle}>{attrTitle(quote.attr)}</Text> : null}
             </View>
+          ) : null}
 
-            {groups.length > 0 ? (
-              groups.map((g) => (
-                <View key={g.code} style={styles.group}>
-                  <View style={styles.groupHead}>
-                    <View style={styles.groupHeadLeft}>
-                      <AppText variant="overline" color={theme.color.textSecondary}>
-                        {g.name.toUpperCase()}
-                      </AppText>
-                      {residentStateId ? (
-                        <Text style={styles.residencyTag}>
-                          {g.stateId === residentStateId ? 'RESIDENT' : 'NONRESIDENT'}
-                        </Text>
-                      ) : null}
-                    </View>
-                  </View>
-                  <View style={{ gap: spacing.sm }}>
-                    {g.rows.map((r) => (
-                      <Card
-                        key={r.season.id}
-                        variant={r.open ? 'gradient' : 'flat'}
-                        style={styles.methodCard}
-                        onPress={() => router.push(`/season/${r.season.id}`)}
-                      >
-                        <View style={{ flex: 1 }}>
-                          <AppText variant="bodyStrong">{r.season.label ?? cap(r.season.method)}</AppText>
-                          <AppText variant="caption" color={theme.color.textMuted} style={{ marginTop: 2 }}>
-                            {r.season.open_date ? formatDate(r.season.open_date) : 'TBD'}
-                            {r.season.close_date ? ` – ${formatDate(r.season.close_date)}` : ''}
-                          </AppText>
-                        </View>
-                        <Text style={[styles.methodRight, { color: r.open ? theme.color.accent : r.rank === 1 ? theme.color.textSecondary : theme.color.textMuted }]}>
-                          {r.right}
-                        </Text>
-                        <Ionicons name="chevron-forward" size={14} color={theme.color.textMuted} />
-                      </Card>
-                    ))}
-                  </View>
-                </View>
-              ))
-            ) : (
-              <AppText variant="body" color={theme.color.textMuted} style={{ marginTop: spacing.xl }}>
-                No season dates published yet — they'll appear here as they're verified.
-              </AppText>
-            )}
-
-            {bagLimit ? (
-              <Card variant="flat" style={{ marginTop: spacing.xl }}>
-                <AppText variant="overline" color={theme.color.textMuted}>
-                  BAG LIMIT
-                </AppText>
-                <AppText variant="body" color={theme.color.textSecondary}>
-                  {bagLimit}
-                </AppText>
-              </Card>
-            ) : null}
-
-            {groups.length > 0 ? (
-              <View style={styles.provenance}>
-                <VerifiedStamp verifiedAt={provSeason?.last_verified_at ?? null} />
-                {provSeason?.source ? (
-                  <SourceLink agencyName={provSeason.source.agency_name} url={provSeason.source.url} />
+          {groups.length > 0 ? (
+            groups.map((g) => (
+              <View key={g.code}>
+                <Rule />
+                <Serif size={22}>{g.name}</Serif>
+                {residentStateId ? (
+                  <Sentence tone="dim" style={{ fontSize: 13, marginTop: 2 }}>
+                    {g.stateId === residentStateId ? 'Resident rules apply to you.' : 'Nonresident rules apply to you.'}
+                  </Sentence>
                 ) : null}
-                <Pressable onPress={onReport} style={styles.reportBtn}>
-                  <AppText variant="caption" color={theme.color.textMuted}>
-                    Something look wrong? Report these dates
-                  </AppText>
-                </Pressable>
+                <View style={{ marginTop: space.x8 }}>
+                  {g.rows.map((r, i) => (
+                    <Pressable
+                      key={r.season.id}
+                      onPress={() => router.push(`/season/${r.season.id}`)}
+                      style={({ pressed }) => [styles.row, pressed && { opacity: 0.75 }]}
+                    >
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.rowTitle}>{r.season.label ?? cap(r.season.method)}</Text>
+                        <Text style={styles.rowSub}>
+                          {r.season.open_date ? formatDate(r.season.open_date) : 'TBD'}
+                          {r.season.close_date ? ` – ${formatDate(r.season.close_date)}` : ''}
+                        </Text>
+                      </View>
+                      <Text
+                        style={[
+                          styles.rowMetric,
+                          { color: r.open ? color.copper : r.rank === 1 ? color.muted : color.dim },
+                        ]}
+                      >
+                        {r.right}
+                      </Text>
+                      <Ionicons name="chevron-forward" size={13} color={color.dim} />
+                      {i !== g.rows.length - 1 ? <View style={styles.rowRule} /> : null}
+                    </Pressable>
+                  ))}
+                </View>
               </View>
-            ) : null}
-          </ScrollView>
-        </>
+            ))
+          ) : (
+            <Sentence style={{ marginTop: space.x32 }}>
+              No season dates published yet — they'll appear here as they're verified.
+            </Sentence>
+          )}
+
+          {bagLimit ? (
+            <>
+              <Rule />
+              <Sentence>{bagLimit}</Sentence>
+            </>
+          ) : null}
+
+          {groups.length > 0 ? (
+            <>
+              <ProvenanceBlock
+                verifiedAt={provSeason?.last_verified_at ?? null}
+                agencyName={provSeason?.source?.agency_name ?? null}
+                url={provSeason?.source?.url ?? null}
+              />
+              <Pressable onPress={onReport} accessibilityRole="button" style={{ marginTop: space.x16 }}>
+                <Sentence tone="dim" style={{ fontSize: 13 }}>
+                  Something look wrong? Report these dates.
+                </Sentence>
+              </Pressable>
+            </>
+          ) : null}
+        </ScrollView>
       )}
     </SafeAreaView>
   );
 }
 
-function CircleButton({ children, onPress }: { children: React.ReactNode; onPress: () => void }) {
-  return (
-    <Pressable onPress={onPress} style={({ pressed }) => [styles.circle, pressed && { opacity: 0.7 }]}>
-      {children}
-    </Pressable>
-  );
-}
-
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: theme.color.background },
-  content: { paddingHorizontal: spacing.xl, paddingTop: spacing.lg, paddingBottom: 48 },
+  screen: { flex: 1, backgroundColor: color.bg },
+  content: { paddingHorizontal: space.gutter, paddingTop: space.x16, paddingBottom: space.x38 },
 
   navRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  navActions: { flexDirection: 'row', gap: spacing.sm },
-  circle: { width: 38, height: 38, borderRadius: 19, backgroundColor: theme.color.surfaceFlat, alignItems: 'center', justifyContent: 'center' },
+  navActions: { flexDirection: 'row', gap: space.section },
 
-  headerRow: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.lg, paddingBottom: spacing.sm },
-  quoteCol: {
-    flex: 1,
-    minWidth: 116,
-    marginTop: 40,
-    paddingTop: 12,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: 'rgba(217, 169, 126, 0.4)',
-    alignItems: 'flex-end',
+  quoteBlock: { marginTop: space.x16 },
+  quoteText: { fontFamily: type.displayItalic, fontSize: 16, lineHeight: 24, color: color.muted },
+  quoteAttrName: { fontFamily: type.uiSemiBold, fontSize: 10.5, letterSpacing: 1.8, color: color.dim, marginTop: space.x8 },
+  quoteAttrTitle: { fontFamily: type.uiSemiBold, fontSize: 9, letterSpacing: 1.4, color: color.dim, marginTop: 3 },
+
+  row: { flexDirection: 'row', alignItems: 'center', gap: space.x12, paddingVertical: space.x12, minHeight: 44 },
+  rowRule: {
+    position: 'absolute',
+    left: 0,
+    right: -space.gutter,
+    bottom: 0,
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: color.hair,
   },
-  quoteText: { fontFamily: fontFamily.serifItalic, fontSize: 14.5, lineHeight: 22, color: '#b8ac9a', textAlign: 'right', paddingLeft: 6 },
-  quoteAttrName: { fontFamily: fontFamily.sansSemiBold, fontSize: 10.5, letterSpacing: 1.8, color: '#d9a97e', marginTop: 8, textAlign: 'right' },
-  quoteAttrTitle: { fontFamily: fontFamily.sansSemiBold, fontSize: 9, letterSpacing: 1.4, color: '#8d8377', marginTop: 4, textAlign: 'right' },
-  title: { fontFamily: fontFamily.serif, fontSize: 50, lineHeight: 56, color: theme.color.textPrimary, marginTop: spacing.xl, paddingTop: 4 },
-  titleAccent: { fontFamily: fontFamily.serifItalic, color: theme.color.accent },
-
-  group: { marginTop: spacing.xl, gap: spacing.md },
-  groupHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  groupHeadLeft: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
-  residencyTag: { fontFamily: fontFamily.sansSemiBold, fontSize: 9, letterSpacing: 0.8, color: theme.color.textMuted },
-
-  provenance: { marginTop: spacing.xxl, gap: spacing.md },
-  reportBtn: { alignItems: 'center', paddingVertical: spacing.sm },
-  methodCard: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, padding: spacing.lg },
-  methodRight: { fontFamily: fontFamily.sansSemiBold, fontSize: 11 },
-
+  rowTitle: { fontFamily: type.ui, fontSize: type.size.body + 0.5, color: color.bone },
+  rowSub: { fontFamily: type.ui, fontSize: 13, color: color.muted, marginTop: 2 },
+  rowMetric: { fontFamily: type.displayItalic, fontSize: 17 },
 });
