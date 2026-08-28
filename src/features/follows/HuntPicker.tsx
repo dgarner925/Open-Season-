@@ -1,26 +1,28 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
-import { AppText } from '@/components/ui';
-import { SectionRule, SpeciesBadge } from '@/components/midnight';
+import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Sentence, Serif } from '@/components/system';
+import { SpeciesBadge } from '@/components/midnight';
 import { useActiveStates, useSpecies, useStateSpecies } from '@/features/reference/queries';
 import { useFollows, usePermitFollows, useTogglePermitFollow, useToggleFollow } from '@/features/follows/queries';
 import { openExternalUrl } from '@/lib/openUrl';
-import { radius, spacing, theme } from '@/theme';
+import { lang } from '@/theme/tokens';
+
+const { color, space, type } = lang;
 
 const CATEGORIES: { key: string; label: string }[] = [
-  { key: 'big_game', label: 'BIG GAME' },
-  { key: 'turkey', label: 'TURKEY' },
-  { key: 'waterfowl', label: 'WATERFOWL & MIGRATORY' },
-  { key: 'upland', label: 'UPLAND BIRDS' },
-  { key: 'small_game', label: 'SMALL GAME' },
-  { key: 'furbearer', label: 'FURBEARERS' },
-  { key: 'other', label: 'OTHER' },
+  { key: 'big_game', label: 'Big game' },
+  { key: 'turkey', label: 'Turkey' },
+  { key: 'waterfowl', label: 'Waterfowl & migratory' },
+  { key: 'upland', label: 'Upland birds' },
+  { key: 'small_game', label: 'Small game' },
+  { key: 'furbearer', label: 'Furbearers' },
+  { key: 'other', label: 'Other' },
 ];
 
 /**
- * Add hunts with one state dropdown → animal chips, and see/remove your current
- * hunts as chips. Deliberately compact so it can live on the dashboard.
+ * Add hunts with one state dropdown → animal rows, and see/remove your current
+ * hunts as hairline-ruled ledgers grouped by state.
  */
 export function HuntPicker() {
   const { data: states = [], isLoading } = useActiveStates();
@@ -39,11 +41,11 @@ export function HuntPicker() {
   const selectedState = states.find((s) => s.id === stateId) ?? null;
   const { data: stateSpecies = [], isLoading: speciesLoading } = useStateSpecies(stateId);
 
-  if (isLoading) return <ActivityIndicator color={theme.color.accent} style={{ marginTop: spacing.md }} />;
+  if (isLoading) return <ActivityIndicator color={color.copper} style={{ marginTop: space.x16 }} />;
 
   return (
-    <View style={{ gap: spacing.md }}>
-      {/* Current hunts, set as a field ledger grouped by state. */}
+    <View>
+      {/* Current hunts, grouped by state under hairline rules. */}
       {follows.length > 0 ? (
         [...new Set(follows.map((f) => f.state_id))]
           .sort((a, b) => nameOf(a, states).localeCompare(nameOf(b, states)))
@@ -53,80 +55,89 @@ export function HuntPicker() {
               .sort((a, b) => nameOf(a.species_id, species).localeCompare(nameOf(b.species_id, species)));
             return (
               <View key={sid}>
-                <SectionRule label={nameOf(sid, states) || codeOf(sid)} />
-                <View style={styles.ledger}>
-                  {rows.map((f, i) => (
-                    <View key={f.id} style={[styles.ledgerRow, i > 0 && styles.menuDivider]}>
-                      <SpeciesBadge name={nameOf(f.species_id, species)} size={34} muted />
-                      <AppText variant="bodyStrong" style={{ flex: 1 }}>
-                        {nameOf(f.species_id, species)}
-                      </AppText>
-                      <Pressable
-                        hitSlop={10}
-                        disabled={toggle.isPending}
-                        onPress={() => toggle.mutate({ stateId: f.state_id, speciesId: f.species_id, existingId: f.id })}
-                        style={({ pressed }) => pressed && { opacity: 0.5 }}
-                      >
-                        <Ionicons name="close" size={15} color={theme.color.textMuted} />
-                      </Pressable>
-                    </View>
-                  ))}
-                </View>
+                <View style={styles.rule} />
+                <Serif size={22} style={{ marginBottom: space.x4 }}>
+                  {nameOf(sid, states) || codeOf(sid)}
+                </Serif>
+                {rows.map((f, i) => (
+                  <View key={f.id} style={styles.row}>
+                    <SpeciesBadge name={nameOf(f.species_id, species)} size={34} muted />
+                    <Text style={[styles.rowText, { flex: 1, color: color.bone }]}>
+                      {nameOf(f.species_id, species)}
+                    </Text>
+                    <Pressable
+                      hitSlop={10}
+                      disabled={toggle.isPending}
+                      onPress={() => toggle.mutate({ stateId: f.state_id, speciesId: f.species_id, existingId: f.id })}
+                      style={({ pressed }) => pressed && { opacity: 0.5 }}
+                      accessibilityLabel={`Unfollow ${nameOf(f.species_id, species)}`}
+                    >
+                      <Ionicons name="close" size={15} color={color.dim} />
+                    </Pressable>
+                    {i !== rows.length - 1 ? <View style={styles.rowRule} /> : null}
+                  </View>
+                ))}
               </View>
             );
           })
       ) : (
-        <AppText variant="caption" color={theme.color.textMuted}>
+        <Sentence tone="dim" style={{ fontSize: 13 }}>
           No hunts yet — add your first below.
-        </AppText>
+        </Sentence>
       )}
 
       {/* Followed federal permit hunts (Recreation.gov), removable like any hunt. */}
       {permitFollows.filter((f) => f.hunt).length > 0 ? (
         <View>
-          <SectionRule label="FEDERAL PERMIT HUNTS" />
-          <View style={styles.ledger}>
-            {permitFollows
-              .filter((f) => f.hunt)
-              .sort((a, b) => (a.hunt!.name < b.hunt!.name ? -1 : 1))
-              .map((f, i) => (
-                <View key={f.id} style={[styles.ledgerRow, i > 0 && styles.menuDivider]}>
-                  <View style={styles.permitTile}>
-                    <Ionicons name="ribbon-outline" size={15} color={theme.color.textMuted} />
-                  </View>
-                  <Pressable style={{ flex: 1 }} onPress={() => openExternalUrl(f.hunt!.url)}>
-                    <AppText variant="bodyStrong" numberOfLines={1}>
-                      {f.hunt!.name}
-                    </AppText>
-                    <AppText variant="caption" color={theme.color.textMuted} numberOfLines={1}>
-                      {[f.hunt!.agency, f.hunt!.state_code].filter(Boolean).join(' · ')}
-                    </AppText>
-                  </Pressable>
-                  <Pressable
-                    hitSlop={10}
-                    disabled={togglePermit.isPending}
-                    onPress={() => togglePermit.mutate({ permitId: f.permit_id, existingId: f.id })}
-                    style={({ pressed }) => pressed && { opacity: 0.5 }}
-                  >
-                    <Ionicons name="close" size={15} color={theme.color.textMuted} />
-                  </Pressable>
+          <View style={styles.rule} />
+          <Serif size={22} style={{ marginBottom: space.x4 }}>
+            Federal permit hunts
+          </Serif>
+          {permitFollows
+            .filter((f) => f.hunt)
+            .sort((a, b) => (a.hunt!.name < b.hunt!.name ? -1 : 1))
+            .map((f, i, arr) => (
+              <View key={f.id} style={styles.row}>
+                <View style={styles.permitTile}>
+                  <Ionicons name="ribbon-outline" size={15} color={color.dim} />
                 </View>
-              ))}
-          </View>
+                <Pressable style={{ flex: 1 }} onPress={() => openExternalUrl(f.hunt!.url)} accessibilityRole="link">
+                  <Text style={[styles.rowText, { color: color.bone }]} numberOfLines={1}>
+                    {f.hunt!.name}
+                  </Text>
+                  <Text style={styles.rowSub} numberOfLines={1}>
+                    {[f.hunt!.agency, f.hunt!.state_code].filter(Boolean).join(' · ')}
+                  </Text>
+                </Pressable>
+                <Pressable
+                  hitSlop={10}
+                  disabled={togglePermit.isPending}
+                  onPress={() => togglePermit.mutate({ permitId: f.permit_id, existingId: f.id })}
+                  style={({ pressed }) => pressed && { opacity: 0.5 }}
+                  accessibilityLabel="Unfollow permit hunt"
+                >
+                  <Ionicons name="close" size={15} color={color.dim} />
+                </Pressable>
+                {i !== arr.length - 1 ? <View style={styles.rowRule} /> : null}
+              </View>
+            ))}
         </View>
       ) : null}
 
       {/* One dropdown for all states */}
-      <SectionRule label="ADD A HUNT" />
-      <Pressable style={styles.dropdown} onPress={() => setDropdownOpen((o) => !o)}>
-        <AppText variant="bodyStrong" color={selectedState ? theme.color.textPrimary : theme.color.textMuted}>
+      <View style={styles.rule} />
+      <Serif size={22} style={{ marginBottom: space.x8 }}>
+        Add a hunt
+      </Serif>
+      <Pressable style={styles.dropdown} onPress={() => setDropdownOpen((o) => !o)} accessibilityRole="button">
+        <Text style={[styles.rowText, { color: selectedState ? color.bone : color.dim }]}>
           {selectedState ? selectedState.name : 'Choose a state'}
-        </AppText>
-        <Ionicons name={dropdownOpen ? 'chevron-up' : 'chevron-down'} size={18} color={theme.color.textSecondary} />
+        </Text>
+        <Ionicons name={dropdownOpen ? 'chevron-up' : 'chevron-down'} size={16} color={color.muted} />
       </Pressable>
 
       {dropdownOpen ? (
-        <View style={styles.menu}>
+        <View>
           {states.map((s, i) => (
             <Pressable
               key={s.id}
@@ -134,12 +145,11 @@ export function HuntPicker() {
                 setStateId(s.id);
                 setDropdownOpen(false);
               }}
-              style={[styles.menuRow, i > 0 && styles.menuDivider]}
+              style={styles.row}
             >
-              <AppText variant="body" color={stateId === s.id ? theme.color.accent : theme.color.textPrimary}>
-                {s.name}
-              </AppText>
-              {stateId === s.id ? <Ionicons name="checkmark" size={16} color={theme.color.accent} /> : null}
+              <Text style={[styles.rowText, { flex: 1, color: stateId === s.id ? color.bone : color.muted }]}>{s.name}</Text>
+              {stateId === s.id ? <Ionicons name="checkmark" size={16} color={color.copper} /> : null}
+              {i !== states.length - 1 ? <View style={styles.rowRule} /> : null}
             </Pressable>
           ))}
         </View>
@@ -147,49 +157,40 @@ export function HuntPicker() {
 
       {/* Animals for the chosen state — only what's huntable there, by category */}
       {selectedState ? (
-        <View style={{ gap: spacing.md }}>
-          <AppText variant="caption" color={theme.color.textSecondary}>
-            Which animals in {selectedState.name}?
-          </AppText>
+        <View>
+          <Sentence style={{ marginTop: space.x16 }}>Which animals in {selectedState.name}?</Sentence>
           {speciesLoading ? (
-            <ActivityIndicator color={theme.color.accent} style={{ marginTop: spacing.sm }} />
+            <ActivityIndicator color={color.copper} style={{ marginTop: space.x12 }} />
           ) : (
             CATEGORIES.map((cat) => {
               const inCat = stateSpecies.filter((sp) => sp.category === cat.key);
               if (inCat.length === 0) return null;
               return (
-                <View key={cat.key} style={{ gap: spacing.sm }}>
-                  <AppText variant="overline" color={theme.color.textMuted}>
+                <View key={cat.key}>
+                  <Sentence tone="dim" style={{ fontSize: 13, marginTop: space.x16 }}>
                     {cat.label}
-                  </AppText>
-                  <View style={styles.ledger}>
-                    {inCat.map((sp, i) => {
-                      const existingId = followKey.get(`${selectedState.id}:${sp.id}`);
-                      const on = Boolean(existingId);
-                      return (
-                        <Pressable
-                          key={sp.id}
-                          disabled={toggle.isPending}
-                          onPress={() => toggle.mutate({ stateId: selectedState.id, speciesId: sp.id, existingId })}
-                          style={({ pressed }) => [styles.ledgerRow, i > 0 && styles.menuDivider, pressed && { opacity: 0.65 }]}
-                        >
-                          <SpeciesBadge name={sp.name} size={34} muted={!on} />
-                          <AppText
-                            variant="bodyStrong"
-                            color={on ? theme.color.textPrimary : theme.color.textSecondary}
-                            style={{ flex: 1 }}
-                          >
-                            {sp.name}
-                          </AppText>
-                          <Ionicons
-                            name={on ? 'checkmark-circle' : 'add'}
-                            size={on ? 19 : 17}
-                            color={on ? theme.color.accent : theme.color.textMuted}
-                          />
-                        </Pressable>
-                      );
-                    })}
-                  </View>
+                  </Sentence>
+                  {inCat.map((sp, i) => {
+                    const existingId = followKey.get(`${selectedState.id}:${sp.id}`);
+                    const on = Boolean(existingId);
+                    return (
+                      <Pressable
+                        key={sp.id}
+                        disabled={toggle.isPending}
+                        onPress={() => toggle.mutate({ stateId: selectedState.id, speciesId: sp.id, existingId })}
+                        style={({ pressed }) => [styles.row, pressed && { opacity: 0.65 }]}
+                      >
+                        <SpeciesBadge name={sp.name} size={34} muted={!on} />
+                        <Text style={[styles.rowText, { flex: 1, color: on ? color.bone : color.muted }]}>{sp.name}</Text>
+                        <Ionicons
+                          name={on ? 'checkmark-circle' : 'add'}
+                          size={on ? 19 : 17}
+                          color={on ? color.copper : color.dim}
+                        />
+                        {i !== inCat.length - 1 ? <View style={styles.rowRule} /> : null}
+                      </Pressable>
+                    );
+                  })}
                 </View>
               );
             })
@@ -201,55 +202,34 @@ export function HuntPicker() {
 }
 
 const styles = StyleSheet.create({
-  ledger: {
-    marginTop: spacing.md,
-    backgroundColor: theme.color.surfaceFlat,
-    borderRadius: radius.md,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: theme.color.borderFlat,
-    overflow: 'hidden',
+  rule: { height: StyleSheet.hairlineWidth, backgroundColor: color.hair, marginHorizontal: -space.gutter, marginVertical: space.section },
+  row: { flexDirection: 'row', alignItems: 'center', gap: space.x12, paddingVertical: space.x12, minHeight: 44 },
+  rowRule: {
+    position: 'absolute',
+    left: 46,
+    right: -space.gutter,
+    bottom: 0,
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: color.hair,
   },
-  ledgerRow: {
+  rowText: { fontFamily: type.ui, fontSize: type.size.body + 0.5 },
+  rowSub: { fontFamily: type.ui, fontSize: 13, color: color.muted, marginTop: 2 },
+  dropdown: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.md,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
+    justifyContent: 'space-between',
+    paddingVertical: space.x12,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: color.hair,
   },
   permitTile: {
     width: 34,
     height: 34,
     borderRadius: 10,
-    backgroundColor: theme.color.surfaceElevated,
+    backgroundColor: color.surface,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: theme.color.border,
+    borderColor: color.hair,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  dropdown: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: theme.color.surfaceElevated,
-    borderRadius: radius.md,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: theme.color.border,
-  },
-  menu: {
-    backgroundColor: theme.color.surfaceElevated,
-    borderRadius: radius.md,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: theme.color.border,
-    overflow: 'hidden',
-  },
-  menuRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
-  },
-  menuDivider: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: theme.color.border },
 });

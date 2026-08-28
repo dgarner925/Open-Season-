@@ -3,12 +3,13 @@ import { Stack, useRouter } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { AppText } from '@/components/ui';
-import { PageTitle } from '@/components/midnight';
+import { Pill, Sentence, Serif } from '@/components/system';
 import { useActiveStates } from '@/features/reference/queries';
 import { useAddLocation, useLocations, useRemoveLocation, useSetActiveLocation, useUnitsForState } from '@/features/locations/queries';
 import { useAuth } from '@/providers/AuthProvider';
-import { fontFamily, radius, spacing, theme } from '@/theme';
+import { lang } from '@/theme/tokens';
+
+const { color, space, type } = lang;
 
 export default function LocationScreen() {
   const router = useRouter();
@@ -21,7 +22,7 @@ export default function LocationScreen() {
 
   const [search, setSearch] = useState('');
   const [stateId, setStateId] = useState<string | null>(null);
-  const [zoneId, setZoneId] = useState<string | null>(null); // null = Statewide
+  const [zoneId, setZoneId] = useState<string | null>(null); // null = Statewide (a real sentinel)
   const { data: units = [] } = useUnitsForState(stateId);
 
   const filtered = states.filter((s) => s.name.toLowerCase().includes(search.trim().toLowerCase()));
@@ -38,150 +39,138 @@ export default function LocationScreen() {
     router.back();
   }
 
+  const check = (on: boolean) => (on ? <Ionicons name="checkmark" size={18} color={color.copper} /> : null);
+
   return (
     <SafeAreaView style={styles.screen} edges={['top', 'left', 'right', 'bottom']}>
       <Stack.Screen options={{ headerShown: false }} />
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
-        <Pressable style={styles.circle} onPress={() => router.back()}>
-          <Ionicons name="chevron-back" size={18} color={theme.color.textPrimary} />
+        <Pressable onPress={() => router.back()} hitSlop={10} accessibilityRole="button" accessibilityLabel="Back">
+          <Ionicons name="chevron-back" size={22} color={color.bone} />
         </Pressable>
-        <PageTitle lead={'Where do\nyou '} accent="hunt?" style={styles.title} />
+        <Sentence style={{ marginTop: space.x16 }}>
+          Where you hunt — the state (and unit, if you know it) the app should think from.
+        </Sentence>
 
         {/* Saved locations to switch between */}
         {locations.length > 0 ? (
-          <View style={styles.section}>
-            <AppText variant="overline" color={theme.color.textMuted} style={styles.sectionLabel}>
-              YOUR LOCATIONS
-            </AppText>
-            {locations.map((loc) => {
+          <>
+            <View style={styles.rule} />
+            <Serif size={22} style={{ marginBottom: space.x4 }}>
+              Your locations
+            </Serif>
+            {locations.map((loc, i) => {
               const active = loc.id === activeId;
               return (
-                <View key={loc.id} style={styles.savedRow}>
-                  <Pressable style={styles.savedMain} onPress={() => switchTo(loc.id)}>
-                    <View style={[styles.check, active ? styles.checkOn : styles.checkOff]}>
-                      {active ? <Ionicons name="checkmark" size={13} color={theme.color.onAccent} /> : null}
-                    </View>
-                    <Text style={styles.savedText}>
+                <View key={loc.id} style={styles.row}>
+                  <Pressable style={styles.rowMain} onPress={() => switchTo(loc.id)} accessibilityRole="button">
+                    <Text style={[styles.rowText, { color: active ? color.bone : color.muted }]}>
                       {loc.state?.name}
                       {loc.zone?.name ? ` · ${loc.zone.name}` : ''}
                     </Text>
+                    {check(active)}
                   </Pressable>
-                  <Pressable hitSlop={10} onPress={() => removeLocation.mutate(loc.id)}>
-                    <Ionicons name="close" size={16} color={theme.color.textMuted} />
+                  <Pressable hitSlop={10} onPress={() => removeLocation.mutate(loc.id)} accessibilityLabel="Remove location">
+                    <Ionicons name="close" size={15} color={color.dim} />
                   </Pressable>
+                  {i !== locations.length - 1 ? <View style={styles.rowRule} /> : null}
                 </View>
               );
             })}
-          </View>
+          </>
         ) : null}
 
-        {/* Search */}
-        <View style={styles.searchBox}>
-          <Ionicons name="search" size={16} color={theme.color.textMuted} />
+        <View style={styles.rule} />
+        <Serif size={22} style={{ marginBottom: space.x8 }}>
+          Add a location
+        </Serif>
+        <View style={styles.searchRow}>
+          <Ionicons name="search" size={15} color={color.dim} />
           <TextInput
             value={search}
             onChangeText={setSearch}
             placeholder="Search state"
-            placeholderTextColor={theme.color.textMuted}
+            placeholderTextColor={color.dim}
             style={styles.searchInput}
           />
         </View>
 
-        {/* State list */}
-        <View style={styles.section}>
-          <AppText variant="overline" color={theme.color.textMuted} style={styles.sectionLabel}>
-            STATE
-          </AppText>
-          {filtered.map((s) => {
-            const selected = s.id === stateId;
-            return (
-              <Pressable
-                key={s.id}
-                style={styles.stateRow}
-                onPress={() => {
-                  setStateId(s.id);
-                  setZoneId(null);
-                }}
-              >
-                <Text style={[styles.stateName, { color: selected ? theme.color.textPrimary : theme.color.textSecondary }]}>{s.name}</Text>
-                {selected ? (
-                  <View style={styles.checkOn}>
-                    <Ionicons name="checkmark" size={13} color={theme.color.onAccent} />
-                  </View>
-                ) : null}
-              </Pressable>
-            );
-          })}
-        </View>
+        {filtered.map((s, i) => {
+          const selected = s.id === stateId;
+          return (
+            <Pressable
+              key={s.id}
+              style={styles.row}
+              onPress={() => {
+                setStateId(s.id);
+                setZoneId(null);
+              }}
+              accessibilityRole="button"
+            >
+              <Text style={[styles.rowText, { flex: 1, color: selected ? color.bone : color.muted }]}>{s.name}</Text>
+              {check(selected)}
+              {i !== filtered.length - 1 ? <View style={styles.rowRule} /> : null}
+            </Pressable>
+          );
+        })}
 
-        {/* Units */}
+        {/* Units — a list with a copper check, "Statewide" as an explicit first row. */}
         {stateId ? (
-          <View style={styles.section}>
-            <AppText variant="overline" color={theme.color.textMuted} style={styles.sectionLabel}>
-              GAME MANAGEMENT UNIT
-            </AppText>
-            <View style={styles.pills}>
-              <UnitPill label="Statewide" selected={zoneId === null} onPress={() => setZoneId(null)} />
-              {units.map((u) => (
-                <UnitPill key={u.id} label={u.name} selected={zoneId === u.id} onPress={() => setZoneId(u.id)} />
-              ))}
-            </View>
+          <>
+            <View style={styles.rule} />
+            <Sentence style={{ marginBottom: space.x8 }}>Narrow it to a unit, or keep the whole state.</Sentence>
+            <Pressable style={styles.row} onPress={() => setZoneId(null)} accessibilityRole="button">
+              <Text style={[styles.rowText, { flex: 1, color: zoneId === null ? color.bone : color.muted }]}>Statewide</Text>
+              {check(zoneId === null)}
+              <View style={styles.rowRule} />
+            </Pressable>
+            {units.map((u, i) => (
+              <Pressable key={u.id} style={styles.row} onPress={() => setZoneId(u.id)} accessibilityRole="button">
+                <Text style={[styles.rowText, { flex: 1, color: zoneId === u.id ? color.bone : color.muted }]}>{u.name}</Text>
+                {check(zoneId === u.id)}
+                {i !== units.length - 1 ? <View style={styles.rowRule} /> : null}
+              </Pressable>
+            ))}
             {units.length === 0 ? (
-              <AppText variant="caption" color={theme.color.textMuted} style={{ marginTop: spacing.sm }}>
+              <Sentence tone="dim" style={{ fontSize: 13, marginTop: space.x8 }}>
                 No units sourced for this state yet — we'll add them as they're verified.
-              </AppText>
+              </Sentence>
             ) : null}
-          </View>
+          </>
         ) : null}
       </ScrollView>
 
       <View style={styles.footer}>
-        <Pressable disabled={!stateId || addLocation.isPending} onPress={save} style={[styles.save, (!stateId || addLocation.isPending) && { opacity: 0.45 }]}>
-          <Text style={styles.saveLabel}>Save location</Text>
-        </Pressable>
+        <View style={styles.rule} />
+        <Pill label="Save location" onPress={save} disabled={!stateId || addLocation.isPending} />
       </View>
     </SafeAreaView>
   );
 }
 
-function UnitPill({ label, selected, onPress }: { label: string; selected: boolean; onPress: () => void }) {
-  return (
-    <Pressable onPress={onPress} style={[styles.pill, selected ? styles.pillOn : styles.pillOff]}>
-      <Text style={[styles.pillLabel, { color: selected ? theme.color.onAccent : theme.color.textSecondary }]}>{label}</Text>
-    </Pressable>
-  );
-}
-
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: theme.color.background },
-  content: { paddingHorizontal: spacing.xl, paddingTop: spacing.lg, paddingBottom: spacing.xl },
-  circle: { width: 38, height: 38, borderRadius: 19, backgroundColor: theme.color.surfaceFlat, alignItems: 'center', justifyContent: 'center' },
-  title: { fontSize: 44, lineHeight: 50, marginTop: spacing.lg, paddingTop: 3 },
-
-  section: { marginTop: spacing.xl },
-  sectionLabel: { marginBottom: spacing.sm },
-
-  savedRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, paddingVertical: spacing.md, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: theme.color.hairline },
-  savedMain: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: spacing.md },
-  savedText: { fontFamily: fontFamily.sansSemiBold, fontSize: 16, color: theme.color.textPrimary },
-
-  searchBox: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingHorizontal: spacing.lg, paddingVertical: spacing.md, borderRadius: radius.md, backgroundColor: theme.color.surfaceFlat, borderWidth: StyleSheet.hairlineWidth, borderColor: theme.color.borderFlat, marginTop: spacing.xl },
-  searchInput: { flex: 1, color: theme.color.textPrimary, fontFamily: fontFamily.sans, fontSize: 15, padding: 0 },
-
-  stateRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: spacing.md, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: theme.color.hairline },
-  stateName: { fontFamily: fontFamily.sansSemiBold, fontSize: 16 },
-
-  pills: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
-  pill: { paddingHorizontal: spacing.lg, paddingVertical: 9, borderRadius: 20 },
-  pillOn: { backgroundColor: theme.color.accent },
-  pillOff: { backgroundColor: theme.color.surfaceFlat, borderWidth: StyleSheet.hairlineWidth, borderColor: theme.color.borderFlat },
-  pillLabel: { fontFamily: fontFamily.sansSemiBold, fontSize: 13 },
-
-  check: { width: 24, height: 24, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
-  checkOn: { width: 24, height: 24, borderRadius: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: theme.color.accent },
-  checkOff: { borderWidth: 1.5, borderColor: 'rgba(255,255,255,0.18)' },
-
-  footer: { paddingHorizontal: spacing.xl, paddingTop: spacing.md, paddingBottom: spacing.lg, backgroundColor: theme.color.background },
-  save: { height: 52, borderRadius: 26, backgroundColor: theme.color.accent, alignItems: 'center', justifyContent: 'center' },
-  saveLabel: { fontFamily: fontFamily.sansBold, fontSize: 15, color: theme.color.onAccent },
+  screen: { flex: 1, backgroundColor: color.bg },
+  content: { paddingHorizontal: space.gutter, paddingTop: space.x16, paddingBottom: space.x32 },
+  rule: { height: StyleSheet.hairlineWidth, backgroundColor: color.hair, marginHorizontal: -space.gutter, marginVertical: space.section },
+  row: { flexDirection: 'row', alignItems: 'center', gap: space.x12, paddingVertical: space.x12, minHeight: 44 },
+  rowMain: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: space.x12 },
+  rowRule: {
+    position: 'absolute',
+    left: 0,
+    right: -space.gutter,
+    bottom: 0,
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: color.hair,
+  },
+  rowText: { fontFamily: type.ui, fontSize: type.size.body + 0.5 },
+  searchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space.x8,
+    paddingVertical: space.x12,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: color.hair,
+  },
+  searchInput: { flex: 1, color: color.bone, fontFamily: type.ui, fontSize: 15, padding: 0 },
+  footer: { paddingHorizontal: space.gutter, paddingBottom: space.x16, backgroundColor: color.bg },
 });
