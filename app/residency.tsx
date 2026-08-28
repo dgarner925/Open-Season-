@@ -1,12 +1,14 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Stack } from 'expo-router';
 import { useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
-import { AppText, Card, Screen } from '@/components/ui';
+import { ActivityIndicator, View } from 'react-native';
+import { Row, Rule, Screen, Sentence } from '@/components/system';
 import { useActiveStates } from '@/features/reference/queries';
 import { useAuth } from '@/providers/AuthProvider';
 import { supabase } from '@/lib/supabase';
-import { radius, spacing, theme } from '@/theme';
+import { lang } from '@/theme/tokens';
+
+const { color, space } = lang;
 
 /**
  * The user's home state. Everything else is treated as nonresident — the app
@@ -28,55 +30,43 @@ export default function Residency() {
     setSaving(null);
   }
 
-  return (
-    <Screen scroll contentStyle={{ paddingBottom: spacing.xxl }}>
-      <Stack.Screen options={{ headerShown: true, title: 'Residency' }} />
-      <View style={{ gap: spacing.xs }}>
-        <AppText variant="h1">Home state</AppText>
-        <AppText variant="body" color={theme.color.textSecondary}>
-          Pick the state you're a resident of. Everywhere else, the app labels tags and deadlines as
-          nonresident — a reminder that dates and fees often differ.
-        </AppText>
-      </View>
+  const mark = (on: boolean, savingThis: boolean) =>
+    savingThis ? (
+      <ActivityIndicator size="small" color={color.dim} />
+    ) : on ? (
+      <Ionicons name="checkmark" size={18} color={color.copper} />
+    ) : undefined;
 
-      <Pressable onPress={() => choose(null)}>
-        <Card variant="flat" style={styles.rowCard}>
-          <AppText variant="body" color={theme.color.textSecondary}>
-            None / not listed
-          </AppText>
-          {selected === null ? <Ionicons name="checkmark" size={20} color={theme.color.accent} /> : null}
-        </Card>
-      </Pressable>
+  return (
+    <Screen scroll>
+      <Stack.Screen options={{ headerShown: true, title: 'Residency' }} />
+      <Sentence style={{ marginTop: space.x16 }}>
+        Pick the state you're a resident of. Everywhere else, the app labels tags and deadlines as
+        nonresident — a reminder that dates and fees often differ.
+      </Sentence>
+
+      <Rule />
+
+      <Row
+        title="I'm not a resident of any state listed."
+        onPress={() => choose(null)}
+        right={mark(selected === null, saving === 'none')}
+      />
 
       {isLoading ? (
-        <ActivityIndicator color={theme.color.accent} style={{ marginTop: spacing.lg }} />
+        <ActivityIndicator color={color.copper} style={{ marginTop: space.section }} />
       ) : (
-        states.map((s) => {
-          const on = selected === s.id;
-          return (
-            <Pressable key={s.id} onPress={() => choose(s.id)}>
-              <Card variant={on ? 'gradient' : 'flat'} style={styles.rowCard}>
-                <AppText variant="body">{s.name}</AppText>
-                {saving === s.id ? (
-                  <ActivityIndicator color={theme.color.accent} />
-                ) : on ? (
-                  <Ionicons name="checkmark" size={20} color={theme.color.accent} />
-                ) : null}
-              </Card>
-            </Pressable>
-          );
-        })
+        states.map((s, i) => (
+          <Row
+            key={s.id}
+            title={s.name}
+            onPress={() => choose(s.id)}
+            right={mark(selected === s.id, saving === s.id)}
+            last={i === states.length - 1}
+          />
+        ))
       )}
+      <View style={{ height: space.x32 }} />
     </Screen>
   );
 }
-
-const styles = StyleSheet.create({
-  rowCard: {
-    marginTop: spacing.sm,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    borderRadius: radius.md,
-  },
-});

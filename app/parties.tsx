@@ -1,11 +1,14 @@
 import { Stack, useRouter } from 'expo-router';
-import { ActivityIndicator, Alert, Platform, View } from 'react-native';
-import { AppText, Button, Card, Screen } from '@/components/ui';
+import { useState } from 'react';
+import { ActivityIndicator, Alert, StyleSheet, TextInput, View } from 'react-native';
+import { Pill, Row, Rule, Screen, Sentence, Serif } from '@/components/system';
 import { useJoinParty, useMyParties } from '@/features/parties/queries';
 import { useRequirePro } from '@/hooks/useRequirePro';
 import { countdownLabel, daysUntil } from '@/lib/date';
 import { drawTitle } from '@/lib/titles';
-import { spacing, theme, urgencyColor } from '@/theme';
+import { lang } from '@/theme/tokens';
+
+const { color, space, type } = lang;
 
 export default function Parties() {
   const router = useRouter();
@@ -13,66 +16,104 @@ export default function Parties() {
   const join = useJoinParty();
   const requirePro = useRequirePro();
 
-  function onJoin() {
+  // Inline code entry — works on both platforms (Alert.prompt was iOS-only,
+  // which left Android's join button dead).
+  const [joining, setJoining] = useState(false);
+  const [code, setCode] = useState('');
+
+  function onJoinStart() {
     if (!requirePro()) return;
-    if (Platform.OS === 'ios') {
-      Alert.prompt('Join a hunting party', 'Enter the invite code your buddy sent you.', [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Join',
-          onPress: (code?: string) => {
-            if (!code?.trim()) return;
-            join.mutate(code, {
-              onSuccess: (partyId) => router.push({ pathname: '/party/[id]', params: { id: partyId } }),
-              onError: () => Alert.alert('Invalid code', 'Double-check the invite code and try again.'),
-            });
-          },
-        },
-      ]);
-    }
+    setJoining(true);
+  }
+
+  function onJoinSubmit() {
+    const c = code.trim();
+    if (!c) return;
+    join.mutate(c, {
+      onSuccess: (partyId) => {
+        setJoining(false);
+        setCode('');
+        router.push({ pathname: '/party/[id]', params: { id: partyId } });
+      },
+      onError: () => Alert.alert('Invalid code', 'Double-check the invite code and try again.'),
+    });
   }
 
   return (
-    <Screen scroll contentStyle={{ paddingBottom: spacing.xxl }}>
+    <Screen scroll>
       <Stack.Screen options={{ headerShown: true, title: 'Hunting parties' }} />
-      <View style={{ gap: spacing.xs }}>
-        <AppText variant="h1">Hunting parties</AppText>
-        <AppText variant="body" color={theme.color.textSecondary}>
-          Apply for draws together — everyone sees the deadline, and who's actually applied.
-        </AppText>
-      </View>
-
-      <Button title="Join with a code" onPress={onJoin} loading={join.isPending} />
+      <Sentence style={{ marginTop: space.x16 }}>
+        Apply for draws together — everyone sees the deadline, and who's actually applied.
+      </Sentence>
 
       {isLoading ? (
-        <ActivityIndicator color={theme.color.accent} style={{ marginTop: spacing.xl }} />
+        <ActivityIndicator color={color.copper} style={{ marginTop: space.x32 }} />
       ) : parties.length === 0 ? (
-        <Card style={{ marginTop: spacing.md }}>
-          <AppText variant="h3">No parties yet</AppText>
-          <AppText variant="body" color={theme.color.textSecondary}>
-            Open any draw on the Tags tab and tap "Hunt with your party" to start one — or join a
-            buddy's with their code.
-          </AppText>
-        </Card>
+        <Sentence style={{ marginTop: space.section }}>
+          No parties yet. Open any draw on the Tags tab and tap "Hunt with your party" to start one — or
+          join a buddy's with their code below.
+        </Sentence>
       ) : (
-        parties.map((p) => {
-          const w = p.window;
-          const d = daysUntil(w?.closes_at ?? null);
-          return (
-            <Card
-              key={p.id}
-              onPress={() => router.push({ pathname: '/party/[id]', params: { id: p.id } })}
-            >
-              <AppText variant="h3">
-                {`${w?.state?.code ?? ''} ${drawTitle(w?.species?.name, w?.name)}`.trim()}
-              </AppText>
-              <AppText variant="body" color={urgencyColor(d)}>
-                Deadline {countdownLabel(d)}
-              </AppText>
-            </Card>
-          );
-        })
+        <>
+          <Rule />
+          {parties.map((p, i) => {
+            const w = p.window;
+            const d = daysUntil(w?.closes_at ?? null);
+            return (
+              <Row
+                key={p.id}
+                title={`${w?.state?.code ?? ''} ${drawTitle(w?.species?.name, w?.name)}`.trim()}
+                subtitle={`Deadline ${countdownLabel(d)}.`}
+                onPress={() => router.push({ pathname: '/party/[id]', params: { id: p.id } })}
+                right={
+                  d !== null && d >= 0 ? (
+                    <Serif italic size={19} copper>
+                      {d}d
+                    </Serif>
+                  ) : undefined
+                }
+                last={i === parties.length - 1}
+              />
+            );
+          })}
+        </>
+      )}
+
+      <Rule />
+      {joining ? (
+        <View style={{ gap: space.x16 }}>
+          <Sentence>Enter the invite code your buddy sent you.</Sentence>
+          <TextInput
+            value={code}
+            onChangeText={setCode}
+            autoCapitalize="characters"
+            autoCorrect={false}
+            autoFocus
+            placeholder="INVITE CODE"
+            placeholderTextColor={color.dim}
+            style={styles.codeInput}
+            onSubmitEditing={onJoinSubmit}
+          />
+          <View style={{ flexDirection: 'row', gap: space.x12 }}>
+            <Pill label={join.isPending ? 'Joining…' : 'Join the party'} onPress={onJoinSubmit} disabled={join.isPending} style={{ flex: 1.4 }} />
+            <Pill label="Cancel" variant="secondary" onPress={() => setJoining(false)} style={{ flex: 1 }} />
+          </View>
+        </View>
+      ) : (
+        <Pill label="Join with a code" variant="secondary" onPress={onJoinStart} />
       )}
     </Screen>
   );
 }
+
+const styles = StyleSheet.create({
+  codeInput: {
+    fontFamily: type.uiSemiBold,
+    fontSize: 18,
+    letterSpacing: 3,
+    color: color.bone,
+    paddingVertical: space.x12,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: color.hair,
+  },
+});

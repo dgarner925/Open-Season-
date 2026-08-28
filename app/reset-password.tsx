@@ -1,11 +1,12 @@
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { StyleSheet, TextInput, View } from 'react-native';
-import { AppText, Button, Screen } from '@/components/ui';
-import { PageTitle } from '@/components/midnight';
+import { Pill, Screen, Sentence } from '@/components/system';
 import { updatePassword } from '@/lib/auth';
 import { supabase } from '@/lib/supabase';
-import { radius, spacing, theme } from '@/theme';
+import { lang } from '@/theme/tokens';
+
+const { color, space, type } = lang;
 
 /**
  * Landing screen for the password-reset email link (openseason://reset-password
@@ -66,21 +67,30 @@ export default function ResetPassword() {
 
   return (
     <Screen scroll>
-      <Stack.Screen options={{ headerShown: true, title: '' }} />
-      <View style={styles.hero}>
-        <PageTitle lead={'New\n'} accent="password." style={styles.title} />
-        <AppText variant="body" color={theme.color.textSecondary} style={{ marginTop: spacing.md }}>
-          {ready === 'invalid'
-            ? 'This reset link is invalid or has expired. Request a new one from the sign-in screen — and open it on this phone.'
-            : 'Pick a new password for your account.'}
-        </AppText>
-      </View>
+      <Stack.Screen options={{ headerShown: true, title: 'New password' }} />
 
-      {ready === 'ok' ? (
-        <View style={styles.form}>
+      {ready === 'checking' ? null : ready === 'invalid' ? (
+        <>
+          <Sentence tone="bone" style={{ marginTop: space.section }}>
+            This reset link is invalid or has expired.
+          </Sentence>
+          <Sentence style={{ marginTop: space.x8 }}>
+            Request a new one from the sign-in screen — and open it on this phone.
+          </Sentence>
+          <Pill
+            label="Back to sign in"
+            onPress={() => router.replace('/(auth)/sign-in')}
+            style={{ marginTop: space.section }}
+          />
+        </>
+      ) : (
+        <>
+          <Sentence style={{ marginTop: space.section }}>
+            Pick a new password — at least eight characters.
+          </Sentence>
           <TextInput
             placeholder="New password"
-            placeholderTextColor={theme.color.textMuted}
+            placeholderTextColor={color.dim}
             secureTextEntry
             autoComplete="new-password"
             value={password}
@@ -89,7 +99,7 @@ export default function ResetPassword() {
           />
           <TextInput
             placeholder="Confirm new password"
-            placeholderTextColor={theme.color.textMuted}
+            placeholderTextColor={color.dim}
             secureTextEntry
             autoComplete="new-password"
             value={confirm}
@@ -97,31 +107,30 @@ export default function ResetPassword() {
             style={styles.input}
           />
           {notice ? (
-            <AppText variant="bodyStrong" color={notice.tone === 'error' ? theme.color.danger : theme.color.accentStrong}>
+            <Sentence tone="bone" style={[{ marginTop: space.x16 }, notice.tone === 'error' && { color: '#c96f5a' }]}>
               {notice.text}
-            </AppText>
+            </Sentence>
           ) : null}
-          <Button title={saving ? 'Saving…' : 'Save new password'} onPress={save} loading={saving} />
-        </View>
-      ) : ready === 'invalid' ? (
-        <Button title="Back to sign in" onPress={() => router.replace('/(auth)/sign-in')} />
-      ) : null}
+          <Pill
+            label={saving ? 'Saving…' : 'Save new password'}
+            onPress={save}
+            disabled={saving}
+            style={{ marginTop: space.section }}
+          />
+        </>
+      )}
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  hero: { marginTop: spacing.xl, marginBottom: spacing.xl },
-  title: { fontSize: 44, lineHeight: 50, paddingTop: 4 },
-  form: { gap: spacing.md },
   input: {
-    backgroundColor: theme.color.surface,
-    borderRadius: radius.md,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
-    color: theme.color.textPrimary,
+    fontFamily: type.ui,
     fontSize: 16,
-    borderWidth: 1,
-    borderColor: theme.color.border,
+    color: color.bone,
+    paddingVertical: space.x12,
+    marginTop: space.x16,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: color.hair,
   },
 });

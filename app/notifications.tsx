@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Stack, useRouter } from 'expo-router';
-import { Alert, ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
-import { AppText, Card, Screen } from '@/components/ui';
+import { Alert, ActivityIndicator, Pressable, View } from 'react-native';
+import { Row, Rule, Screen, Sentence, Serif } from '@/components/system';
 import {
   useNotificationHistory,
   useHideNotification,
@@ -11,7 +11,9 @@ import {
   type NotifKind,
 } from '@/features/notifications/queries';
 import { routeForNotification } from '@/lib/notificationRouting';
-import { radius, spacing, theme } from '@/theme';
+import { lang } from '@/theme/tokens';
+
+const { color, space } = lang;
 
 const KIND_ICON: Record<NotifKind, keyof typeof Ionicons.glyphMap> = {
   opener: 'calendar-outline',
@@ -41,91 +43,47 @@ export default function Notifications() {
   }
 
   return (
-    <Screen scroll contentStyle={{ paddingBottom: spacing.xxl }}>
+    <Screen scroll>
       <Stack.Screen options={{ headerShown: true, title: 'Notifications' }} />
-      <View style={{ gap: spacing.xs }}>
-        <View style={styles.titleRow}>
-          <AppText variant="h1">Notifications</AppText>
-          {items.length > 0 ? (
-            <Pressable onPress={onClearAll} hitSlop={8}>
-              <AppText variant="caption" color={theme.color.accent}>
-                Clear all
-              </AppText>
-            </Pressable>
-          ) : null}
-        </View>
-        <AppText variant="body" color={theme.color.textSecondary}>
-          Every opener, tag deadline, and draw-results alert we've sent you. Tap one to open the hunt it's
-          about — press and hold to remove it.
-        </AppText>
-      </View>
+      <Sentence style={{ marginTop: space.x16 }}>
+        Every opener, tag deadline, and draw-results alert we've sent you. Tap one to open the hunt it's
+        about — press and hold to remove it.
+      </Sentence>
 
       {isLoading ? (
-        <ActivityIndicator color={theme.color.accent} style={{ marginTop: spacing.xl }} />
+        <ActivityIndicator color={color.copper} style={{ marginTop: space.x32 }} />
       ) : items.length === 0 ? (
-        <Card style={{ marginTop: spacing.lg }}>
-          <AppText variant="h3">No notifications yet</AppText>
-          <AppText variant="body" color={theme.color.textSecondary}>
-            When one of your seasons opens or a tag deadline gets close, the reminder will show up here.
-            Set how far ahead you're notified in Alerts.
-          </AppText>
-        </Card>
+        <Sentence style={{ marginTop: space.section }}>
+          Nothing yet. When one of your seasons opens or a tag deadline gets close, the reminder shows up
+          here — set how far ahead in Profile → Reminders.
+        </Sentence>
       ) : (
-        <View style={{ marginTop: spacing.md, gap: spacing.sm }}>
-          {items.map((n) => (
-            <NotificationRow
-              key={n.id}
-              item={n}
-              onPress={() => routeForNotification(router, n)}
-              onLongPress={() => onRemove(n)}
-            />
+        <>
+          <Rule />
+          {items.map((n, i) => (
+            <Pressable key={n.id} onLongPress={() => onRemove(n)}>
+              <Row
+                title={n.title}
+                subtitle={n.subtitle}
+                onPress={() => routeForNotification(router, n)}
+                right={
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: space.x8 }}>
+                    <Ionicons name={KIND_ICON[n.kind]} size={14} color={color.dim} />
+                    <Serif italic size={16} style={{ color: color.muted }}>
+                      {sentAgo(n.sentAt)}
+                    </Serif>
+                  </View>
+                }
+                last={i === items.length - 1}
+              />
+            </Pressable>
           ))}
-        </View>
+          <Rule />
+          <Pressable onPress={onClearAll} accessibilityRole="button">
+            <Sentence tone="dim">Clear this history — every entry, for good.</Sentence>
+          </Pressable>
+        </>
       )}
     </Screen>
   );
 }
-
-function NotificationRow({
-  item,
-  onPress,
-  onLongPress,
-}: {
-  item: NotifItem;
-  onPress: () => void;
-  onLongPress: () => void;
-}) {
-  return (
-    <Pressable onPress={onPress} onLongPress={onLongPress} style={({ pressed }) => [pressed && { opacity: 0.7 }]}>
-      <Card variant="flat" style={styles.row}>
-        <View style={styles.iconWrap}>
-          <Ionicons name={KIND_ICON[item.kind]} size={18} color={theme.color.accent} />
-        </View>
-        <View style={{ flex: 1 }}>
-          <AppText variant="bodyStrong" numberOfLines={1}>
-            {item.title}
-          </AppText>
-          <AppText variant="caption" color={theme.color.textMuted} numberOfLines={1}>
-            {item.subtitle}
-          </AppText>
-        </View>
-        <AppText variant="caption" color={theme.color.textMuted}>
-          {sentAgo(item.sentAt)}
-        </AppText>
-      </Card>
-    </Pressable>
-  );
-}
-
-const styles = StyleSheet.create({
-  titleRow: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between' },
-  row: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
-  iconWrap: {
-    width: 38,
-    height: 38,
-    borderRadius: radius.md,
-    backgroundColor: theme.color.accentFill,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-});

@@ -3,7 +3,6 @@ import * as Updates from 'expo-updates';
 import { useState } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { AppText, Button, Card, Screen } from '@/components/ui';
-import { PageTitle } from '@/components/midnight';
 import { fontFamily, spacing, theme } from '@/theme';
 
 /**
@@ -58,12 +57,8 @@ export default function UpdatesDebug() {
 
   return (
     <Screen>
-      <Stack.Screen options={{ headerShown: true, title: '' }} />
+      <Stack.Screen options={{ headerShown: true, title: 'Update delivery' }} />
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: spacing.xxl }}>
-        <AppText variant="overline" color={theme.color.textMuted}>
-          SYSTEM
-        </AppText>
-        <PageTitle lead="Update " accent="delivery." style={{ marginTop: spacing.xs }} />
         <AppText variant="body" color={theme.color.textSecondary} style={{ marginTop: spacing.sm }}>
           Checks for an over-the-air update and reports each step, including errors the app normally swallows.
         </AppText>
