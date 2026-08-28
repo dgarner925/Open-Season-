@@ -226,9 +226,10 @@ export default function SeasonDetail() {
 
       <Rule />
 
-      {/* The caveat sits directly above the action it qualifies. */}
+      {/* The caveat sits directly above the action it qualifies, aligned to the
+          threaded content above it. */}
       {armed ? (
-        <Sentence tone="dim" style={{ marginBottom: space.x16, fontSize: 13 }}>
+        <Sentence tone="dim" style={{ marginBottom: space.x16, fontSize: 13, paddingLeft: 26 }}>
           We'll remind you before the opener — adjust how far ahead in Profile.
         </Sentence>
       ) : null}
