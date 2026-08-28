@@ -115,7 +115,7 @@ export default function SeasonDetail() {
         )}
       </View>
 
-      <LegalLightLine stateCode={season.state?.code} open={open} />
+      <LegalLightLine stateCode={season.state?.code} open={open} daysToOpen={days} />
 
       <View style={styles.actions}>
         <Pressable
@@ -188,12 +188,23 @@ function cap(s: string) {
  * center, marked ≈) plus the state's verified big-game rule. One quiet line;
  * shows for open and upcoming seasons, hidden where no rule exists (AK).
  */
-function LegalLightLine({ stateCode, open }: { stateCode: string | null | undefined; open: boolean }) {
-  const light = useLegalLight(stateCode);
+function LegalLightLine({
+  stateCode,
+  open,
+  daysToOpen,
+}: {
+  stateCode: string | null | undefined;
+  open: boolean;
+  daysToOpen: number | null;
+}) {
+  // Open season: today's light (the in-field case). Upcoming: opening day's —
+  // today's light is meaningless for a hunt weeks away.
+  const offset = open ? 0 : Math.max(daysToOpen ?? 0, 0);
+  const light = useLegalLight(stateCode, offset);
   if (!light) return null;
   return (
     <View style={styles.lightRow}>
-      <Text style={styles.lightLabel}>LEGAL LIGHT {open ? 'TODAY' : ''}</Text>
+      <Text style={styles.lightLabel}>{open ? 'LEGAL LIGHT TODAY' : 'LEGAL LIGHT ON OPENING DAY'}</Text>
       <Text style={styles.lightWindow}>
         {light.approx ? '≈ ' : ''}
         {light.window}
