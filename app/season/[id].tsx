@@ -2,6 +2,7 @@ import { Stack, useLocalSearchParams } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
 import { ActivityIndicator, Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { Micro, Pill, Rule, Screen, Sentence, Serif, SunArc, Thread } from '@/components/system';
+import { Disclaimer } from '@/components/Provenance';
 import { useAuth } from '@/providers/AuthProvider';
 import { useSeasonById } from '@/features/reference/queries';
 import { useMethodReminder } from '@/features/follows/queries';
@@ -245,6 +246,11 @@ export default function SeasonDetail() {
           </Pressable>
         </>
       ) : null}
+
+      {/* The last word on the page — the standing trust-trio disclaimer. */}
+      <View style={{ marginTop: space.section }}>
+        <Disclaimer />
+      </View>
     </Screen>
   );
 }

@@ -1,17 +1,18 @@
 import * as Notifications from 'expo-notifications';
 import { useEffect, useState } from 'react';
-import { AppState, Linking, Platform, Pressable, StyleSheet, View } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-import { AppText } from '@/components/ui';
-import { radius, spacing, theme } from '@/theme';
+import { AppState, Linking, Platform, Pressable, StyleSheet, Text } from 'react-native';
+import { lang } from '@/theme/tokens';
+
+const { color, space, type } = lang;
 
 /**
  * The app's whole promise is "we'll remind you" — if the user declined the push
- * permission, every reminder silently never arrives. This banner surfaces that
- * state with a one-tap jump to the system settings. Renders nothing while
- * permission is granted/undetermined (undetermined means we haven't asked yet),
- * and re-checks whenever the app returns to the foreground (i.e. right after
- * the user comes back from Settings).
+ * permission, every reminder silently never arrives. Renders nothing while
+ * permission is granted/undetermined, and re-checks whenever the app returns to
+ * the foreground (i.e. right after the user comes back from Settings).
+ *
+ * v2 form: an undecorated warning sentence placed above the content it
+ * invalidates — weight by position, not by a tinted box (rule 10).
  */
 export function NotificationsOffBanner() {
   const [denied, setDenied] = useState(false);
@@ -43,31 +44,21 @@ export function NotificationsOffBanner() {
   if (!denied) return null;
 
   return (
-    <Pressable onPress={() => Linking.openSettings()} style={({ pressed }) => [styles.banner, pressed && { opacity: 0.8 }]}>
-      <Ionicons name="notifications-off-outline" size={18} color={theme.color.warning} />
-      <View style={{ flex: 1 }}>
-        <AppText variant="bodyStrong" style={{ fontSize: 13 }}>
-          Notifications are off
-        </AppText>
-        <AppText variant="caption" color={theme.color.textSecondary}>
-          You won't get opener or deadline reminders. Tap to turn them on in Settings.
-        </AppText>
-      </View>
-      <Ionicons name="chevron-forward" size={16} color={theme.color.textMuted} />
+    <Pressable
+      onPress={() => Linking.openSettings()}
+      accessibilityRole="button"
+      accessibilityLabel="Notifications are off — open Settings"
+      style={({ pressed }) => [styles.block, pressed && { opacity: 0.75 }]}
+    >
+      <Text style={styles.line}>
+        Notifications are off, so no reminder will reach you — tap to turn them on in Settings.{' '}
+        <Text style={{ color: color.dim }}>›</Text>
+      </Text>
     </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
-  banner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-    marginTop: spacing.lg,
-    padding: spacing.md,
-    borderRadius: radius.md,
-    backgroundColor: 'rgba(217,168,106,0.10)', // warm warning tint on Ember
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(217,168,106,0.35)',
-  },
+  block: { marginTop: space.x16, minHeight: 44, justifyContent: 'center' },
+  line: { fontFamily: type.ui, fontSize: type.size.body, lineHeight: 23, color: color.bone },
 });
