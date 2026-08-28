@@ -58,8 +58,12 @@ export type LegalLightToday = {
 /**
  * null while loading, when the state has no shooting-hours rule (AK), or when
  * the sun never rises/sets (midsummer Alaska).
+ *
+ * dayOffset: 0 = today (the season page's in-field case), 1 = tomorrow (the
+ * Weekend Brief's case — by the time the brief lands, today's first light is
+ * already behind you).
  */
-export function useLegalLight(stateCode: string | null | undefined): LegalLightToday {
+export function useLegalLight(stateCode: string | null | undefined, dayOffset = 0): LegalLightToday {
   const [result, setResult] = useState<LegalLightToday>(null);
 
   useEffect(() => {
@@ -72,7 +76,9 @@ export function useLegalLight(stateCode: string | null | undefined): LegalLightT
       const centroid = CENTROIDS[stateCode];
       const at = fix ?? centroid;
       if (!at) return;
-      const ll = legalLight(new Date(), at.lat, at.lng, rule.before, rule.after);
+      const day = new Date();
+      day.setDate(day.getDate() + dayOffset);
+      const ll = legalLight(day, at.lat, at.lng, rule.before, rule.after);
       if (!ll || cancelled) return;
       setResult({
         window: `${formatClock(ll.start)} – ${formatClock(ll.end)}`,

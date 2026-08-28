@@ -237,7 +237,9 @@ function WeekendBriefCard({
   stateCode: string | null;
   onPress: () => void;
 }) {
-  const light = useLegalLight(stateCode);
+  // Tomorrow's light — the morning the brief is planning for, not the one
+  // already underway when the brief lands.
+  const light = useLegalLight(stateCode, 1);
   const now = new Date();
   const dow = now.getDay(); // 5 Fri, 6 Sat, 0 Sun
   const iso = todayISO();
@@ -302,7 +304,8 @@ function WeekendBriefCard({
       ))}
       {light ? (
         <Text style={styles.briefLight}>
-          Legal light today: {light.approx ? '≈ ' : ''}
+          Legal light {['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][(dow + 1) % 7]}:{' '}
+          {light.approx ? '≈ ' : ''}
           {light.window}
         </Text>
       ) : null}
