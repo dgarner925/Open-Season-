@@ -5,7 +5,18 @@
  */
 import { Ionicons } from '@expo/vector-icons';
 import { type ReactNode } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View, type StyleProp, type TextStyle, type ViewStyle } from 'react-native';
+import {
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+  type StyleProp,
+  type TextInputProps,
+  type TextStyle,
+  type ViewStyle,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Circle, Defs, LinearGradient, Line, Mask, Path, RadialGradient, Rect, Stop } from 'react-native-svg';
 import { lang } from '@/theme/tokens';
@@ -234,8 +245,71 @@ export function Serif({
   );
 }
 
+/** The form vocabulary (D9): a sentence names the field, a hairline holds the value. */
+export function Field({ label, hint, children }: { label: string; hint?: string; children: ReactNode }) {
+  return (
+    <View style={{ marginTop: space.section }}>
+      <Text style={styles.fieldLabel}>{label}</Text>
+      {children}
+      {hint ? <Text style={styles.fieldHint}>{hint}</Text> : null}
+    </View>
+  );
+}
+
+/** Hairline-underlined text input — the language's only input shape. */
+export function Input(props: TextInputProps) {
+  return <TextInput placeholderTextColor={color.dim} {...props} style={[styles.input, props.style]} />;
+}
+
+/**
+ * Options as tappable words (not pills): wraps, active word in copper.
+ * The compact state-choice control for forms.
+ */
+export function WordChoice({
+  options,
+  value,
+  onChange,
+  allowClear = true,
+}: {
+  options: { value: string; label: string }[];
+  value: string | null;
+  onChange: (v: string | null) => void;
+  allowClear?: boolean;
+}) {
+  return (
+    <View style={styles.words}>
+      {options.map((o) => {
+        const on = value === o.value;
+        return (
+          <Pressable
+            key={o.value}
+            onPress={() => onChange(on && allowClear ? null : o.value)}
+            hitSlop={6}
+            accessibilityRole="button"
+            accessibilityLabel={o.label}
+          >
+            <Text style={[styles.word, on && { color: color.copper }]}>{o.label}</Text>
+          </Pressable>
+        );
+      })}
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: color.bg },
+  fieldLabel: { fontFamily: type.ui, fontSize: 13.5, color: color.muted },
+  fieldHint: { fontFamily: type.ui, fontSize: 12.5, lineHeight: 18, color: color.dim, marginTop: space.x8 },
+  input: {
+    fontFamily: type.ui,
+    fontSize: 16,
+    color: color.bone,
+    paddingVertical: space.x12,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: color.hair,
+  },
+  words: { flexDirection: 'row', flexWrap: 'wrap', columnGap: space.x16, rowGap: space.x8, marginTop: space.x8 },
+  word: { fontFamily: type.uiMedium, fontSize: 14.5, lineHeight: 22, color: color.dim },
   scrollBody: { paddingHorizontal: space.gutter, paddingBottom: space.x38 },
   rule: { height: StyleSheet.hairlineWidth, backgroundColor: color.hair, marginHorizontal: -space.gutter },
   row: { minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: space.x12, paddingVertical: space.x12 },

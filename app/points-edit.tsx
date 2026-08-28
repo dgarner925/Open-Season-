@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
-import { Alert, Pressable, StyleSheet, TextInput, View } from 'react-native';
+import { Alert, Pressable } from 'react-native';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
-import { AppText, Button, Screen } from '@/components/ui';
+import { Field, Input, Pill, Screen, Sentence, WordChoice } from '@/components/system';
 import { useActiveStates, useSpecies } from '@/features/reference/queries';
 import {
   usePointBalance,
@@ -10,7 +10,9 @@ import {
   type PointInput,
 } from '@/features/points/queries';
 import type { PointType } from '@/lib/database.types';
-import { radius, spacing, theme } from '@/theme';
+import { lang } from '@/theme/tokens';
+
+const { space } = lang;
 
 type Form = { state_id: string | null; species_id: string | null; point_type: PointType; points: string; notes: string };
 const EMPTY: Form = { state_id: null, species_id: null, point_type: 'preference', points: '0', notes: '' };
@@ -85,7 +87,9 @@ export default function PointsEdit() {
     return (
       <Screen>
         <Stack.Screen options={{ headerShown: true, title: 'Points' }} />
-        <AppText color={theme.color.textMuted}>Loading…</AppText>
+        <Sentence tone="dim" style={{ marginTop: space.section }}>
+          Loading…
+        </Sentence>
       </Screen>
     );
   }
@@ -94,126 +98,68 @@ export default function PointsEdit() {
     <Screen scroll>
       <Stack.Screen options={{ headerShown: true, title: editing ? 'Edit points' : 'Add points' }} />
 
-      <Picker
-        label="State"
-        options={states.map((s) => ({ value: s.id, label: s.code }))}
-        value={form.state_id}
-        onChange={(v) => set('state_id', v)}
-      />
-      <Picker
-        label="Species"
-        options={species.map((s) => ({ value: s.id, label: s.name }))}
-        value={form.species_id}
-        onChange={(v) => set('species_id', v)}
-      />
-      <Picker
-        label="Point type"
-        options={[
-          { value: 'preference', label: 'Preference' },
-          { value: 'bonus', label: 'Bonus' },
-        ]}
-        value={form.point_type}
-        onChange={(v) => set('point_type', (v ?? 'preference') as PointType)}
-        allowClear={false}
-      />
-
-      <Field label="Points you have">
-        <TextInput
-          value={form.points}
-          onChangeText={(v) => set('points', v.replace(/[^0-9]/g, ''))}
-          placeholder="0"
-          placeholderTextColor={theme.color.textMuted}
-          keyboardType="number-pad"
-          style={styles.input}
+      <Field label="Which state?">
+        <WordChoice
+          options={states.map((s) => ({ value: s.id, label: s.code }))}
+          value={form.state_id}
+          onChange={(v) => set('state_id', v)}
+        />
+      </Field>
+      <Field label="Which species?">
+        <WordChoice
+          options={species.map((s) => ({ value: s.id, label: s.name }))}
+          value={form.species_id}
+          onChange={(v) => set('species_id', v)}
+        />
+      </Field>
+      <Field label="What kind of points?">
+        <WordChoice
+          options={[
+            { value: 'preference', label: 'Preference' },
+            { value: 'bonus', label: 'Bonus' },
+          ]}
+          value={form.point_type}
+          onChange={(v) => set('point_type', (v ?? 'preference') as PointType)}
+          allowClear={false}
         />
       </Field>
 
-      <Field label="Notes">
-        <TextInput
+      <Field label="How many do you have?">
+        <Input
+          value={form.points}
+          onChangeText={(v) => set('points', v.replace(/[^0-9]/g, ''))}
+          placeholder="0"
+          keyboardType="number-pad"
+        />
+      </Field>
+
+      <Field label="Anything worth remembering?">
+        <Input
           value={form.notes}
           onChangeText={(v) => set('notes', v)}
           placeholder="e.g. bought a point in 2026, not applying this year"
-          placeholderTextColor={theme.color.textMuted}
           multiline
-          style={[styles.input, styles.multiline]}
+          style={{ minHeight: 70 }}
         />
       </Field>
 
       {notice ? (
-        <AppText variant="bodyStrong" color={theme.color.danger}>
+        <Sentence tone="bone" style={{ marginTop: space.section, color: '#c96f5a' }}>
           {notice}
-        </AppText>
+        </Sentence>
       ) : null}
 
-      <Button title={editing ? 'Save changes' : 'Save'} onPress={onSave} loading={save.isPending} />
-      {editing ? <Button variant="ghost" title="Delete" onPress={onDelete} /> : null}
+      <Pill
+        label={save.isPending ? 'Saving…' : editing ? 'Save changes' : 'Save'}
+        onPress={onSave}
+        disabled={save.isPending}
+        style={{ marginTop: space.section }}
+      />
+      {editing ? (
+        <Pressable onPress={onDelete} accessibilityRole="button" style={{ marginTop: space.section }}>
+          <Sentence tone="dim">Delete this points balance.</Sentence>
+        </Pressable>
+      ) : null}
     </Screen>
   );
 }
-
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <View style={{ gap: 6 }}>
-      <AppText variant="overline" color={theme.color.textMuted}>
-        {label.toUpperCase()}
-      </AppText>
-      {children}
-    </View>
-  );
-}
-
-function Picker({
-  label,
-  options,
-  value,
-  onChange,
-  allowClear = true,
-}: {
-  label: string;
-  options: { value: string; label: string }[];
-  value: string | null;
-  onChange: (v: string | null) => void;
-  allowClear?: boolean;
-}) {
-  return (
-    <Field label={label}>
-      <View style={styles.chips}>
-        {options.map((o) => {
-          const on = value === o.value;
-          return (
-            <Pressable
-              key={o.value}
-              onPress={() => onChange(on && allowClear ? null : o.value)}
-              style={[
-                styles.chip,
-                on
-                  ? { backgroundColor: theme.color.accent, borderColor: theme.color.accent }
-                  : { backgroundColor: 'transparent', borderColor: theme.color.border },
-              ]}
-            >
-              <AppText variant="caption" color={on ? theme.color.onAccent : theme.color.textSecondary}>
-                {o.label}
-              </AppText>
-            </Pressable>
-          );
-        })}
-      </View>
-    </Field>
-  );
-}
-
-const styles = StyleSheet.create({
-  input: {
-    backgroundColor: theme.color.surface,
-    borderRadius: radius.md,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
-    color: theme.color.textPrimary,
-    fontSize: 16,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: theme.color.border,
-  },
-  multiline: { minHeight: 80, textAlignVertical: 'top' },
-  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
-  chip: { paddingHorizontal: spacing.md, paddingVertical: 8, borderRadius: radius.pill, borderWidth: StyleSheet.hairlineWidth },
-});

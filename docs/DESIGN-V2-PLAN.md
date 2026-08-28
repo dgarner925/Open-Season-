@@ -12,7 +12,7 @@ Status: season detail is the ONLY converted screen. Everything else is pre-v2 (l
 - v2 has NO form vocabulary yet — both edit screens block on inventing one (see D9).
 
 ## DECISIONS (gate Pass 3 — David's calls, with recommendations)
-- **STATUS 2026-08-27: David approved all recommendations; D2 overridden (keep animal tiles); D4 decided = A (keep stat boxes, retokenized); D10 still render-before-decide when alerts converts.**
+- **STATUS 2026-08-27: David approved all recommendations; D2 overridden (keep animal tiles); D4 decided = A (keep stat boxes, retokenized); D10 DECIDED (b) — sentence with tappable distances, implemented via the WordChoice mechanism (David granted blanket approval 2026-08-27 to finish + ship). Pass 3 COMPLETE: every screen converted; admin + LaunchQuote exempt as planned.**
 - **D1 Wordmark & PageTitle.** Retire `PageTitle` (serif + italic-copper accent word) from all content screens — native header + opening Sentence; serif heroes only where the subject is real (species/date/count). EXCEPTION: the wordmark itself ("Open *Season*") on sign-in and LaunchQuote keeps the italic copper — it's the brand mark (icon/splash use it). — RECOMMENDED
 - **D2 Engraved badges.** DECIDED (David, 2026-08-27): KEEP the tiles — animals stay in their badge tiles as today. Retokenize fills to lang palette during conversion but the tile survives; monogram fallback survives. Copper-scarcity on rows is managed by muting everything else in the row.
 - **D3 Pills-as-state.** All filter chips / toggles / choice chips leave pill form. Search filters → tappable sentence spans or fold into query; alerts cadence ladder → see D10; unit picker (location) → hairline rows w/ copper check. — RECOMMENDED (mechanism per screen)

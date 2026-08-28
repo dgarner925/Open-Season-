@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
-import { Alert, Pressable, StyleSheet, TextInput, View } from 'react-native';
+import { Alert, Pressable } from 'react-native';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
-import { AppText, Button, Screen } from '@/components/ui';
+import { Field, Input, Pill, Screen, Sentence, WordChoice } from '@/components/system';
 import { useActiveStates, useSpecies } from '@/features/reference/queries';
 import {
   useApplication,
@@ -10,7 +10,9 @@ import {
   type ApplicationInput,
 } from '@/features/applications/queries';
 import type { ApplicationStatus } from '@/lib/database.types';
-import { radius, spacing, theme } from '@/theme';
+import { lang } from '@/theme/tokens';
+
+const { space } = lang;
 
 const STATUSES: { value: ApplicationStatus; label: string }[] = [
   { value: 'planned', label: 'Planned' },
@@ -40,6 +42,13 @@ const EMPTY: Form = {
   portal_username: '', status: 'applied', applied_on: '', results_on: '', fee_summary: '',
   points: '', notes: '',
 };
+
+/** Loose but honest date guard: accepts YYYY-MM-DD, rejects other shapes. */
+function validDateOrEmpty(v: string): boolean {
+  const t = v.trim();
+  if (!t) return true;
+  return /^\d{4}-\d{2}-\d{2}$/.test(t) && !isNaN(new Date(t + 'T12:00:00').getTime());
+}
 
 export default function ApplicationEdit() {
   const router = useRouter();
@@ -95,6 +104,10 @@ export default function ApplicationEdit() {
       setNotice('Give it a title (e.g. "Colorado Elk — Primary Draw").');
       return;
     }
+    if (!validDateOrEmpty(form.applied_on) || !validDateOrEmpty(form.results_on)) {
+      setNotice('Dates need the YYYY-MM-DD shape (e.g. 2026-03-14).');
+      return;
+    }
     const input: ApplicationInput = {
       id: params.id,
       title: form.title.trim(),
@@ -138,7 +151,9 @@ export default function ApplicationEdit() {
     return (
       <Screen>
         <Stack.Screen options={{ headerShown: true, title: 'Application' }} />
-        <AppText color={theme.color.textMuted}>Loading…</AppText>
+        <Sentence tone="dim" style={{ marginTop: space.section }}>
+          Loading…
+        </Sentence>
       </Screen>
     );
   }
@@ -147,209 +162,100 @@ export default function ApplicationEdit() {
     <Screen scroll>
       <Stack.Screen options={{ headerShown: true, title: editing ? 'Edit application' : 'New application' }} />
 
-      <Field label="Title">
-        <TextInput
-          value={form.title}
-          onChangeText={(v) => set('title', v)}
-          placeholder="Colorado Elk — Primary Draw"
-          placeholderTextColor={theme.color.textMuted}
-          style={styles.input}
+      <Field label="What do you call this application?">
+        <Input value={form.title} onChangeText={(v) => set('title', v)} placeholder="Colorado Elk — Primary Draw" />
+      </Field>
+
+      <Field label="Which state?">
+        <WordChoice
+          options={states.map((s) => ({ value: s.id, label: s.code }))}
+          value={form.state_id}
+          onChange={(v) => set('state_id', v)}
+        />
+      </Field>
+      <Field label="Which species?">
+        <WordChoice
+          options={species.map((s) => ({ value: s.id, label: s.name }))}
+          value={form.species_id}
+          onChange={(v) => set('species_id', v)}
+        />
+      </Field>
+      <Field label="Where does it stand?">
+        <WordChoice
+          options={STATUSES.map((s) => ({ value: s.value, label: s.label }))}
+          value={form.status}
+          onChange={(v) => set('status', (v ?? 'applied') as ApplicationStatus)}
+          allowClear={false}
         />
       </Field>
 
-      <Picker
-        label="State"
-        options={states.map((s) => ({ value: s.id, label: s.code }))}
-        value={form.state_id}
-        onChange={(v) => set('state_id', v)}
-      />
-      <Picker
-        label="Species"
-        options={species.map((s) => ({ value: s.id, label: s.name }))}
-        value={form.species_id}
-        onChange={(v) => set('species_id', v)}
-      />
-      <Picker
-        label="Status"
-        options={STATUSES.map((s) => ({ value: s.value, label: s.label }))}
-        value={form.status}
-        onChange={(v) => set('status', (v ?? 'applied') as ApplicationStatus)}
-        allowClear={false}
-      />
-
-      <Field label="Portal link">
-        <TextInput
+      <Field label="The portal you apply on.">
+        <Input
           value={form.application_url}
           onChangeText={(v) => set('application_url', v)}
           placeholder="https://…"
-          placeholderTextColor={theme.color.textMuted}
           autoCapitalize="none"
           keyboardType="url"
-          style={styles.input}
         />
       </Field>
 
-      <Field label="Portal username" hint="Keep your password in your phone's password manager — we don't store it.">
-        <TextInput
+      <Field
+        label="Your username there."
+        hint="Keep your password in your phone's password manager — we don't store it."
+      >
+        <Input
           value={form.portal_username}
           onChangeText={(v) => set('portal_username', v)}
           placeholder="your login username"
-          placeholderTextColor={theme.color.textMuted}
           autoCapitalize="none"
-          style={styles.input}
         />
       </Field>
 
-      <View style={styles.rowTwo}>
-        <Field label="Applied on" style={{ flex: 1 }}>
-          <TextInput
-            value={form.applied_on}
-            onChangeText={(v) => set('applied_on', v)}
-            placeholder="YYYY-MM-DD"
-            placeholderTextColor={theme.color.textMuted}
-            style={styles.input}
-          />
-        </Field>
-        <Field label="Results on" style={{ flex: 1 }}>
-          <TextInput
-            value={form.results_on}
-            onChangeText={(v) => set('results_on', v)}
-            placeholder="YYYY-MM-DD"
-            placeholderTextColor={theme.color.textMuted}
-            style={styles.input}
-          />
-        </Field>
-      </View>
+      <Field label="When did you apply?">
+        <Input value={form.applied_on} onChangeText={(v) => set('applied_on', v)} placeholder="YYYY-MM-DD" />
+      </Field>
+      <Field label="When are results expected?">
+        <Input value={form.results_on} onChangeText={(v) => set('results_on', v)} placeholder="YYYY-MM-DD" />
+      </Field>
+      <Field label="What did it cost?">
+        <Input value={form.fee_summary} onChangeText={(v) => set('fee_summary', v)} placeholder="$ / notes" />
+      </Field>
+      <Field label="Points going into this draw.">
+        <Input
+          value={form.points}
+          onChangeText={(v) => set('points', v.replace(/[^0-9]/g, ''))}
+          placeholder="0"
+          keyboardType="number-pad"
+        />
+      </Field>
 
-      <View style={styles.rowTwo}>
-        <Field label="Fee" style={{ flex: 2 }}>
-          <TextInput
-            value={form.fee_summary}
-            onChangeText={(v) => set('fee_summary', v)}
-            placeholder="$ / notes"
-            placeholderTextColor={theme.color.textMuted}
-            style={styles.input}
-          />
-        </Field>
-        <Field label="Points" style={{ flex: 1 }}>
-          <TextInput
-            value={form.points}
-            onChangeText={(v) => set('points', v.replace(/[^0-9]/g, ''))}
-            placeholder="0"
-            placeholderTextColor={theme.color.textMuted}
-            keyboardType="number-pad"
-            style={styles.input}
-          />
-        </Field>
-      </View>
-
-      <Field label="Notes">
-        <TextInput
+      <Field label="Anything worth remembering?">
+        <Input
           value={form.notes}
           onChangeText={(v) => set('notes', v)}
           placeholder="Anything worth remembering…"
-          placeholderTextColor={theme.color.textMuted}
           multiline
-          style={[styles.input, styles.multiline]}
+          style={{ minHeight: 80 }}
         />
       </Field>
 
       {notice ? (
-        <AppText variant="bodyStrong" color={theme.color.danger}>
+        <Sentence tone="bone" style={{ marginTop: space.section, color: '#c96f5a' }}>
           {notice}
-        </AppText>
+        </Sentence>
       ) : null}
 
-      <Button title={editing ? 'Save changes' : 'Save'} onPress={onSave} loading={save.isPending} />
-      {editing ? <Button variant="ghost" title="Delete" onPress={onDelete} /> : null}
+      <Pill
+        label={save.isPending ? 'Saving…' : editing ? 'Save changes' : 'Save'}
+        onPress={onSave}
+        disabled={save.isPending}
+        style={{ marginTop: space.section }}
+      />
+      {editing ? (
+        <Pressable onPress={onDelete} accessibilityRole="button" style={{ marginTop: space.section }}>
+          <Sentence tone="dim">Delete this application.</Sentence>
+        </Pressable>
+      ) : null}
     </Screen>
   );
 }
-
-function Field({
-  label,
-  hint,
-  children,
-  style,
-}: {
-  label: string;
-  hint?: string;
-  children: React.ReactNode;
-  style?: object;
-}) {
-  return (
-    <View style={[{ gap: 6 }, style]}>
-      <AppText variant="overline" color={theme.color.textMuted}>
-        {label.toUpperCase()}
-      </AppText>
-      {children}
-      {hint ? (
-        <AppText variant="caption" color={theme.color.textMuted}>
-          {hint}
-        </AppText>
-      ) : null}
-    </View>
-  );
-}
-
-function Picker({
-  label,
-  options,
-  value,
-  onChange,
-  allowClear = true,
-}: {
-  label: string;
-  options: { value: string; label: string }[];
-  value: string | null;
-  onChange: (v: string | null) => void;
-  allowClear?: boolean;
-}) {
-  return (
-    <Field label={label}>
-      <View style={styles.chips}>
-        {options.map((o) => {
-          const on = value === o.value;
-          return (
-            <Pressable
-              key={o.value}
-              onPress={() => onChange(on && allowClear ? null : o.value)}
-              style={[
-                styles.chip,
-                on
-                  ? { backgroundColor: theme.color.accent, borderColor: theme.color.accent }
-                  : { backgroundColor: 'transparent', borderColor: theme.color.border },
-              ]}
-            >
-              <AppText variant="caption" color={on ? theme.color.onAccent : theme.color.textSecondary}>
-                {o.label}
-              </AppText>
-            </Pressable>
-          );
-        })}
-      </View>
-    </Field>
-  );
-}
-
-const styles = StyleSheet.create({
-  input: {
-    backgroundColor: theme.color.surface,
-    borderRadius: radius.md,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
-    color: theme.color.textPrimary,
-    fontSize: 16,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: theme.color.border,
-  },
-  multiline: { minHeight: 90, textAlignVertical: 'top' },
-  rowTwo: { flexDirection: 'row', gap: spacing.md },
-  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
-  chip: {
-    paddingHorizontal: spacing.md,
-    paddingVertical: 8,
-    borderRadius: radius.pill,
-    borderWidth: StyleSheet.hairlineWidth,
-  },
-});
