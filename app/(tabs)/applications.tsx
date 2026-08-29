@@ -1,15 +1,13 @@
 import { useRouter } from 'expo-router';
-import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, FlatList, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Sentence, Serif } from '@/components/system';
-import { SpeciesBadge } from '@/components/midnight';
+import { AppText, Card, GlassChip } from '@/components/ui';
+import { PageTitle } from '@/components/midnight';
 import { useFollowedWindows } from '@/features/reference/queries';
 import type { ApplicationWindowWithRefs } from '@/features/reference/types';
-import { daysUntil, formatDate } from '@/lib/date';
+import { countdownLabel, daysUntil, formatDate } from '@/lib/date';
 import { drawTitle } from '@/lib/titles';
-import { lang } from '@/theme/tokens';
-
-const { color, space, type } = lang;
+import { spacing, speciesColors, theme, urgencyColor, type SpeciesKey } from '@/theme';
 
 export default function Applications() {
   const router = useRouter();
@@ -18,7 +16,7 @@ export default function Applications() {
   if (isLoading) {
     return (
       <SafeAreaView style={styles.center} edges={['top']}>
-        <ActivityIndicator color={color.copper} />
+        <ActivityIndicator color={theme.color.accent} />
       </SafeAreaView>
     );
   }
@@ -37,65 +35,59 @@ export default function Applications() {
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
         ListHeaderComponent={
-          <View style={{ marginBottom: space.x16 }}>
-            <Serif size={40} style={{ lineHeight: 46 }}>
-              Tag deadlines
-            </Serif>
-            <Sentence style={{ marginTop: space.x8 }}>
+          <View style={styles.header}>
+            <PageTitle lead="Tag " accent="deadlines" style={{ fontSize: 44, lineHeight: 50, paddingTop: 3 }} />
+            <AppText variant="body" color={theme.color.textSecondary}>
               Draw and application windows. Miss a deadline, miss the season.
-            </Sentence>
-            <View style={styles.rule} />
+            </AppText>
           </View>
         }
-        renderItem={({ item, index }) => (
-          <WindowRow window={item} last={index === upcoming.length - 1} onPress={() => router.push(`/window/${item.id}`)} />
-        )}
+        renderItem={({ item }) => <WindowRow window={item} onPress={() => router.push(`/window/${item.id}`)} />}
+        ItemSeparatorComponent={() => <View style={{ height: spacing.md }} />}
         ListEmptyComponent={
-          <Sentence style={{ marginTop: space.x16 }}>
+          <AppText color={theme.color.textMuted} style={{ marginTop: spacing.xl }}>
             No upcoming tag deadlines for your follows right now.
-          </Sentence>
+          </AppText>
         }
       />
     </SafeAreaView>
   );
 }
 
-function WindowRow({ window: w, last, onPress }: { window: ApplicationWindowWithRefs; last: boolean; onPress: () => void }) {
+function WindowRow({ window: w, onPress }: { window: ApplicationWindowWithRefs; onPress: () => void }) {
+  const color = speciesColors[(w.species?.key ?? 'default') as SpeciesKey] ?? speciesColors.default;
   const d = daysUntil(w.closes_at);
+  const urgency = urgencyColor(d);
   return (
-    <Pressable onPress={onPress} style={({ pressed }) => [styles.row, pressed && { opacity: 0.75 }]}>
-      <SpeciesBadge name={w.species?.name} size={40} muted />
-      <View style={{ flex: 1 }}>
-        <Text style={styles.rowTitle} numberOfLines={1}>
+    <Card onPress={onPress} accentColor={color}>
+      <View style={styles.rowTop}>
+        <AppText variant="h3" numberOfLines={1} style={{ flex: 1 }}>
           {w.state?.code} {drawTitle(w.species?.name, w.name)}
-        </Text>
-        <Text style={styles.rowSub} numberOfLines={1}>
-          Closes {formatDate(w.closes_at)}.{w.fee_summary ? ` ${w.fee_summary}` : ''}
-        </Text>
+        </AppText>
+        <GlassChip label="Deadline" />
       </View>
-      {d !== null && d >= 0 ? (
-        <Text style={styles.metric}>{d === 0 ? 'today' : `${d}d`}</Text>
+      <AppText variant="body" color={theme.color.textSecondary}>
+        Closes {formatDate(w.closes_at)}
+      </AppText>
+      <View style={styles.rowBottom}>
+        <AppText variant="bodyStrong" color={urgency}>
+          {countdownLabel(d)}
+        </AppText>
+      </View>
+      {w.fee_summary ? (
+        <AppText variant="caption" color={theme.color.textMuted} numberOfLines={2} style={{ marginTop: spacing.xs }}>
+          {w.fee_summary}
+        </AppText>
       ) : null}
-      {!last ? <View style={styles.rowRule} /> : null}
-    </Pressable>
+    </Card>
   );
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: color.bg },
-  center: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: color.bg },
-  content: { paddingHorizontal: space.gutter, paddingTop: space.x16, paddingBottom: space.x38 },
-  rule: { height: StyleSheet.hairlineWidth, backgroundColor: color.hair, marginHorizontal: -space.gutter, marginTop: space.section },
-  row: { flexDirection: 'row', alignItems: 'center', gap: space.x12, paddingVertical: space.x12, minHeight: 44 },
-  rowRule: {
-    position: 'absolute',
-    left: 52,
-    right: -space.gutter,
-    bottom: 0,
-    height: StyleSheet.hairlineWidth,
-    backgroundColor: color.hair,
-  },
-  rowTitle: { fontFamily: type.ui, fontSize: type.size.body + 0.5, color: color.bone },
-  rowSub: { fontFamily: type.ui, fontSize: 13, color: color.muted, marginTop: 2 },
-  metric: { fontFamily: type.displayItalic, fontSize: 19, color: color.copper, marginLeft: space.x8 },
+  screen: { flex: 1, backgroundColor: theme.color.background },
+  center: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: theme.color.background },
+  content: { paddingHorizontal: spacing.xl, paddingTop: spacing.lg, paddingBottom: spacing.xxl },
+  header: { gap: spacing.xs, marginBottom: spacing.lg },
+  rowTop: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  rowBottom: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: spacing.xs },
 });

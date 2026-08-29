@@ -3,19 +3,46 @@ import { Ionicons } from '@expo/vector-icons';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'expo-router';
 import { Alert, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
-import { Pill, Row, Rule, Screen, Sentence, Serif } from '@/components/system';
+import { AppText, Button, Card, Screen } from '@/components/ui';
+import { PageTitle, SectionRule } from '@/components/midnight';
 import { useAuth } from '@/providers/AuthProvider';
 import { useActiveStates } from '@/features/reference/queries';
 import { supabase } from '@/lib/supabase';
 import { openExternalUrl } from '@/lib/openUrl';
 import { Engraving, engravingFor } from '@/components/Engraving';
-import { lang } from '@/theme/tokens';
+import { fontFamily, radius, spacing, theme } from '@/theme';
 
-const { color, space, type } = lang;
 const colophonArt = engravingFor('deer');
 
 const PRIVACY_POLICY_URL = 'https://dgarner925.github.io/OpenSeason-Legal/';
 const TERMS_URL = 'https://dgarner925.github.io/OpenSeason-Legal/terms.html';
+
+/** One row inside a grouped section card: title, optional caption, chevron. */
+function Row({
+  title,
+  caption,
+  onPress,
+  first = false,
+}: {
+  title: string;
+  caption?: string;
+  onPress: () => void;
+  first?: boolean;
+}) {
+  return (
+    <Pressable onPress={onPress} style={({ pressed }) => [styles.row, !first && styles.rowDivider, pressed && { opacity: 0.65 }]}>
+      <View style={{ flex: 1 }}>
+        <AppText variant="bodyStrong">{title}</AppText>
+        {caption ? (
+          <AppText variant="caption" color={theme.color.textMuted} style={{ marginTop: 2 }}>
+            {caption}
+          </AppText>
+        ) : null}
+      </View>
+      <Ionicons name="chevron-forward" size={16} color={theme.color.textMuted} />
+    </Pressable>
+  );
+}
 
 export default function Settings() {
   const router = useRouter();
@@ -68,9 +95,11 @@ export default function Settings() {
   }
 
   return (
-    <Screen scroll>
-      {/* Identity as a bookplate: monogram ring, name in the display serif, and
-          the member line set like an edition note. Pencil toggles the editor. */}
+    <Screen scroll contentStyle={{ paddingBottom: spacing.xxl }}>
+      <PageTitle lead="Your " accent="profile." />
+
+      {/* Identity as a bookplate: double-ring monogram, name in the display serif,
+          and the member line set like an edition note. Pencil toggles the editor. */}
       <View style={styles.identity}>
         <View style={styles.monogramRing}>
           <View style={styles.monogram}>
@@ -78,125 +107,109 @@ export default function Settings() {
           </View>
         </View>
         <View style={{ flex: 1 }}>
-          <Serif size={26}>{displayName || 'Add your name'}</Serif>
+          <Text style={styles.identityName}>{displayName || 'Add your name'}</Text>
           {residentStateName || isAdmin ? (
-            <Sentence tone="dim" style={{ fontSize: 13, marginTop: 2 }}>
+            <AppText variant="caption" color={theme.color.textMuted} style={{ marginTop: 2 }}>
               {[residentStateName, isAdmin ? 'Admin' : null].filter(Boolean).join(' · ')}
-            </Sentence>
+            </AppText>
           ) : null}
           {fieldSince ? <Text style={styles.fieldSince}>IN THE FIELD SINCE {fieldSince}</Text> : null}
         </View>
-        <Pressable
-          onPress={() => setEditingName((v) => !v)}
-          hitSlop={10}
-          accessibilityRole="button"
-          accessibilityLabel={editingName ? 'Close name editor' : 'Edit name'}
-          style={({ pressed }) => pressed && { opacity: 0.6 }}
-        >
-          <Ionicons name={editingName ? 'close' : 'pencil'} size={17} color={color.muted} />
+        <Pressable onPress={() => setEditingName((v) => !v)} hitSlop={10} style={({ pressed }) => pressed && { opacity: 0.6 }}>
+          <Ionicons name={editingName ? 'close' : 'pencil'} size={17} color={theme.color.textSecondary} />
         </Pressable>
       </View>
 
       {editingName ? (
-        <View style={{ marginTop: space.x16 }}>
-          <Sentence tone="dim" style={{ fontSize: 13 }}>
+        <Card>
+          <AppText variant="caption" color={theme.color.textMuted}>
             Used to greet you on the home screen.
             {user?.email ? ` Signed in as ${user.email}.` : ''}
-          </Sentence>
+          </AppText>
           <TextInput
             value={name}
             onChangeText={setName}
             placeholder="First name"
-            placeholderTextColor={color.dim}
+            placeholderTextColor={theme.color.textMuted}
             style={styles.input}
             autoFocus
           />
-          <Pill
-            label={savingName ? 'Saving…' : 'Save name'}
+          <Button
+            title={savingName ? 'Saving…' : 'Save name'}
             onPress={saveName}
-            disabled={savingName || trimmed === displayName}
-            style={{ marginTop: space.x16 }}
+            loading={savingName}
+            disabled={trimmed === displayName}
           />
-        </View>
+        </Card>
       ) : null}
 
       {isAdmin && (
-        <>
-          <Rule />
-          <Row
-            title="Review queue"
-            subtitle="Approve or reject extracted seasons, draws, and regs."
-            onPress={() => router.push('/(tabs)/admin')}
-            last
-          />
-        </>
+        <Card onPress={() => router.push('/(tabs)/admin')}>
+          <AppText variant="h3">Review queue</AppText>
+          <AppText variant="body" color={theme.color.textSecondary}>
+            Approve or reject extracted seasons, draws, and regs.
+          </AppText>
+        </Card>
       )}
 
-      <Rule />
-      <Serif size={22} style={{ marginBottom: space.x4 }}>
-        The pursuit
-      </Serif>
-      <Row title="What you follow" subtitle="Your states and species." onPress={() => router.push('/follows')} />
-      <Row
-        title="Residency"
-        subtitle={residentStateName ? `Home state: ${residentStateName}.` : 'Set your home state for resident pricing.'}
-        onPress={() => router.push('/residency')}
-      />
-      <Row title="Hunting parties" subtitle="Apply for draws with your buddies." onPress={() => router.push('/parties')} />
-      <Row title="My applications" subtitle="What you've applied for, and results." onPress={() => router.push('/tracker')} />
-      <Row title="Preference points" subtitle="The points you're banking, draw by draw." onPress={() => router.push('/points')} last />
+      <SectionRule label="THE PURSUIT" />
+      <Card style={styles.group}>
+        <Row first title="What you follow" caption="Your states and species." onPress={() => router.push('/follows')} />
+        <Row
+          title="Residency"
+          caption={residentStateName ? `Home state: ${residentStateName}.` : 'Set your home state for resident pricing.'}
+          onPress={() => router.push('/residency')}
+        />
+        <Row title="Hunting parties" caption="Apply for draws with your buddies." onPress={() => router.push('/parties')} />
+        <Row title="My applications" caption="What you've applied for, and results." onPress={() => router.push('/tracker')} />
+        <Row title="Preference points" caption="The points you're banking, draw by draw." onPress={() => router.push('/points')} />
+      </Card>
 
-      <Rule />
-      <Serif size={22} style={{ marginBottom: space.x4 }}>
-        The watch
-      </Serif>
-      <Row title="Reminders" subtitle="How far ahead we give you a heads-up." onPress={() => router.push('/alerts')} />
-      <Row title="Notification history" onPress={() => router.push('/notifications')} last />
+      <SectionRule label="THE WATCH" />
+      <Card style={styles.group}>
+        <Row first title="Reminders" caption="How far ahead we give you a heads-up." onPress={() => router.push('/alerts')} />
+        <Row title="Notification history" onPress={() => router.push('/notifications')} />
+      </Card>
 
-      <Rule />
-      <Serif size={22} style={{ marginBottom: space.x4 }}>
-        The fine print
-      </Serif>
-      <Row title="How it works" onPress={() => router.push('/how-to')} />
-      <Row title="Privacy policy" onPress={() => openExternalUrl(PRIVACY_POLICY_URL)} />
-      <Row title="Terms of service" onPress={() => openExternalUrl(TERMS_URL)} />
-      <Row title="Update delivery" subtitle="Diagnostics" onPress={() => router.push('/updates-debug')} last />
+      <SectionRule label="THE FINE PRINT" />
+      <Card style={styles.group}>
+        <Row first title="How it works" onPress={() => router.push('/how-to')} />
+        <Row title="Privacy policy" onPress={() => openExternalUrl(PRIVACY_POLICY_URL)} />
+        <Row title="Terms of service" onPress={() => openExternalUrl(TERMS_URL)} />
+        <Row title="Update delivery" caption="Diagnostics" onPress={() => router.push('/updates-debug')} />
+      </Card>
 
-      <Rule />
-      <Pill label="Sign out" variant="secondary" onPress={signOut} />
-
-      {/* The consequence sits directly above the destructive action. */}
-      <Sentence tone="dim" style={{ marginTop: space.section, fontSize: 13 }}>
-        Deleting your account removes everything — follows, reminders, applications — for good.
-      </Sentence>
-      <Pressable
-        onPress={confirmDeleteAccount}
-        disabled={deleting}
-        accessibilityRole="button"
-        style={({ pressed }) => [styles.deleteBtn, pressed && { opacity: 0.7 }]}
-      >
-        <Text style={styles.deleteLabel}>{deleting ? 'Deleting…' : 'Delete account'}</Text>
-      </Pressable>
-
-      {/* Colophon: the app's printer's device — a small engraved deer — over the edition line. */}
-      <View style={styles.colophon}>
-        {colophonArt ? <Engraving data={colophonArt} size={34} color={color.muted} opacity={0.55} /> : null}
-        <Text style={styles.edition}>
-          OPEN SEASON · VOL. {Constants.expoConfig?.version ?? '?'} ({Constants.expoConfig?.ios?.buildNumber ?? '—'})
-        </Text>
+      <View style={{ marginTop: spacing.lg, gap: spacing.sm }}>
+        <Button variant="ghost" title="Sign out" onPress={signOut} />
+        <Pressable
+          onPress={confirmDeleteAccount}
+          disabled={deleting}
+          style={({ pressed }) => [styles.deleteBtn, pressed && { opacity: 0.7 }]}
+        >
+          <AppText variant="bodyStrong" color={theme.color.danger}>
+            {deleting ? 'Deleting…' : 'Delete account'}
+          </AppText>
+        </Pressable>
+        {/* Colophon: the app's printer's device — a small engraved deer — over the edition line. */}
+        <View style={styles.colophon}>
+          {colophonArt ? <Engraving data={colophonArt} size={34} color={theme.color.textMuted} opacity={0.55} /> : null}
+          <AppText variant="caption" color={theme.color.textMuted} style={{ letterSpacing: 1.2 }}>
+            OPEN SEASON · VOL. {Constants.expoConfig?.version ?? '?'} ({Constants.expoConfig?.ios?.buildNumber ?? '—'})
+          </AppText>
+        </View>
       </View>
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  identity: { flexDirection: 'row', alignItems: 'center', gap: space.x16, marginTop: space.section },
+  identity: { flexDirection: 'row', alignItems: 'center', gap: spacing.lg, marginTop: spacing.xl },
   monogramRing: {
     width: 60,
     height: 60,
     borderRadius: 30,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: color.copper,
+    borderColor: theme.color.accent,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -204,32 +217,40 @@ const styles = StyleSheet.create({
     width: 50,
     height: 50,
     borderRadius: 25,
-    backgroundColor: color.fill,
+    backgroundColor: theme.color.accentFill,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  monogramLetter: { fontFamily: type.display, fontSize: 24, color: color.copper },
+  monogramLetter: { fontFamily: fontFamily.serif, fontSize: 24, color: theme.color.accent },
+  identityName: { fontFamily: fontFamily.serif, fontSize: 26, color: theme.color.textPrimary },
   fieldSince: {
-    fontFamily: type.uiSemiBold,
+    fontFamily: fontFamily.sansSemiBold,
     fontSize: 9,
     letterSpacing: 1.6,
-    color: color.copperDim,
+    color: '#a68a6d',
     marginTop: 6,
   },
 
-  input: {
-    fontFamily: type.ui,
-    fontSize: 16,
-    color: color.bone,
-    paddingVertical: space.x12,
-    marginTop: space.x8,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: color.hair,
+  colophon: { alignItems: 'center', gap: spacing.sm, marginTop: spacing.lg },
+  group: { paddingVertical: 0, paddingHorizontal: 0 },
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md + 2,
   },
+  rowDivider: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: theme.color.border },
 
-  deleteBtn: { minHeight: 44, justifyContent: 'center' },
-  deleteLabel: { fontFamily: type.uiSemiBold, fontSize: type.size.body, color: '#c96f5a' },
-
-  colophon: { alignItems: 'center', gap: space.x8, marginTop: space.x32 },
-  edition: { fontFamily: type.uiSemiBold, fontSize: 10.5, letterSpacing: 1.5, color: color.dim },
+  input: {
+    backgroundColor: theme.color.surfaceElevated,
+    borderRadius: radius.md,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+    color: theme.color.textPrimary,
+    fontSize: 16,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: theme.color.border,
+  },
+  deleteBtn: { minHeight: 44, alignItems: 'center', justifyContent: 'center' },
 });
