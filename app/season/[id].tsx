@@ -139,7 +139,7 @@ export default function SeasonDetail() {
       <Sentence style={{ marginTop: space.x8 }}>{heroSentence}</Sentence>
 
       <View style={styles.threaded}>
-        <Thread height={620} />
+        <Thread />
 
         <Serif size={30} style={{ marginTop: space.x32 }}>
           {formatDateRange(season.open_date, season.close_date)}

@@ -110,7 +110,7 @@ export default function WindowDetail() {
       <Sentence style={{ marginTop: space.x8 }}>{heroSentence}</Sentence>
 
       <View style={styles.threaded}>
-        <Thread height={430} />
+        <Thread />
 
         {w.opens_at ? (
           <Sentence style={{ marginTop: space.x32 }}>The window opened {spoken(w.opens_at)}.</Sentence>

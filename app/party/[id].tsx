@@ -97,7 +97,7 @@ export default function Party() {
       <Sentence style={{ marginTop: space.x8 }}>{partySentence}</Sentence>
 
       <View style={styles.threaded}>
-        <Thread height={300} />
+        <Thread />
 
         {w?.closes_at ? (
           <>

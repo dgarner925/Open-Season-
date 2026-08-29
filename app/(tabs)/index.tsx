@@ -287,8 +287,9 @@ function WeekendBriefCard({
   const range = fm === sm ? `${MON[fm - 1]} ${fd}–${sd}` : `${MON[fm - 1]} ${fd} – ${MON[sm - 1]} ${sd}`;
 
   return (
-    <Pressable onPress={onPress} style={({ pressed }) => [styles.briefCard, styles.glass, pressed && styles.pressed]}>
-      <GlassSheen />
+    <Pressable onPress={onPress} style={({ pressed }) => [styles.briefWrap, pressed && styles.pressed]}>
+      <LinearGradient colors={theme.gradient.card} start={{ x: 0, y: 0 }} end={{ x: 0, y: 1 }} style={styles.briefCard}>
+      <View style={styles.spine} />
       <View style={styles.briefHead}>
         <AppText variant="overline" color={theme.color.accentSoft}>
           THE WEEKEND BRIEF
@@ -310,33 +311,21 @@ function WeekendBriefCard({
           {light.window}
         </Text>
       ) : null}
+      </LinearGradient>
     </Pressable>
-  );
-}
-
-/**
- * Copper glass — the sheen that makes a tinted tile read as glass instead of
- * paint. Reserved for the glanceable layer (stat tiles, the brief card); the
- * big list groups stay solid so the copper edge stays a highlight.
- */
-function GlassSheen() {
-  return (
-    <LinearGradient
-      colors={['rgba(242,239,236,0.05)', 'rgba(242,239,236,0)', 'rgba(224,164,128,0.05)']}
-      style={[StyleSheet.absoluteFill, { borderRadius: lang.radius.card }]}
-      pointerEvents="none"
-    />
   );
 }
 
 function StatTile({ value, label, onPress }: { value: number; label: string; onPress: () => void }) {
   return (
-    <Pressable onPress={onPress} style={({ pressed }) => [styles.tile, styles.glass, pressed && styles.pressed]}>
-      <GlassSheen />
-      <Text style={styles.tileValue}>{value}</Text>
-      <AppText variant="caption" color={theme.color.textMuted}>
-        {label}
-      </AppText>
+    <Pressable onPress={onPress} style={({ pressed }) => [styles.tileWrap, pressed && styles.pressed]}>
+      <LinearGradient colors={theme.gradient.card} start={{ x: 0, y: 0 }} end={{ x: 0, y: 1 }} style={styles.tile}>
+        <View style={styles.spine} />
+        <Text style={styles.tileValue}>{value}</Text>
+        <AppText variant="caption" color={theme.color.textMuted}>
+          {label}
+        </AppText>
+      </LinearGradient>
     </Pressable>
   );
 }
@@ -397,13 +386,13 @@ const styles = StyleSheet.create({
   greeting: { fontFamily: fontFamily.sansMedium, fontSize: 15, color: theme.color.textSecondary, marginTop: spacing.xs },
   greetingName: { fontFamily: fontFamily.sansSemiBold, color: lang.color.copper },
 
+  briefWrap: { marginTop: spacing.lg },
   briefCard: {
-    marginTop: spacing.lg,
     padding: spacing.lg,
-    borderRadius: lang.radius.card,
-    backgroundColor: lang.color.surface,
+    borderRadius: radius.lg,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: lang.color.hair,
+    borderColor: theme.color.border,
+    overflow: 'hidden',
     gap: 6,
   },
   briefHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
@@ -412,10 +401,18 @@ const styles = StyleSheet.create({
   briefLight: { fontFamily: fontFamily.sansMedium, fontSize: 12.5, color: theme.color.textMuted, marginTop: 4 },
 
   stats: { flexDirection: 'row', gap: spacing.sm, marginTop: spacing.xl },
-  tile: { flex: 1, padding: spacing.lg, borderRadius: lang.radius.card, backgroundColor: lang.color.surface, borderWidth: StyleSheet.hairlineWidth, borderColor: lang.color.hair, gap: 2 },
-  // Copper glass: translucent copper wash + a brighter copper hairline. Low
-  // alpha on purpose — the edge does the work, not the fill.
-  glass: { backgroundColor: 'rgba(224,164,128,0.07)', borderWidth: 1, borderColor: 'rgba(224,164,128,0.26)', overflow: 'hidden' },
+  tileWrap: { flex: 1 },
+  tile: {
+    padding: spacing.lg,
+    borderRadius: radius.lg,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: theme.color.border,
+    overflow: 'hidden',
+    gap: 2,
+  },
+  // The Tags-card spine, in copper — these tiles share the featured-card
+  // language of the Tags screen (David, 2026-08-28).
+  spine: { position: 'absolute', left: 0, top: 0, bottom: 0, width: 3, backgroundColor: theme.color.accent },
   tileValue: { fontFamily: fontFamily.serif, fontSize: 30, color: lang.color.copper },
 
   section: { marginTop: spacing.xl, gap: spacing.sm },

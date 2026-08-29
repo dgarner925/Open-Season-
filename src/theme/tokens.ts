@@ -24,6 +24,9 @@ export const lang = {
     copperDim: '#B87A5A',
     fill: '#3A241A',
     hair: 'rgba(255,255,255,0.09)',
+    /** Section rules — copper-tinted and a full pixel, so the page's structure
+     * is legible at a glance (hair was too faint for the big dividers). */
+    rule: 'rgba(217,158,127,0.22)',
   },
   /** The single spacing scale. Sections are separated by `section` (24). */
   space: { x4: 4, x8: 8, x12: 12, x16: 16, gutter: 20, section: 24, x32: 32, x38: 38 },

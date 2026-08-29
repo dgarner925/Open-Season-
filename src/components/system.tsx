@@ -17,6 +17,7 @@ import {
   type TextStyle,
   type ViewStyle,
 } from 'react-native';
+import { LinearGradient as ExpoLinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Circle, Defs, LinearGradient, Line, Mask, Path, RadialGradient, Rect, Stop } from 'react-native-svg';
 import { lang } from '@/theme/tokens';
@@ -106,18 +107,17 @@ export function Micro({ children, style, center }: { children: ReactNode; style?
 }
 
 /** The vertical copper thread — for detail screens that tell a sequence. */
-export function Thread({ height }: { height: number }) {
+export function Thread({ height }: { height?: number }) {
+  // Without a height it stretches to the threaded container, so the line
+  // always ends where the cascade ends — a fixed height runs long on short
+  // pages and crosses whatever sits below (David's GA turkey screenshot).
   return (
-    <Svg width={3} height={height} style={styles.thread} accessible={false}>
-      <Defs>
-        <LinearGradient id="thread" x1="0" y1="0" x2="0" y2="1">
-          <Stop offset="0" stopColor={color.copper} stopOpacity="0.9" />
-          <Stop offset="0.75" stopColor={color.copperDim} stopOpacity="0.35" />
-          <Stop offset="1" stopColor={color.copperDim} stopOpacity="0" />
-        </LinearGradient>
-      </Defs>
-      <Rect x={0} y={0} width={3} height={height} fill="url(#thread)" />
-    </Svg>
+    <ExpoLinearGradient
+      colors={['rgba(224,164,128,0.9)', 'rgba(184,122,90,0.35)', 'rgba(184,122,90,0)']}
+      locations={[0, 0.75, 1]}
+      style={[styles.thread, height != null ? { height } : { bottom: 0 }]}
+      pointerEvents="none"
+    />
   );
 }
 
@@ -311,7 +311,7 @@ const styles = StyleSheet.create({
   words: { flexDirection: 'row', flexWrap: 'wrap', columnGap: space.x16, rowGap: space.x8, marginTop: space.x8 },
   word: { fontFamily: type.uiMedium, fontSize: 14.5, lineHeight: 22, color: color.dim },
   scrollBody: { paddingHorizontal: space.gutter, paddingBottom: space.x38 },
-  rule: { height: StyleSheet.hairlineWidth, backgroundColor: color.hair, marginHorizontal: -space.gutter },
+  rule: { height: 1, backgroundColor: color.rule, marginHorizontal: -space.gutter },
   row: { minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: space.x12, paddingVertical: space.x12 },
   rowTitle: { fontFamily: type.ui, fontSize: type.size.body + 0.5, color: color.bone },
   rowSubtitle: { fontFamily: type.ui, fontSize: 13, color: color.muted },
@@ -328,6 +328,6 @@ const styles = StyleSheet.create({
   pillSecondary: { backgroundColor: 'transparent', borderWidth: 1, borderColor: color.hair },
   pillLabel: { fontFamily: type.uiSemiBold, fontSize: 14.5 },
   micro: { fontFamily: type.uiSemiBold, fontSize: type.size.micro, letterSpacing: type.microTracking, color: color.dim },
-  thread: { position: 'absolute', left: 0, top: 0 },
+  thread: { position: 'absolute', left: 0, top: 0, width: 3 },
   sentence: { fontFamily: type.ui, fontSize: type.size.body, lineHeight: 23 },
 });
