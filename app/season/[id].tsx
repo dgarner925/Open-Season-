@@ -1,7 +1,7 @@
 import { Stack, useLocalSearchParams } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
 import { ActivityIndicator, Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
-import { Micro, Pill, Rule, Screen, Sentence, Serif, SunArc, Thread } from '@/components/system';
+import { Micro, Pill, Screen, Sentence, Serif, SunArc } from '@/components/system';
 import { Disclaimer } from '@/components/Provenance';
 import { LicenseRow } from '@/components/LicenseRow';
 import { useAuth } from '@/providers/AuthProvider';
@@ -124,7 +124,8 @@ export default function SeasonDetail() {
     });
   }
 
-  const arcWidth = width - space.gutter * 2;
+  // Screen gutters plus the tile's own padding on each side.
+  const arcWidth = width - space.gutter * 4;
   const durH = light ? Math.floor(light.durationMin / 60) : 0;
   const durM = light ? light.durationMin % 60 : 0;
 
@@ -138,10 +139,11 @@ export default function SeasonDetail() {
       </Serif>
       <Sentence style={{ marginTop: space.x8 }}>{heroSentence}</Sentence>
 
-      <View style={styles.threaded}>
-        <Thread />
-
-        <Serif size={30} style={{ marginTop: space.x32 }}>
+      {/* THE SEASON — the facts of the hunt in one tile: dates, countdown,
+          and the bag limit together (David's reflow, 2026-08-29). */}
+      <View style={styles.tile}>
+        <Micro>The season</Micro>
+        <Serif size={30} style={{ marginTop: space.x12 }}>
           {formatDateRange(season.open_date, season.close_date)}
         </Serif>
         <Sentence style={{ marginTop: space.x8 }}>
@@ -149,7 +151,7 @@ export default function SeasonDetail() {
             <>
               <Serif italic copper size={20}>
                 Open now
-            </Serif>
+              </Serif>
               {` — closes ${spoken(season.close_date).weekday}, ${spoken(season.close_date).date}.`}
             </>
           ) : days !== null && days >= 0 && season.open_date ? (
@@ -164,73 +166,75 @@ export default function SeasonDetail() {
             'Closed for the year.'
           )}
         </Sentence>
-
-        {light ? (
-          <>
-            <Rule />
-            <Sentence>
-              {open ? 'Legal light today — ' : 'Legal light on opening day — '}
-              <Serif italic size={19}>
-                {durH}h {String(durM).padStart(2, '0')}m
-              </Serif>
-              {`, ${lightPhrase}.`}
-            </Sentence>
-            <Serif italic size={24} style={{ marginTop: space.x4 }}>
-              {light.approx ? '≈ ' : ''}
-              {light.startClock} – {light.endClock}
-            </Serif>
-            <View style={{ marginTop: space.x8 }}>
-              <SunArc
-                width={arcWidth - 26}
-                startFrac={dayFrac(light.startMs)}
-                endFrac={dayFrac(light.endMs)}
-                nowFrac={dayFrac(Date.now())}
-              />
-              <View style={styles.tickRow}>
-                <Micro style={{ position: 'absolute', left: Math.max(0, dayFrac(light.startMs) * (arcWidth - 26) - 34) }}>
-                  First light
-                </Micro>
-                <Micro style={{ position: 'absolute', left: Math.min(arcWidth - 120, dayFrac(light.endMs) * (arcWidth - 26) - 34) }}>
-                  Last light
-                </Micro>
-              </View>
-            </View>
-            {light.note ? (
-              <Sentence tone="dim" style={{ marginTop: space.x8, fontSize: 13 }}>
-                {light.note}
-              </Sentence>
-            ) : null}
-          </>
+        {season.bag_limit_summary ? (
+          <Sentence style={{ marginTop: space.x12 }}>{season.bag_limit_summary}</Sentence>
         ) : null}
-
-        <Rule />
-
-        {/* The rules of this hunt, as sentences. */}
-        {season.bag_limit_summary ? <Sentence>{season.bag_limit_summary}</Sentence> : null}
-        {season.notes ? <Sentence style={{ marginTop: season.bag_limit_summary ? space.x12 : 0 }}>{season.notes}</Sentence> : null}
+        {season.notes ? (
+          <Sentence style={{ marginTop: season.bag_limit_summary ? space.x8 : space.x12 }}>{season.notes}</Sentence>
+        ) : null}
         {!season.bag_limit_summary && !season.notes ? (
-          <Sentence>No bag limit or notes on file — check the official regulations.</Sentence>
-        ) : null}
-        {season.last_verified_at ? (
-          <Pressable
-            onPress={season.source?.url ? () => openExternalUrl(season.source!.url) : undefined}
-            disabled={!season.source?.url}
-            accessibilityRole={season.source?.url ? 'link' : undefined}
-          >
-            <Sentence tone="dim" style={{ marginTop: space.x12, fontSize: 13 }}>
-              Verified against {season.source?.agency_name ?? season.state?.name ?? 'the state agency'},{' '}
-              {spoken(season.last_verified_at.slice(0, 10)).date}.{season.source?.url ? ' ›' : ''}
-            </Sentence>
-          </Pressable>
+          <Sentence style={{ marginTop: space.x12 }}>No bag limit or notes on file — check the official regulations.</Sentence>
         ) : null}
       </View>
 
-      <Rule />
+      {/* OPENING DAY / TODAY — the light gets its own tile, times first. */}
+      {light ? (
+        <View style={styles.tile}>
+          <Micro>{open ? 'Today' : 'Opening day'}</Micro>
+          <Serif size={28} style={{ marginTop: space.x12 }}>
+            {light.approx ? '≈ ' : ''}
+            {light.startClock} – {light.endClock}
+          </Serif>
+          <Sentence style={{ marginTop: space.x8 }}>
+            {'Legal light — '}
+            <Serif italic size={19}>
+              {durH}h {String(durM).padStart(2, '0')}m
+            </Serif>
+            {`, ${lightPhrase}.`}
+          </Sentence>
+          <View style={{ marginTop: space.x12 }}>
+            <SunArc
+              width={arcWidth}
+              startFrac={dayFrac(light.startMs)}
+              endFrac={dayFrac(light.endMs)}
+              nowFrac={dayFrac(Date.now())}
+            />
+            <View style={styles.tickRow}>
+              <Micro style={{ position: 'absolute', left: Math.max(0, dayFrac(light.startMs) * arcWidth - 34) }}>
+                First light
+              </Micro>
+              <Micro style={{ position: 'absolute', left: Math.min(arcWidth - 86, dayFrac(light.endMs) * arcWidth - 34) }}>
+                Last light
+              </Micro>
+            </View>
+          </View>
+          {light.note ? (
+            <Sentence tone="dim" style={{ marginTop: space.x8, fontSize: 13 }}>
+              {light.note}
+            </Sentence>
+          ) : null}
+        </View>
+      ) : null}
 
-      {/* The caveat sits directly above the action it qualifies, aligned to the
-          threaded content above it. */}
+      {/* Provenance stays bare — a footnote beneath the tiles, not another object. */}
+      {season.last_verified_at ? (
+        <Pressable
+          onPress={season.source?.url ? () => openExternalUrl(season.source!.url) : undefined}
+          disabled={!season.source?.url}
+          accessibilityRole={season.source?.url ? 'link' : undefined}
+        >
+          <Sentence tone="dim" style={{ marginTop: space.x16, fontSize: 13 }}>
+            Verified against {season.source?.agency_name ?? season.state?.name ?? 'the state agency'},{' '}
+            {spoken(season.last_verified_at.slice(0, 10)).date}.{season.source?.url ? ' ›' : ''}
+          </Sentence>
+        </Pressable>
+      ) : null}
+
+      <View style={{ height: space.section }} />
+
+      {/* The caveat sits directly above the action it qualifies. */}
       {armed ? (
-        <Sentence tone="dim" style={{ marginBottom: space.x16, fontSize: 13, paddingLeft: 26 }}>
+        <Sentence tone="dim" style={{ marginBottom: space.x16, fontSize: 13 }}>
           We'll remind you before the opener — adjust how far ahead in Profile.
         </Sentence>
       ) : null}
@@ -256,7 +260,15 @@ export default function SeasonDetail() {
 }
 
 const styles = StyleSheet.create({
-  threaded: { position: 'relative', paddingLeft: 26, marginTop: space.x8 },
+  // Translucent chapter tile — a wash of light over the page, not a solid card.
+  tile: {
+    marginTop: space.x16,
+    padding: space.gutter,
+    borderRadius: lang.radius.card,
+    backgroundColor: 'rgba(255,255,255,0.04)',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: color.hair,
+  },
   tickRow: { height: 16, marginTop: 2 },
   actions: { flexDirection: 'row', gap: space.x12 },
 });

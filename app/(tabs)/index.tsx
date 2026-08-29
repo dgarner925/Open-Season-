@@ -1,5 +1,4 @@
 import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
@@ -287,9 +286,7 @@ function WeekendBriefCard({
   const range = fm === sm ? `${MON[fm - 1]} ${fd}–${sd}` : `${MON[fm - 1]} ${fd} – ${MON[sm - 1]} ${sd}`;
 
   return (
-    <Pressable onPress={onPress} style={({ pressed }) => [styles.briefWrap, pressed && styles.pressed]}>
-      <LinearGradient colors={theme.gradient.card} start={{ x: 0, y: 0 }} end={{ x: 0, y: 1 }} style={styles.briefCard}>
-      <View style={styles.spine} />
+    <Pressable onPress={onPress} style={({ pressed }) => [styles.briefCard, pressed && styles.pressed]}>
       <View style={styles.briefHead}>
         <AppText variant="overline" color={theme.color.accentSoft}>
           THE WEEKEND BRIEF
@@ -311,21 +308,17 @@ function WeekendBriefCard({
           {light.window}
         </Text>
       ) : null}
-      </LinearGradient>
     </Pressable>
   );
 }
 
 function StatTile({ value, label, onPress }: { value: number; label: string; onPress: () => void }) {
   return (
-    <Pressable onPress={onPress} style={({ pressed }) => [styles.tileWrap, pressed && styles.pressed]}>
-      <LinearGradient colors={theme.gradient.card} start={{ x: 0, y: 0 }} end={{ x: 0, y: 1 }} style={styles.tile}>
-        <View style={styles.spine} />
-        <Text style={styles.tileValue}>{value}</Text>
-        <AppText variant="caption" color={theme.color.textMuted}>
-          {label}
-        </AppText>
-      </LinearGradient>
+    <Pressable onPress={onPress} style={({ pressed }) => [styles.tile, pressed && styles.pressed]}>
+      <Text style={styles.tileValue}>{value}</Text>
+      <AppText variant="caption" color={theme.color.textMuted}>
+        {label}
+      </AppText>
     </Pressable>
   );
 }
@@ -386,13 +379,17 @@ const styles = StyleSheet.create({
   greeting: { fontFamily: fontFamily.sansMedium, fontSize: 15, color: theme.color.textSecondary, marginTop: spacing.xs },
   greetingName: { fontFamily: fontFamily.sansSemiBold, color: lang.color.copper },
 
-  briefWrap: { marginTop: spacing.lg },
+  // The 1.3.5 brief card — flat surface, copper spine as a left border so it
+  // follows the corner radius (David asked for this layout back, 2026-08-29).
   briefCard: {
+    marginTop: spacing.lg,
     padding: spacing.lg,
     borderRadius: radius.lg,
+    backgroundColor: theme.color.surfaceFlat,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: theme.color.border,
-    overflow: 'hidden',
+    borderColor: theme.color.borderFlat,
+    borderLeftWidth: 2,
+    borderLeftColor: theme.color.accent,
     gap: 6,
   },
   briefHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
@@ -401,18 +398,7 @@ const styles = StyleSheet.create({
   briefLight: { fontFamily: fontFamily.sansMedium, fontSize: 12.5, color: theme.color.textMuted, marginTop: 4 },
 
   stats: { flexDirection: 'row', gap: spacing.sm, marginTop: spacing.xl },
-  tileWrap: { flex: 1 },
-  tile: {
-    padding: spacing.lg,
-    borderRadius: radius.lg,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: theme.color.border,
-    overflow: 'hidden',
-    gap: 2,
-  },
-  // The Tags-card spine, in copper — these tiles share the featured-card
-  // language of the Tags screen (David, 2026-08-28).
-  spine: { position: 'absolute', left: 0, top: 0, bottom: 0, width: 3, backgroundColor: theme.color.accent },
+  tile: { flex: 1, padding: spacing.lg, borderRadius: radius.md, backgroundColor: theme.color.surfaceFlat, borderWidth: StyleSheet.hairlineWidth, borderColor: theme.color.borderFlat, gap: 2 },
   tileValue: { fontFamily: fontFamily.serif, fontSize: 30, color: lang.color.copper },
 
   section: { marginTop: spacing.xl, gap: spacing.sm },
