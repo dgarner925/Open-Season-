@@ -2,6 +2,7 @@ import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { ActivityIndicator, Alert, Pressable, Share, StyleSheet, Text, View } from 'react-native';
 import { Pill, Rule, Screen, Sentence, Serif, Thread } from '@/components/system';
 import { ProvenanceBlock } from '@/components/Provenance';
+import { LicenseRow } from '@/components/LicenseRow';
 import { useWindowById } from '@/features/reference/queries';
 import { useCreateParty, useMyParties } from '@/features/parties/queries';
 import { useReportDate, promptReport } from '@/features/reports/queries';
@@ -217,13 +218,7 @@ export default function WindowDetail() {
           Track this application under Tags. <Text style={{ color: color.dim }}>›</Text>
         </Sentence>
       </Pressable>
-      {w.state?.license_url ? (
-        <Pressable onPress={() => openExternalUrl(w.state!.license_url)} accessibilityRole="link">
-          <Sentence style={{ marginTop: space.x12 }}>
-            Buy your {w.state?.name ?? ''} license. <Text style={{ color: color.dim }}>›</Text>
-          </Sentence>
-        </Pressable>
-      ) : null}
+      <LicenseRow stateName={w.state?.name} url={w.state?.license_url} />
       <Pressable onPress={onShare} accessibilityRole="button">
         <Sentence style={{ marginTop: space.x12 }}>
           Share this deadline with a buddy. <Text style={{ color: color.dim }}>›</Text>

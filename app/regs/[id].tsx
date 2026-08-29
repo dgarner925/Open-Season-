@@ -3,6 +3,7 @@ import { ActivityIndicator, Pressable, Text } from 'react-native';
 import { Rule, Screen, Sentence, Serif } from '@/components/system';
 import { MiniMarkdown } from '@/components/MiniMarkdown';
 import { ProvenanceBlock } from '@/components/Provenance';
+import { LicenseRow } from '@/components/LicenseRow';
 import { useRegById } from '@/features/reference/queries';
 import { openExternalUrl } from '@/lib/openUrl';
 import { lang } from '@/theme/tokens';
@@ -41,16 +42,7 @@ export default function RegsDetail() {
       <Rule />
       <MiniMarkdown body={reg.body} />
 
-      {reg.state?.license_url ? (
-        <>
-          <Rule />
-          <Pressable onPress={() => openExternalUrl(reg.state!.license_url)} accessibilityRole="link">
-            <Sentence>
-              Buy your {reg.state?.name ?? ''} license before you go. <Text style={{ color: color.dim }}>›</Text>
-            </Sentence>
-          </Pressable>
-        </>
-      ) : null}
+      <LicenseRow stateName={reg.state?.name} url={reg.state?.license_url} />
 
       <ProvenanceBlock
         verifiedAt={reg.last_verified_at}

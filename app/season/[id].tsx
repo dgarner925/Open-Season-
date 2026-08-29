@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { ActivityIndicator, Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { Micro, Pill, Rule, Screen, Sentence, Serif, SunArc, Thread } from '@/components/system';
 import { Disclaimer } from '@/components/Provenance';
+import { LicenseRow } from '@/components/LicenseRow';
 import { useAuth } from '@/providers/AuthProvider';
 import { useSeasonById } from '@/features/reference/queries';
 import { useMethodReminder } from '@/features/follows/queries';
@@ -244,16 +245,7 @@ export default function SeasonDetail() {
         <Pill label="Add to calendar" variant="secondary" onPress={onCalendar} style={{ flex: 1 }} />
       </View>
 
-      {season.state?.license_url ? (
-        <>
-          <Rule />
-          <Pressable onPress={() => openExternalUrl(season.state!.license_url)} accessibilityRole="link">
-            <Sentence>
-              Buy your {season.state?.name ?? ''} license before you go. <Text style={{ color: color.dim }}>›</Text>
-            </Sentence>
-          </Pressable>
-        </>
-      ) : null}
+      <LicenseRow stateName={season.state?.name} url={season.state?.license_url} />
 
       {/* The last word on the page — the standing trust-trio disclaimer. */}
       <View style={{ marginTop: space.section }}>
