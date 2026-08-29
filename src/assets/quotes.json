@@ -186,5 +186,109 @@
  "ringtail": {
   "text": "A strange little creature like a small pine marten with a long, bushy tail.",
   "attr": "Hornaday, 1904"
+ },
+ "brown-bear": {
+  "text": "The king of the game beasts of temperate North America, because the most dangerous to the hunter, is the grisly bear.",
+  "attr": "Roosevelt, 1893"
+ },
+ "chukar": {
+  "text": "The partridge is a bird of resource, and takes his pleasure accordingly.",
+  "attr": "H. A. Macpherson, 1893"
+ },
+ "nutria": {
+  "text": "Of an evening they are all out swimming and playing in the water, conversing together in their strange tones.",
+  "attr": "W. H. Hudson, 1892"
+ },
+ "fred-bear": {
+  "text": "The history of the bow and arrow is the history of mankind.",
+  "attr": "Fred Bear, Father of Modern Bowhunting"
+ },
+ "muir-tidings": {
+  "text": "Climb the mountains and get their good tidings. Nature's peace will flow into you as sunshine flows into trees.",
+  "attr": "John Muir, 1901"
+ },
+ "muir-going-home": {
+  "text": "Thousands of tired, nerve-shaken, over-civilized people are beginning to find out that going to the mountains is going home; that wildness is a necessity.",
+  "attr": "John Muir, 1901"
+ },
+ "muir-in-the-mountains": {
+  "text": "We are now in the mountains and they are in us, kindling enthusiasm, making every nerve quiver, filling every pore and cell of us.",
+  "attr": "John Muir, 1911"
+ },
+ "muir-sierra-day": {
+  "text": "Another glorious Sierra day in which one seems to be dissolved and absorbed and sent pulsing onward we know not where.",
+  "attr": "John Muir, 1911"
+ },
+ "thoreau-wildness": {
+  "text": "In Wildness is the preservation of the World.",
+  "attr": "Thoreau, 1862"
+ },
+ "thoreau-tonic": {
+  "text": "We need the tonic of wildness,—to wade sometimes in marshes where the bittern and the meadow-hen lurk, and hear the booming of the snipe.",
+  "attr": "Thoreau, 1854"
+ },
+ "thoreau-morning": {
+  "text": "Morning is when I am awake and there is a dawn in me.",
+  "attr": "Thoreau, 1854"
+ },
+ "thoreau-october": {
+  "text": "October is the month for painted leaves. Their rich glow now flashes round the world.",
+  "attr": "Thoreau, 1862"
+ },
+ "tr-keen-delight": {
+  "text": "No one, but he who has partaken thereof, can understand the keen delight of hunting in lonely lands.",
+  "attr": "Roosevelt, 1893"
+ },
+ "tr-lonely-rides": {
+  "text": "No man save the wilderness dweller knows the strong melancholy fascination of these long rides through lonely lands.",
+  "attr": "Roosevelt, 1893"
+ },
+ "tr-wilderness-life": {
+  "text": "All life in the wilderness is so pleasant that the temptation is to consider each particular variety, while one is enjoying it, as better than any other.",
+  "attr": "Roosevelt, 1905"
+ },
+ "tr-lonely-freedom": {
+  "text": "The farther one gets into the wilderness, the greater is the attraction of its lonely freedom.",
+  "attr": "Roosevelt, 1905"
+ },
+ "whitman-open-air": {
+  "text": "Now I see the secret of the making of the best persons, It is to grow in the open air and to eat and sleep with the earth.",
+  "attr": "Walt Whitman, 1856"
+ },
+ "whitman-silent-sun": {
+  "text": "Give me the splendid silent sun with all his beams full-dazzling.",
+  "attr": "Walt Whitman, 1865"
+ },
+ "emerson-woods": {
+  "text": "In the woods, we return to reason and faith.",
+  "attr": "Emerson, 1836"
+ },
+ "emerson-colors": {
+  "text": "Nature always wears the colors of the spirit.",
+  "attr": "Emerson, 1836"
+ },
+ "burroughs-tune": {
+  "text": "I go to Nature to be soothed and healed, and to have my senses put in tune once more.",
+  "attr": "John Burroughs, 1912"
+ },
+ "burroughs-sermons": {
+  "text": "Nature teaches more than she preaches. There are no sermons in stones. It is easier to get a spark out of a stone than a moral.",
+  "attr": "John Burroughs, 1912"
+ },
+ "kephart-town": {
+  "text": "To many a city man there comes a time when the great town wearies him. He hates its sights and smells and clangor.",
+  "attr": "Horace Kephart, 1906"
+ },
+ "kephart-instinct": {
+  "text": "This instinct for a free life in the open is as natural and wholesome as the gratification of hunger and thirst and love.",
+  "attr": "Horace Kephart, 1906"
+ },
+ "white-silence": {
+  "text": "Through the forest is a great silence, but no stillness at all.",
+  "attr": "Stewart Edward White, 1903"
+ },
+ "london-ecstasy": {
+  "text": "There is an ecstasy that marks the summit of life, and beyond which life cannot rise.",
+  "attr": "Jack London, 1903"
  }
 }

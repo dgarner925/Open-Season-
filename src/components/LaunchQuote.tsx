@@ -15,13 +15,23 @@ import { lang } from '@/theme/tokens';
 const FIRST_LAUNCH_KEY = 'launch-quote-shown';
 const LAST_SHOWN_KEY = 'launch-quote-last';
 // Every line that stands on its own out of species context. Excluded on purpose:
-// the clause-fragments (marten, fisher, muskox, sage/sharptail) that need their page.
+// the clause-fragments (marten, fisher, muskox, sage/sharptail, nutria) that need
+// their page. The second block is the general outdoors canon — Muir, Thoreau,
+// Roosevelt, Whitman, Emerson, Burroughs, Kephart, White, London, Fred Bear —
+// each verified verbatim against the source text.
 const ROTATION = [
   'bobcat', 'elk', 'goose', 'bear', 'deer', 'duck', 'moose', 'coyote', 'alligator',
   'ruffed-grouse', 'pheasant', 'fox', 'wolf', 'turkey', 'dove', 'bison', 'pronghorn',
   'bighorn-sheep', 'caribou', 'squirrel', 'rabbit', 'snowshoe-hare', 'woodcock',
   'snipe', 'prairie-chicken', 'ptarmigan', 'wolverine', 'sandhill-crane',
   'mountain-lion', 'crow', 'tundra-swan', 'spruce-grouse', 'bobwhite',
+  'brown-bear', 'chukar', 'fred-bear',
+  'muir-tidings', 'muir-going-home', 'muir-in-the-mountains', 'muir-sierra-day',
+  'thoreau-wildness', 'thoreau-tonic', 'thoreau-morning', 'thoreau-october',
+  'tr-keen-delight', 'tr-lonely-rides', 'tr-wilderness-life', 'tr-lonely-freedom',
+  'whitman-open-air', 'whitman-silent-sun', 'emerson-woods', 'emerson-colors',
+  'burroughs-tune', 'burroughs-sermons', 'kephart-town', 'kephart-instinct',
+  'white-silence', 'london-ecstasy',
 ];
 
 const QUOTE_FADE_IN = 900;

@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
@@ -286,7 +287,8 @@ function WeekendBriefCard({
   const range = fm === sm ? `${MON[fm - 1]} ${fd}–${sd}` : `${MON[fm - 1]} ${fd} – ${MON[sm - 1]} ${sd}`;
 
   return (
-    <Pressable onPress={onPress} style={({ pressed }) => [styles.briefCard, pressed && styles.pressed]}>
+    <Pressable onPress={onPress} style={({ pressed }) => [styles.briefCard, styles.glass, pressed && styles.pressed]}>
+      <GlassSheen />
       <View style={styles.briefHead}>
         <AppText variant="overline" color={theme.color.accentSoft}>
           THE WEEKEND BRIEF
@@ -312,9 +314,25 @@ function WeekendBriefCard({
   );
 }
 
+/**
+ * Copper glass — the sheen that makes a tinted tile read as glass instead of
+ * paint. Reserved for the glanceable layer (stat tiles, the brief card); the
+ * big list groups stay solid so the copper edge stays a highlight.
+ */
+function GlassSheen() {
+  return (
+    <LinearGradient
+      colors={['rgba(242,239,236,0.05)', 'rgba(242,239,236,0)', 'rgba(224,164,128,0.05)']}
+      style={[StyleSheet.absoluteFill, { borderRadius: lang.radius.card }]}
+      pointerEvents="none"
+    />
+  );
+}
+
 function StatTile({ value, label, onPress }: { value: number; label: string; onPress: () => void }) {
   return (
-    <Pressable onPress={onPress} style={({ pressed }) => [styles.tile, pressed && styles.pressed]}>
+    <Pressable onPress={onPress} style={({ pressed }) => [styles.tile, styles.glass, pressed && styles.pressed]}>
+      <GlassSheen />
       <Text style={styles.tileValue}>{value}</Text>
       <AppText variant="caption" color={theme.color.textMuted}>
         {label}
@@ -395,6 +413,9 @@ const styles = StyleSheet.create({
 
   stats: { flexDirection: 'row', gap: spacing.sm, marginTop: spacing.xl },
   tile: { flex: 1, padding: spacing.lg, borderRadius: lang.radius.card, backgroundColor: lang.color.surface, borderWidth: StyleSheet.hairlineWidth, borderColor: lang.color.hair, gap: 2 },
+  // Copper glass: translucent copper wash + a brighter copper hairline. Low
+  // alpha on purpose — the edge does the work, not the fill.
+  glass: { backgroundColor: 'rgba(224,164,128,0.07)', borderWidth: 1, borderColor: 'rgba(224,164,128,0.26)', overflow: 'hidden' },
   tileValue: { fontFamily: fontFamily.serif, fontSize: 30, color: lang.color.copper },
 
   section: { marginTop: spacing.xl, gap: spacing.sm },
