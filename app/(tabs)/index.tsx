@@ -163,18 +163,19 @@ export default function Home() {
           </Pressable>
         ) : (
           <View style={styles.section}>
-            <View style={styles.sectionRule} />
             <Serif size={22}>Your species</Serif>
-            {roster.map((r, i) => (
-              <RosterRow key={r.speciesId} item={r} divider={i > 0} onPress={() => router.push({ pathname: '/species/[id]', params: { id: r.speciesId } })} />
-            ))}
+            <View style={styles.tileGroup}>
+              {roster.map((r, i) => (
+                <RosterRow key={r.speciesId} item={r} divider={i > 0} onPress={() => router.push({ pathname: '/species/[id]', params: { id: r.speciesId } })} />
+              ))}
+            </View>
           </View>
         )}
 
         {permitFollows.length > 0 ? (
           <View style={styles.section}>
-            <View style={styles.sectionRule} />
             <Serif size={22}>Permit hunts</Serif>
+            <View style={styles.tileGroup}>
             {permitFollows
               .filter((f) => f.hunt)
               .sort((a, b) => (a.hunt!.name < b.hunt!.name ? -1 : 1))
@@ -207,6 +208,7 @@ export default function Home() {
                   <Ionicons name="open-outline" size={13} color={theme.color.textMuted} />
                 </Pressable>
               ))}
+            </View>
           </View>
         ) : null}
 
@@ -398,6 +400,15 @@ const styles = StyleSheet.create({
   section: { marginTop: spacing.xl, gap: spacing.sm },
   emptyCard: { marginTop: spacing.lg, padding: spacing.xl, borderRadius: radius.lg, backgroundColor: theme.color.surfaceFlat, borderWidth: StyleSheet.hairlineWidth, borderColor: theme.color.borderFlat, gap: spacing.xs },
 
+  tileGroup: {
+    marginTop: spacing.md,
+    backgroundColor: lang.color.surface,
+    borderRadius: lang.radius.card,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: lang.color.hair,
+    overflow: 'hidden',
+    paddingHorizontal: spacing.lg,
+  },
   row: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, paddingVertical: spacing.md },
   permitTile: {
     width: 40,
