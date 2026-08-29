@@ -38,7 +38,7 @@ Status: season detail is the ONLY converted screen. Everything else is pre-v2 (l
 **Phase B — small proofs (S):** how-to → notifications → reset-password → updates-debug (strip PageTitle/SYSTEM only; declared exempt otherwise) → residency (establishes the state-list Row pattern) → parties.
 **Phase C — high-visibility (M):** search → regs (list) → regs/[id] → applications/Tags → calendar/Seasons → paywall (defines the one card) → sign-in (settles wordmark) → LaunchQuote retoken.
 **Phase D — the big ones (L):** window/[id] (Thread legitimately extends: opens → deadline → results; SunArc does NOT) → species/[id] (after D2/D5) → Home → Profile/settings → points → party/[id] (second Thread consumer) → location → follows/HuntPicker → alerts (after D10) → points-edit → application-edit → onboarding LAST (consumes every pattern).
-**Exempt:** admin.tsx (internal; stays legacy), LaunchQuote (exception per D11).
+**Exempt:** admin.tsx (internal; stays legacy), LaunchQuote (exception per D11), species/[id].tsx (REVERTED to pre-v2 design at David's request 2026-08-28 — he prefers the original: split-accent title, top-right quote, method cards; do not reconvert).
 **Cleanup:** retire ui.tsx Card/Pill/GlassChip/Dot + midnight.tsx wholesale only after all screens convert.
 
 ## Doesn't-fit flags (called out rather than forced)
