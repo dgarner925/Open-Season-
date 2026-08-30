@@ -21,9 +21,10 @@ const RULES = rules as Record<string, Rule>;
 const CENTROIDS = centroids as Record<string, { lat: number; lng: number }>;
 
 // One position fix per app session is plenty — legal light moves ~1 min/day.
+// Shared with the Weekend Brief's dawn conditions, which use the same fix.
 let cachedFix: { lat: number; lng: number } | null | undefined;
 
-async function getFix(): Promise<{ lat: number; lng: number } | null> {
+export async function getFix(): Promise<{ lat: number; lng: number } | null> {
   if (cachedFix !== undefined) return cachedFix;
   try {
     const perm = await Location.getForegroundPermissionsAsync();

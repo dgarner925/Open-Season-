@@ -10,6 +10,7 @@ import { ProUpsellCard } from '@/components/ProUpsellCard';
 import { useAuth } from '@/providers/AuthProvider';
 import { nextPermitSegment, useFollows, usePermitFollows } from '@/features/follows/queries';
 import { useLegalLight } from '@/features/legalLight/useLegalLight';
+import { useDawnConditions } from '@/features/weather/useDawnConditions';
 import { openExternalUrl } from '@/lib/openUrl';
 import { useActiveStates, useFollowedSeasons, useFollowedWindows, useSpecies, useUpcomingCountdown } from '@/features/reference/queries';
 import type { SeasonWithRefs } from '@/features/reference/types';
@@ -236,9 +237,10 @@ function WeekendBriefCard({
   stateCode: string | null;
   onPress: () => void;
 }) {
-  // Tomorrow's light — the morning the brief is planning for, not the one
-  // already underway when the brief lands.
+  // Tomorrow's light and dawn conditions — the morning the brief is planning
+  // for, not the one already underway when the brief lands.
   const light = useLegalLight(stateCode, 1);
+  const dawn = useDawnConditions(stateCode, 1);
   const now = new Date();
   const dow = now.getDay(); // 5 Fri, 6 Sat, 0 Sun
   const iso = todayISO();
@@ -308,7 +310,49 @@ function WeekendBriefCard({
           {light.window}
         </Text>
       ) : null}
+      {dawn ? (
+        <>
+          <View style={styles.briefRule} />
+          <Text style={styles.almanacHead}>
+            {dawn.dayName.toUpperCase()} DAWN{dawn.approx ? ' · ≈' : ''}
+          </Text>
+          <View style={styles.almanacRow}>
+            {dawn.tempF != null ? (
+              <AlmanacCol value={`${dawn.tempF}°`} label={(dawn.sky ?? 'temp').toUpperCase()} first />
+            ) : null}
+            {dawn.windDir && dawn.windMph != null ? (
+              <AlmanacCol value={`${dawn.windDir} ${dawn.windMph}`} label="WIND · MPH" first={dawn.tempF == null} />
+            ) : null}
+            {dawn.pressureInHg != null ? (
+              <AlmanacCol
+                value={dawn.pressureInHg.toFixed(1)}
+                label={dawn.pressureTrend ? `PRESSURE · ${dawn.pressureTrend.toUpperCase()}` : 'PRESSURE'}
+                trend={dawn.pressureTrend}
+                first={false}
+              />
+            ) : null}
+            <AlmanacCol value={`${dawn.moonPct}%`} label={`MOON · ${dawn.moonWaxing ? 'WAXING' : 'WANING'}`} first={false} />
+          </View>
+          {dawn.frontLine ? <Text style={styles.briefLight}>{dawn.frontLine}</Text> : null}
+        </>
+      ) : null}
     </Pressable>
+  );
+}
+
+/** One almanac column: serif value over a micro label; hairline to its left. */
+function AlmanacCol({ value, label, trend, first }: { value: string; label: string; trend?: 'falling' | 'rising' | 'steady' | null; first?: boolean }) {
+  return (
+    <View style={[styles.almanacCol, !first && styles.almanacColDivider]}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3 }}>
+        <Text style={styles.almanacValue}>{value}</Text>
+        {trend === 'falling' ? <Ionicons name="arrow-down" size={13} color={lang.color.copper} /> : null}
+        {trend === 'rising' ? <Ionicons name="arrow-up" size={13} color={lang.color.copper} /> : null}
+      </View>
+      <AppText variant="caption" color={theme.color.textMuted} style={styles.almanacLabel} numberOfLines={1}>
+        {label}
+      </AppText>
+    </View>
   );
 }
 
@@ -396,6 +440,13 @@ const styles = StyleSheet.create({
   briefRule: { height: StyleSheet.hairlineWidth, backgroundColor: theme.color.borderFlat, marginVertical: 4 },
   briefLine: { fontFamily: fontFamily.serifItalic, fontSize: 16.5, lineHeight: 24, color: lang.color.bone },
   briefLight: { fontFamily: fontFamily.sansMedium, fontSize: 12.5, color: theme.color.textMuted, marginTop: 4 },
+
+  almanacHead: { fontFamily: fontFamily.sansSemiBold, fontSize: 10, letterSpacing: 1.8, color: lang.color.dim, marginTop: 4 },
+  almanacRow: { flexDirection: 'row', marginTop: 6, marginBottom: 2 },
+  almanacCol: { flex: 1, alignItems: 'center', gap: 2, paddingVertical: 2 },
+  almanacColDivider: { borderLeftWidth: StyleSheet.hairlineWidth, borderLeftColor: theme.color.borderFlat },
+  almanacValue: { fontFamily: fontFamily.serif, fontSize: 19, color: lang.color.bone },
+  almanacLabel: { fontSize: 8.5, letterSpacing: 1, textAlign: 'center' },
 
   stats: { flexDirection: 'row', gap: spacing.sm, marginTop: spacing.xl },
   tile: { flex: 1, padding: spacing.lg, borderRadius: radius.md, backgroundColor: theme.color.surfaceFlat, borderWidth: StyleSheet.hairlineWidth, borderColor: theme.color.borderFlat, gap: 2 },
