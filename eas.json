@@ -29,7 +29,8 @@
       "env": {
         "EXPO_PUBLIC_SUPABASE_URL": "https://soxglmgbhmpuxhngcsvx.supabase.co",
         "EXPO_PUBLIC_SUPABASE_ANON_KEY": "sb_publishable_5rIoEtCHn8PcWgHit5NgzQ_Qjpn2AHc",
-        "EXPO_PUBLIC_REVENUECAT_IOS_KEY": "appl_muEJMMrWOdZYrsdvWMsbaLLfffW"
+        "EXPO_PUBLIC_REVENUECAT_IOS_KEY": "appl_muEJMMrWOdZYrsdvWMsbaLLfffW",
+        "EXPO_PUBLIC_REVENUECAT_ANDROID_KEY": "goog_NngzdABIWyUSOrYOnhebOBXDaHr"
       }
     }
   },

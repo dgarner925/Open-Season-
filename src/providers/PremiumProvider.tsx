@@ -24,7 +24,12 @@ import { useAuth } from '@/providers/AuthProvider';
 // before the price flips to free.
 const LAST_PAID_BUILD = 22;
 const ENTITLEMENT_ID = 'pro';
-const API_KEY = process.env.EXPO_PUBLIC_REVENUECAT_IOS_KEY;
+
+/** Platform's RevenueCat public SDK key; undefined (dev, web) fails open. */
+export const RC_API_KEY = Platform.select({
+  ios: process.env.EXPO_PUBLIC_REVENUECAT_IOS_KEY,
+  android: process.env.EXPO_PUBLIC_REVENUECAT_ANDROID_KEY,
+});
 
 type PremiumState = {
   isPro: boolean;
@@ -51,6 +56,9 @@ function receiptIsGrandfathered(info: CustomerInfo): boolean {
  * covered by the server flag, so skipping the receipt off-store is safe.
  */
 async function receiptTrustworthy(): Promise<boolean> {
+  // Grandfathering is an iOS-only concept — the paid era never shipped on
+  // Android, so there is no Android receipt worth trusting.
+  if (Platform.OS !== 'ios') return false;
   try {
     const t = await Application.getIosApplicationReleaseTypeAsync();
     return t === Application.ApplicationReleaseType.APP_STORE;
@@ -70,8 +78,8 @@ export function PremiumProvider({ children }: { children: ReactNode }) {
   const serverPro = Boolean(profile?.is_premium);
 
   useEffect(() => {
-    if (!API_KEY || Platform.OS !== 'ios') {
-      // Unconfigured (dev) — fail open.
+    if (!RC_API_KEY) {
+      // Unconfigured (dev, web) — fail open.
       setRcPro(true);
       return;
     }
@@ -79,7 +87,7 @@ export function PremiumProvider({ children }: { children: ReactNode }) {
     (async () => {
       try {
         Purchases.setLogLevel(LOG_LEVEL.ERROR);
-        Purchases.configure({ apiKey: API_KEY, appUserID: user?.id });
+        Purchases.configure({ apiKey: RC_API_KEY, appUserID: user?.id });
         const info = await Purchases.getCustomerInfo();
         if (cancelled) return;
         const pro = entitlementActive(info) || ((await receiptTrustworthy()) && receiptIsGrandfathered(info));
@@ -102,7 +110,7 @@ export function PremiumProvider({ children }: { children: ReactNode }) {
   }, [user?.id]);
 
   const refresh = async () => {
-    if (!API_KEY || Platform.OS !== 'ios') return;
+    if (!RC_API_KEY) return;
     try {
       const info = await Purchases.getCustomerInfo();
       const pro = entitlementActive(info) || ((await receiptTrustworthy()) && receiptIsGrandfathered(info));

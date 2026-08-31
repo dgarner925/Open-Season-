@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import { Alert, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import Purchases, { type PurchasesPackage } from 'react-native-purchases';
 import { Micro, Pill, Rule, Screen, Sentence, Serif } from '@/components/system';
-import { usePremium } from '@/providers/PremiumProvider';
+import { RC_API_KEY, usePremium } from '@/providers/PremiumProvider';
 import { openExternalUrl } from '@/lib/openUrl';
 import { lang } from '@/theme/tokens';
 
@@ -32,7 +32,7 @@ export default function Paywall() {
   const [busy, setBusy] = useState<null | 'buy' | 'restore'>(null);
 
   useEffect(() => {
-    if (Platform.OS !== 'ios') return;
+    if (!RC_API_KEY) return;
     Purchases.getOfferings()
       .then((o) => setPkg(o.current?.annual ?? o.current?.availablePackages[0] ?? null))
       .catch(() => setPkg(null));
