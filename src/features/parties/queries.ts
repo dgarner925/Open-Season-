@@ -12,10 +12,20 @@ export type PartyWithWindow = PartyRow & {
     state: { code: string; name: string } | null;
     species: { key: string; name: string } | null;
   } | null;
+  season: {
+    id: string;
+    label: string | null;
+    method: string;
+    open_date: string | null;
+    close_date: string | null;
+    state: { code: string; name: string } | null;
+    species: { key: string; name: string } | null;
+  } | null;
 };
 
 const PARTY_SELECT =
-  '*, window:application_windows(id, name, closes_at, results_expected_at, state:states(code,name), species:species(key,name))';
+  '*, window:application_windows(id, name, closes_at, results_expected_at, state:states(code,name), species:species(key,name)), ' +
+  'season:seasons(id, label, method, open_date, close_date, state:states(code,name), species:species(key,name))';
 
 /** All parties I'm a member of (RLS scopes rows to my memberships). */
 export function useMyParties() {
@@ -57,12 +67,15 @@ export function usePartyRoster(partyId: string | undefined) {
   });
 }
 
-/** Create (or fetch) my party for a draw; returns { party_id, invite_code }. */
+/** Create (or fetch) my party for a draw or a season; returns { party_id, invite_code }. */
 export function useCreateParty() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (windowId: string) => {
-      const { data, error } = await supabase.rpc('create_party', { p_window_id: windowId });
+    mutationFn: async (target: { windowId?: string; seasonId?: string }) => {
+      const { data, error } = await supabase.rpc('create_party', {
+        p_window_id: target.windowId ?? null,
+        p_season_id: target.seasonId ?? null,
+      });
       if (error) throw error;
       const row = Array.isArray(data) ? data[0] : data;
       if (!row) throw new Error('No party returned');

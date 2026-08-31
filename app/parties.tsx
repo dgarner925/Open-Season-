@@ -43,14 +43,15 @@ export default function Parties() {
     <Screen scroll>
       <Stack.Screen options={{ headerShown: true, title: 'Hunting parties' }} />
       <Sentence style={{ marginTop: space.x16 }}>
-        Apply for draws together — everyone sees the deadline, and who's actually applied.
+        Hunt together — a party for a draw shows who's applied; a party for a season is your camp
+        roster.
       </Sentence>
 
       {isLoading ? (
         <ActivityIndicator color={color.copper} style={{ marginTop: space.x32 }} />
       ) : parties.length === 0 ? (
         <Sentence style={{ marginTop: space.section }}>
-          No parties yet. Open any draw on the Tags tab and tap "Hunt with your party" to start one — or
+          No parties yet. Open any season or draw and tap "Hunt with your party" to start one — or
           join a buddy's with their code below.
         </Sentence>
       ) : (
@@ -58,12 +59,19 @@ export default function Parties() {
           <Rule />
           {parties.map((p, i) => {
             const w = p.window;
-            const d = daysUntil(w?.closes_at ?? null);
+            const s = p.season;
+            const title = w
+              ? `${w.state?.code ?? ''} ${drawTitle(w.species?.name, w.name)}`.trim()
+              : `${s?.state?.code ?? ''} ${s?.species?.name ?? ''} — ${
+                  s?.label ?? (s?.method ? s.method.charAt(0).toUpperCase() + s.method.slice(1) : '')
+                }`.trim();
+            const d = w ? daysUntil(w.closes_at ?? null) : daysUntil(s?.open_date ?? null);
+            const subtitle = w ? `Deadline ${countdownLabel(d)}.` : d !== null && d >= 0 ? `Opens ${countdownLabel(d)}.` : 'Season party.';
             return (
               <Row
                 key={p.id}
-                title={`${w?.state?.code ?? ''} ${drawTitle(w?.species?.name, w?.name)}`.trim()}
-                subtitle={`Deadline ${countdownLabel(d)}.`}
+                title={title}
+                subtitle={subtitle}
                 onPress={() => router.push({ pathname: '/party/[id]', params: { id: p.id } })}
                 right={
                   d !== null && d >= 0 ? (

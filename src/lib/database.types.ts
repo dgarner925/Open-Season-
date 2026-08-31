@@ -24,7 +24,8 @@ export type NotificationSubjectType = 'season_opener' | 'application_deadline' |
 
 export type PartyRow = {
   id: string;
-  window_id: string;
+  window_id: string | null;
+  season_id: string | null;
   owner_id: string;
   invite_code: string;
   created_at: string;
@@ -321,7 +322,10 @@ export type Database = {
     Functions: {
       is_admin: { Args: Record<string, never>; Returns: boolean };
       apply_review_item: { Args: { p_review_id: string }; Returns: undefined };
-      create_party: { Args: { p_window_id: string }; Returns: { party_id: string; invite_code: string }[] };
+      create_party: {
+        Args: { p_window_id?: string | null; p_season_id?: string | null };
+        Returns: { party_id: string; invite_code: string }[];
+      };
       join_party: { Args: { p_code: string }; Returns: string };
       set_party_applied: { Args: { p_party_id: string; p_applied: boolean }; Returns: undefined };
       leave_party: { Args: { p_party_id: string }; Returns: undefined };

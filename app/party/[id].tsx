@@ -8,7 +8,7 @@ import {
   useLeaveParty,
 } from '@/features/parties/queries';
 import { useAuth } from '@/providers/AuthProvider';
-import { daysUntil, formatDate } from '@/lib/date';
+import { daysUntil, formatDate, formatDateRange, isOpenNow } from '@/lib/date';
 import { drawTitle } from '@/lib/titles';
 import { lang } from '@/theme/tokens';
 
@@ -46,9 +46,18 @@ export default function Party() {
     );
   }
 
+  // A party targets either a draw (window, with "I applied" tracking) or a
+  // season (the deer-camp crew — no application to track).
   const w = party.window;
-  const label = `${w?.state?.code ?? ''} ${drawTitle(w?.species?.name, w?.name)}`.trim();
+  const s = party.season;
+  const isDraw = Boolean(w);
+  const seasonTitle = s
+    ? `${s.state?.code ?? ''} ${s.species?.name ?? ''} — ${s.label ?? (s.method ? s.method.charAt(0).toUpperCase() + s.method.slice(1) : '')}`.trim()
+    : '';
+  const label = isDraw ? `${w?.state?.code ?? ''} ${drawTitle(w?.species?.name, w?.name)}`.trim() : seasonTitle;
   const d = daysUntil(w?.closes_at ?? null);
+  const seasonOpen = s ? isOpenNow(s.open_date, s.close_date) : false;
+  const seasonDays = s?.open_date ? daysUntil(s.open_date) : null;
   const me = roster.find((m) => m.user_id === user?.id);
   const iAmOwner = party.owner_id === user?.id;
   const appliedCount = roster.filter((m) => m.applied_at).length;
@@ -57,14 +66,16 @@ export default function Party() {
   const partySentence =
     roster.length <= 1
       ? "It's just you so far — invite your buddies below."
-      : `${nw(roster.length)} of you are in. ${
-          appliedCount === 0 ? 'Nobody has applied yet.' : appliedCount === roster.length ? 'Everyone has applied.' : `${nw(appliedCount)} ${appliedCount === 1 ? 'has' : 'have'} applied.`
+      : `${nw(roster.length)} of you are in.${
+          isDraw
+            ? ` ${appliedCount === 0 ? 'Nobody has applied yet.' : appliedCount === roster.length ? 'Everyone has applied.' : `${nw(appliedCount)} ${appliedCount === 1 ? 'has' : 'have'} applied.`}`
+            : ''
         }`;
 
   async function onInvite() {
     await Share.share({
       message:
-        `Join my hunting party for the ${label} draw on Open Season. ` +
+        `Join my hunting party for ${isDraw ? `the ${label} draw` : `${label} season`} on Open Season. ` +
         `Open the app → Profile → Hunting parties → code ${party!.invite_code}. ` +
         `Don't have the app? ${STORE_URL}`,
     }).catch(() => {});
@@ -75,7 +86,7 @@ export default function Party() {
       iAmOwner ? 'Dissolve this party?' : 'Leave this party?',
       iAmOwner
         ? 'You created it — leaving removes the party for everyone.'
-        : "You'll stop seeing the party. Your reminders for this draw stay unless you unfollow.",
+        : "You'll stop seeing the party. Your reminders for this hunt stay unless you unfollow.",
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -99,31 +110,61 @@ export default function Party() {
       <View style={styles.threaded}>
         <Thread />
 
-        {w?.closes_at ? (
+        {isDraw ? (
+          <>
+            {w?.closes_at ? (
+              <>
+                <Serif size={30} style={{ marginTop: space.x32 }}>
+                  {formatDate(w.closes_at)}
+                </Serif>
+                <Sentence style={{ marginTop: space.x8 }}>
+                  {d !== null && d >= 0 ? (
+                    <>
+                      {'Applications close in '}
+                      <Serif italic copper size={20}>
+                        {d} {d === 1 ? 'day' : 'days'}
+                      </Serif>
+                      {'.'}
+                    </>
+                  ) : (
+                    'This window has closed.'
+                  )}
+                </Sentence>
+              </>
+            ) : (
+              <Sentence style={{ marginTop: space.x32 }}>The closing date hasn't been posted yet.</Sentence>
+            )}
+            {w?.results_expected_at ? (
+              <Sentence style={{ marginTop: space.x12 }}>Results expected {formatDate(w.results_expected_at)}.</Sentence>
+            ) : null}
+          </>
+        ) : (
           <>
             <Serif size={30} style={{ marginTop: space.x32 }}>
-              {formatDate(w.closes_at)}
+              {formatDateRange(s?.open_date ?? null, s?.close_date ?? null)}
             </Serif>
             <Sentence style={{ marginTop: space.x8 }}>
-              {d !== null && d >= 0 ? (
+              {seasonOpen && s?.close_date ? (
                 <>
-                  {'Applications close in '}
                   <Serif italic copper size={20}>
-                    {d} {d === 1 ? 'day' : 'days'}
+                    Open now
+                  </Serif>
+                  {` — closes ${formatDate(s.close_date)}.`}
+                </>
+              ) : seasonDays !== null && seasonDays >= 0 ? (
+                <>
+                  {'Opens in '}
+                  <Serif italic copper size={20}>
+                    {seasonDays} {seasonDays === 1 ? 'day' : 'days'}
                   </Serif>
                   {'.'}
                 </>
               ) : (
-                'This window has closed.'
+                'Closed for the year.'
               )}
             </Sentence>
           </>
-        ) : (
-          <Sentence style={{ marginTop: space.x32 }}>The closing date hasn't been posted yet.</Sentence>
         )}
-        {w?.results_expected_at ? (
-          <Sentence style={{ marginTop: space.x12 }}>Results expected {formatDate(w.results_expected_at)}.</Sentence>
-        ) : null}
       </View>
 
       <Rule />
@@ -140,10 +181,14 @@ export default function Party() {
                 {m.is_owner ? ' · organizer' : ''}
               </Text>
               <Text style={styles.memberSub}>
-                {applied ? `Applied ${formatDate(m.applied_at!.slice(0, 10))}.` : "Hasn't applied yet."}
+                {isDraw
+                  ? applied
+                    ? `Applied ${formatDate(m.applied_at!.slice(0, 10))}.`
+                    : "Hasn't applied yet."
+                  : `In camp since ${formatDate(m.joined_at.slice(0, 10))}.`}
               </Text>
             </View>
-            {mine ? (
+            {mine && isDraw ? (
               <Pressable
                 onPress={() => setApplied.mutate(!applied)}
                 accessibilityRole="button"
@@ -176,6 +221,14 @@ export default function Party() {
             label="View the draw"
             variant="secondary"
             onPress={() => router.push({ pathname: '/window/[id]', params: { id: w.id } })}
+            style={{ flex: 1 }}
+          />
+        ) : null}
+        {me && s?.id ? (
+          <Pill
+            label="View the season"
+            variant="secondary"
+            onPress={() => router.push({ pathname: '/season/[id]', params: { id: s.id } })}
             style={{ flex: 1 }}
           />
         ) : null}

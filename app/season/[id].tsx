@@ -1,12 +1,13 @@
-import { Stack, useLocalSearchParams } from 'expo-router';
+import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
-import { ActivityIndicator, Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { ActivityIndicator, Alert, Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { Micro, Pill, Screen, Sentence, Serif, SunArc } from '@/components/system';
 import { Disclaimer } from '@/components/Provenance';
 import { LicenseRow } from '@/components/LicenseRow';
 import { useAuth } from '@/providers/AuthProvider';
 import { useSeasonById } from '@/features/reference/queries';
 import { useMethodReminder } from '@/features/follows/queries';
+import { useCreateParty, useMyParties } from '@/features/parties/queries';
 import { useLegalLight } from '@/features/legalLight/useLegalLight';
 import { useRequirePro } from '@/hooks/useRequirePro';
 import { addToCalendar } from '@/lib/calendar';
@@ -32,6 +33,7 @@ function cap(s: string) {
 
 /** The reference implementation of the field-journal language. */
 export default function SeasonDetail() {
+  const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { data: season, isLoading } = useSeasonById(id);
   const { profile } = useAuth();
@@ -41,6 +43,24 @@ export default function SeasonDetail() {
   const stateId = season?.state?.id ?? season?.state_id;
   const speciesId = season?.species?.id ?? season?.species_id;
   const reminder = useMethodReminder(stateId, speciesId);
+  const { data: myParties = [] } = useMyParties();
+  const createParty = useCreateParty();
+  const myParty = myParties.find((p) => p.season_id === id);
+
+  function onParty() {
+    if (myParty) {
+      router.push({ pathname: '/party/[id]', params: { id: myParty.id } });
+      return;
+    }
+    if (!requirePro()) return;
+    createParty.mutate(
+      { seasonId: id! },
+      {
+        onSuccess: ({ party_id }) => router.push({ pathname: '/party/[id]', params: { id: party_id } }),
+        onError: () => Alert.alert('Could not start a party', 'Please try again in a moment.'),
+      },
+    );
+  }
 
   // Every method this (state, species) pair hunts — needed when un-arming from
   // the legacy "all methods" state.
@@ -248,6 +268,14 @@ export default function SeasonDetail() {
         />
         <Pill label="Add to calendar" variant="secondary" onPress={onCalendar} style={{ flex: 1 }} />
       </View>
+
+      {/* Parties aren't just for draws — the deer camp needs a roster too. */}
+      <Pressable onPress={onParty} accessibilityRole="button" disabled={createParty.isPending}>
+        <Sentence style={{ marginTop: space.x16 }}>
+          {myParty ? 'View your hunting party.' : 'Hunt this season with your party.'}{' '}
+          <Text style={{ color: color.dim }}>›</Text>
+        </Sentence>
+      </Pressable>
 
       <LicenseRow stateName={season.state?.name} url={season.state?.license_url} />
 

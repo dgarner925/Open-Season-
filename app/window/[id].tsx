@@ -43,10 +43,13 @@ export default function WindowDetail() {
       return;
     }
     if (!requirePro()) return;
-    createParty.mutate(id!, {
-      onSuccess: ({ party_id }) => router.push({ pathname: '/party/[id]', params: { id: party_id } }),
-      onError: () => Alert.alert('Could not start a party', 'Please try again in a moment.'),
-    });
+    createParty.mutate(
+      { windowId: id! },
+      {
+        onSuccess: ({ party_id }) => router.push({ pathname: '/party/[id]', params: { id: party_id } }),
+        onError: () => Alert.alert('Could not start a party', 'Please try again in a moment.'),
+      },
+    );
   }
 
   if (isLoading) {
