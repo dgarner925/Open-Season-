@@ -100,6 +100,31 @@ function followPairs(follows: { state_id: string; species_id: string }[]): {
 }
 
 /** Published seasons for the user's followed state+species combos. */
+/**
+ * Weekend discovery for the brief card: seasons opening in [fromISO, toISO]
+ * across the given states, followed or not (the card filters followed pairs
+ * out — those already speak through the followed lines). Mirrors the push's
+ * priority-4 discovery arm.
+ */
+export function useWeekendStateOpeners(stateIds: string[], fromISO: string, toISO: string) {
+  return useQuery({
+    queryKey: ['weekend-openers', [...stateIds].sort(), fromISO, toISO],
+    enabled: stateIds.length > 0,
+    queryFn: async (): Promise<SeasonWithRefs[]> => {
+      const { data, error } = await supabase
+        .from('seasons')
+        .select(SEASON_SELECT)
+        .in('state_id', stateIds)
+        .eq('status', 'published')
+        .gte('open_date', fromISO)
+        .lte('open_date', toISO)
+        .order('open_date', { ascending: true });
+      if (error) throw error;
+      return (data ?? []) as unknown as SeasonWithRefs[];
+    },
+  });
+}
+
 export function useFollowedSeasons() {
   const { data: follows = [] } = useFollows();
   return useQuery({

@@ -12,7 +12,7 @@ import { nextPermitSegment, useFollows, usePermitFollows } from '@/features/foll
 import { useLegalLight } from '@/features/legalLight/useLegalLight';
 import { useDawnConditions } from '@/features/weather/useDawnConditions';
 import { openExternalUrl } from '@/lib/openUrl';
-import { useActiveStates, useFollowedSeasons, useFollowedWindows, useSpecies, useUpcomingCountdown } from '@/features/reference/queries';
+import { useActiveStates, useFollowedSeasons, useFollowedWindows, useSpecies, useUpcomingCountdown, useWeekendStateOpeners } from '@/features/reference/queries';
 import type { SeasonWithRefs } from '@/features/reference/types';
 import { queryClient } from '@/lib/queryClient';
 import { maybeRequestReview } from '@/lib/rateApp';
@@ -87,6 +87,10 @@ export default function Home() {
   const deadlineCount = windows.filter((w) => w.closes_at && w.closes_at >= iso).length;
   const trackedStates = [...new Set(follows.map((f) => stateCode.get(f.state_id)).filter(Boolean))];
   const homeStateCode = states.find((s) => s.id === profile?.resident_state_id)?.code ?? trackedStates[0] ?? null;
+  const trackedStateIdList = [
+    ...new Set([...follows.map((f) => f.state_id), ...(profile?.resident_state_id ? [profile.resident_state_id] : [])]),
+  ];
+  const followedPairs = new Set(follows.map((f) => `${f.state_id}|${f.species_id}`));
   // Today's legal light on the hero — the 5 AM answer, zero taps (David, 2026-09-05).
   const todayLight = useLegalLight(homeStateCode, 0);
   const hasFollows = follows.length > 0;
@@ -154,7 +158,14 @@ export default function Home() {
           <ProUpsellCard />
         </View>
 
-        <WeekendBriefCard seasons={seasons} windows={windows} stateCode={homeStateCode} onPress={() => router.push('/calendar')} />
+        <WeekendBriefCard
+          seasons={seasons}
+          windows={windows}
+          stateCode={homeStateCode}
+          stateIds={trackedStateIdList}
+          followedPairs={followedPairs}
+          onPress={() => router.push('/calendar')}
+        />
 
         <View style={styles.stats}>
           <StatTile value={openCount} label="Open now" onPress={() => router.push('/calendar')} />
@@ -237,21 +248,21 @@ function WeekendBriefCard({
   seasons,
   windows,
   stateCode,
+  stateIds,
+  followedPairs,
   onPress,
 }: {
   seasons: SeasonWithRefs[];
   windows: { closes_at: string | null; species?: { name: string } | null; state?: { code: string; name?: string } | null }[];
   stateCode: string | null;
+  stateIds: string[];
+  followedPairs: Set<string>;
   onPress: () => void;
 }) {
-  // Tomorrow's light and dawn conditions — the morning the brief is planning
-  // for, not the one already underway when the brief lands.
-  const light = useLegalLight(stateCode, 1);
-  const dawn = useDawnConditions(stateCode, 1);
   const now = new Date();
   const dow = now.getDay(); // 5 Fri, 6 Sat, 0 Sun
   const iso = todayISO();
-  if (dow !== 5 && dow !== 6 && dow !== 0) return null;
+  const isWeekend = dow === 5 || dow === 6 || dow === 0;
 
   const addDays = (base: string, n: number) => {
     const [y, m, d] = base.split('-').map(Number);
@@ -259,6 +270,14 @@ function WeekendBriefCard({
     return dt.toISOString().slice(0, 10);
   };
   const sunday = addDays(iso, dow === 5 ? 2 : dow === 6 ? 1 : 0);
+
+  // Tomorrow's light and dawn conditions — the morning the brief is planning
+  // for, not the one already underway when the brief lands. Discovery mirrors
+  // the push: openers in your states this weekend, followed or not.
+  const light = useLegalLight(stateCode, 1);
+  const dawn = useDawnConditions(stateCode, 1);
+  const { data: stateOpeners = [] } = useWeekendStateOpeners(isWeekend ? stateIds : [], iso, sunday);
+  if (!isWeekend) return null;
   const dayLabel = (dateISO: string) => {
     const diff = diffDays(iso, dateISO);
     if (diff === 0) return 'today';
@@ -266,13 +285,17 @@ function WeekendBriefCard({
     return ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][new Date(dateISO + 'T12:00:00Z').getUTCDay()];
   };
 
+  // "Geese open", "Deer opens" — plural species names take the plural verb.
+  const PLURAL_SPECIES = new Set(['Geese', 'Ducks']);
+  const verb = (name: string | null | undefined, base: string) => (PLURAL_SPECIES.has(name ?? '') ? base : `${base}s`);
+
   const lines: { priority: number; d: string; text: string }[] = [];
   for (const s of seasons) {
     if (!s.open_date) continue;
     if (s.open_date >= iso && s.open_date <= sunday) {
-      lines.push({ priority: 1, d: s.open_date, text: `${s.species?.name} opens ${dayLabel(s.open_date)} in ${s.state?.name ?? s.state?.code}.` });
+      lines.push({ priority: 1, d: s.open_date, text: `${s.species?.name} ${verb(s.species?.name, 'open')} ${dayLabel(s.open_date)} in ${s.state?.name ?? s.state?.code}.` });
     } else if (s.close_date && s.open_date <= iso && s.close_date >= iso && s.close_date <= sunday) {
-      lines.push({ priority: 2, d: s.close_date, text: `${s.species?.name} closes ${dayLabel(s.close_date)} in ${s.state?.name ?? s.state?.code} — the last days.` });
+      lines.push({ priority: 2, d: s.close_date, text: `${s.species?.name} ${verb(s.species?.name, 'close')} ${dayLabel(s.close_date)} in ${s.state?.name ?? s.state?.code} — the last days.` });
     }
   }
   for (const w of windows) {
@@ -283,6 +306,16 @@ function WeekendBriefCard({
         text: `The ${w.state?.name ?? w.state?.code} ${(w.species?.name ?? '').toLowerCase()} draw closes ${dayLabel(w.closes_at)}.`,
       });
     }
+  }
+  // Discovery: weekend openers in your states for species you don't follow.
+  const seen = new Set(lines.map((l) => l.text));
+  for (const s of stateOpeners) {
+    if (!s.open_date || !s.state_id || !s.species_id) continue;
+    if (followedPairs.has(`${s.state_id}|${s.species_id}`)) continue;
+    const text = `${s.species?.name} ${verb(s.species?.name, 'open')} ${dayLabel(s.open_date)} in ${s.state?.name ?? s.state?.code}.`;
+    if (seen.has(text)) continue;
+    seen.add(text);
+    lines.push({ priority: 4, d: s.open_date, text });
   }
   if (lines.length === 0) return null;
   const shown = lines.sort((a, b) => a.priority - b.priority || a.d.localeCompare(b.d)).slice(0, 3);
