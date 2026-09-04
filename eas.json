@@ -43,7 +43,8 @@
         "ascApiKeyIssuerId": "80cdb1f5-9aa5-45de-9f2e-e78021e6031d"
       },
       "android": {
-        "track": "internal"
+        "track": "internal",
+        "serviceAccountKeyPath": "C:/Users/david/Documents/OpenSeason-Keys/open-season-504612-2acf34d494d0.json"
       }
     }
   }
