@@ -1,5 +1,5 @@
 import { useRouter } from 'expo-router';
-import { ActivityIndicator, FlatList, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, FlatList, Pressable, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AppText, Card, GlassChip } from '@/components/ui';
 import { PageTitle } from '@/components/midnight';
@@ -49,6 +49,13 @@ export default function Applications() {
             No upcoming tag deadlines for your follows right now.
           </AppText>
         }
+        ListFooterComponent={
+          <Pressable onPress={() => router.push({ pathname: '/ledger' })} accessibilityRole="button" style={styles.ledgerLink}>
+            <AppText variant="body" color={theme.color.textSecondary}>
+              The ledger — your applications, costs, and results. ›
+            </AppText>
+          </Pressable>
+        }
       />
     </SafeAreaView>
   );
@@ -88,6 +95,7 @@ const styles = StyleSheet.create({
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: theme.color.background },
   content: { paddingHorizontal: spacing.xl, paddingTop: spacing.lg, paddingBottom: spacing.xxl },
   header: { gap: spacing.xs, marginBottom: spacing.lg },
+  ledgerLink: { marginTop: spacing.xl },
   rowTop: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   rowBottom: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: spacing.xs },
 });

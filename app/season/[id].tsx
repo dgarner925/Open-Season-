@@ -233,6 +233,26 @@ export default function SeasonDetail() {
               {light.note}
             </Sentence>
           ) : null}
+          {season.open_date && season.close_date && season.state?.code ? (
+            <Pressable
+              onPress={() =>
+                router.push({
+                  pathname: '/shooting-hours',
+                  params: {
+                    state: season.state!.code,
+                    title: `${season.species?.name ?? ''}, ${title.toLowerCase()} — ${season.state?.name ?? ''}`,
+                    open: season.open_date!,
+                    close: season.close_date!,
+                  },
+                })
+              }
+              accessibilityRole="button"
+            >
+              <Sentence style={{ marginTop: space.x12 }}>
+                Every day's hours, the whole season. <Text style={{ color: color.dim }}>›</Text>
+              </Sentence>
+            </Pressable>
+          ) : null}
         </View>
       ) : null}
 

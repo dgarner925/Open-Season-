@@ -86,6 +86,9 @@ export default function Home() {
   const openerCount = seasons.filter((s) => s.open_date && s.open_date > iso).length;
   const deadlineCount = windows.filter((w) => w.closes_at && w.closes_at >= iso).length;
   const trackedStates = [...new Set(follows.map((f) => stateCode.get(f.state_id)).filter(Boolean))];
+  const homeStateCode = states.find((s) => s.id === profile?.resident_state_id)?.code ?? trackedStates[0] ?? null;
+  // Today's legal light on the hero — the 5 AM answer, zero taps (David, 2026-09-05).
+  const todayLight = useLegalLight(homeStateCode, 0);
   const hasFollows = follows.length > 0;
   const locationLabel = !hasFollows ? 'Add your hunts' : trackedStates.length === 1 ? (states.find((s) => s.code === trackedStates[0])?.name ?? trackedStates[0]!) : `${trackedStates.length} states`;
 
@@ -128,6 +131,15 @@ export default function Home() {
           <AppText variant="overline" color={theme.color.textMuted} style={styles.dateLine}>
             {WEEKDAYS[now.getDay()]}, {MONTHS[now.getMonth()]} {now.getDate()}
           </AppText>
+          {todayLight ? (
+            <View style={styles.lightRow}>
+              <Text style={styles.lightTimes}>
+                {todayLight.approx ? '≈ ' : ''}
+                {todayLight.window}
+              </Text>
+              <Text style={styles.lightLabel}>legal light today</Text>
+            </View>
+          ) : null}
           {firstName ? (
             <Text style={styles.greeting}>
               {partOfDay}, <Text style={styles.greetingName}>{firstName}</Text>
@@ -142,12 +154,7 @@ export default function Home() {
           <ProUpsellCard />
         </View>
 
-        <WeekendBriefCard
-          seasons={seasons}
-          windows={windows}
-          stateCode={states.find((s) => s.id === profile?.resident_state_id)?.code ?? trackedStates[0] ?? null}
-          onPress={() => router.push('/calendar')}
-        />
+        <WeekendBriefCard seasons={seasons} windows={windows} stateCode={homeStateCode} onPress={() => router.push('/calendar')} />
 
         <View style={styles.stats}>
           <StatTile value={openCount} label="Open now" onPress={() => router.push('/calendar')} />
@@ -420,6 +427,9 @@ const styles = StyleSheet.create({
   heroBlock: { marginTop: spacing.xl },
   hero: { fontSize: 62, lineHeight: 70, paddingTop: 4 },
   dateLine: { marginTop: spacing.lg },
+  lightRow: { flexDirection: 'row', alignItems: 'baseline', gap: spacing.md, marginTop: spacing.sm },
+  lightTimes: { fontFamily: fontFamily.serif, fontSize: 21, color: lang.color.bone },
+  lightLabel: { fontFamily: fontFamily.sansMedium, fontSize: 12.5, color: theme.color.textMuted },
   greeting: { fontFamily: fontFamily.sansMedium, fontSize: 15, color: theme.color.textSecondary, marginTop: spacing.xs },
   greetingName: { fontFamily: fontFamily.sansSemiBold, color: lang.color.copper },
 
