@@ -1,4 +1,5 @@
-import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
+import { Stack, useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
+import { useCallback } from 'react';
 import { ActivityIndicator, Alert, Pressable, Share, StyleSheet, Text, View } from 'react-native';
 import { Pill, Rule, Screen, Sentence, Serif, Thread } from '@/components/system';
 import {
@@ -8,6 +9,7 @@ import {
   useLeaveParty,
 } from '@/features/parties/queries';
 import { useAuth } from '@/providers/AuthProvider';
+import { queryClient } from '@/lib/queryClient';
 import { daysUntil, formatDate, formatDateRange, isOpenNow } from '@/lib/date';
 import { drawTitle } from '@/lib/titles';
 import { lang } from '@/theme/tokens';
@@ -26,6 +28,15 @@ export default function Party() {
   const { data: roster = [] } = usePartyRoster(id);
   const setApplied = useSetApplied(id ?? '');
   const leave = useLeaveParty();
+
+  // A roster left open goes stale while buddies apply — re-ask every time the
+  // screen regains focus (the buddy-sees-old-status bug, 2026-09-06).
+  useFocusEffect(
+    useCallback(() => {
+      queryClient.invalidateQueries({ queryKey: ['party_roster', id] });
+      queryClient.invalidateQueries({ queryKey: ['party', id] });
+    }, [id]),
+  );
 
   if (isLoading) {
     return (
