@@ -47,6 +47,19 @@ export default function Paywall() {
   // No hardcoded fallback: a wrong price in confident serif is worse than a dash.
   const price = pkg?.product.priceString ?? null;
 
+  // Introductory free trial, when the store offers one to this user (Apple and
+  // Google decide eligibility — lapsed subscribers just see the plain price).
+  const intro = pkg?.product.introPrice ?? null;
+  const trial = intro && intro.price === 0 ? intro : null;
+  const trialLabel = trial
+    ? (trial.periodUnit === 'WEEK' && trial.periodNumberOfUnits === 1) ||
+      (trial.periodUnit === 'DAY' && trial.periodNumberOfUnits === 7)
+      ? 'First week free'
+      : trial.periodUnit === 'MONTH' && trial.periodNumberOfUnits === 1
+        ? 'First month free'
+        : `First ${trial.periodNumberOfUnits} ${trial.periodUnit.toLowerCase()}s free`
+    : null;
+
   async function buy() {
     if (!pkg) return;
     setBusy('buy');
@@ -96,8 +109,13 @@ export default function Paywall() {
       {/* The plan — the one card this screen earns; the price is the only serif. */}
       <View style={styles.plan}>
         <Sentence>One plan. Everything above, all year.</Sentence>
+        {trialLabel ? (
+          <Serif italic copper size={22} style={{ marginTop: space.x8 }}>
+            {trialLabel}
+          </Serif>
+        ) : null}
         {price ? (
-          <Serif size={44} style={{ marginTop: space.x8 }}>
+          <Serif size={44} style={{ marginTop: trialLabel ? 0 : space.x8 }}>
             {price}
           </Serif>
         ) : (
@@ -105,11 +123,11 @@ export default function Paywall() {
             Loading the price from the App Store…
           </Sentence>
         )}
-        <Micro style={{ marginTop: space.x4 }}>Per year · renews automatically</Micro>
+        <Micro style={{ marginTop: space.x4 }}>{trialLabel ? 'Then per year · renews automatically' : 'Per year · renews automatically'}</Micro>
       </View>
 
       <Pill
-        label={busy === 'buy' ? 'Opening App Store…' : 'Go Pro'}
+        label={busy === 'buy' ? 'Opening App Store…' : trialLabel ? 'Start your free week' : 'Go Pro'}
         onPress={buy}
         disabled={!pkg || busy !== null}
         style={{ marginTop: space.x16 }}
@@ -122,8 +140,9 @@ export default function Paywall() {
       </Pressable>
 
       <Sentence tone="dim" style={{ marginTop: space.x16, fontSize: 13, lineHeight: 19 }}>
-        Payment is charged to your Apple ID at confirmation. Renews automatically unless canceled at least
-        24 hours before the end of the period. Manage or cancel anytime in your App Store account settings.
+        Payment is charged to your Apple ID at confirmation, or at the end of any free trial. Renews
+        automatically unless canceled at least 24 hours before the end of the period. Manage or cancel anytime
+        in your App Store account settings.
       </Sentence>
       <View style={styles.legalLinks}>
         <Pressable onPress={() => openExternalUrl(TERMS_URL)} hitSlop={8}>
