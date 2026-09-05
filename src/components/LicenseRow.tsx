@@ -6,28 +6,51 @@ import { lang } from '@/theme/tokens';
 const { color, space, type, radius } = lang;
 
 /**
- * The license call-out — noticeable but not the focus of the page (David,
- * 2026-08-28). A quiet surface tile with a copper ticket mark; sits after the
- * page's main content on season, window, and regs details.
+ * ActionRow — the "noticeable, not focal" tile for page-level actions (David,
+ * 2026-08-28; generalized 2026-09-06: anything tappable gets accentuated).
+ * Icon in a copper-filled mark, semibold title, muted sub, copper chevron.
  */
-export function LicenseRow({ stateName, url }: { stateName: string | null | undefined; url: string | null | undefined }) {
-  if (!url) return null;
+export function ActionRow({
+  icon,
+  title,
+  sub,
+  onPress,
+}: {
+  icon: keyof typeof Ionicons.glyphMap;
+  title: string;
+  sub?: string;
+  onPress: () => void;
+}) {
   return (
     <Pressable
-      onPress={() => openExternalUrl(url)}
-      accessibilityRole="link"
-      accessibilityLabel={`Buy your ${stateName ?? ''} license`}
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={title}
       style={({ pressed }) => [styles.row, pressed && { opacity: 0.8 }]}
     >
       <View style={styles.mark}>
-        <Ionicons name="ticket-outline" size={17} color={color.copper} />
+        <Ionicons name={icon} size={17} color={color.copper} />
       </View>
       <View style={{ flex: 1 }}>
-        <Text style={styles.title}>Buy your {stateName ?? ''} license before you go.</Text>
-        <Text style={styles.sub}>Straight to the official licensing site.</Text>
+        <Text style={styles.title}>{title}</Text>
+        {sub ? <Text style={styles.sub}>{sub}</Text> : null}
       </View>
-      <Ionicons name="chevron-forward" size={14} color={color.dim} />
+      <Ionicons name="chevron-forward" size={14} color={color.copper} />
     </Pressable>
+  );
+}
+
+/** The license call-out — sits after the page's main content on season,
+ * window, and regs details. */
+export function LicenseRow({ stateName, url }: { stateName: string | null | undefined; url: string | null | undefined }) {
+  if (!url) return null;
+  return (
+    <ActionRow
+      icon="ticket-outline"
+      title={`Buy your ${stateName ?? ''} license before you go.`}
+      sub="Straight to the official licensing site."
+      onPress={() => openExternalUrl(url)}
+    />
   );
 }
 

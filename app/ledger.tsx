@@ -3,6 +3,7 @@
  * cost, the points behind it, and when you'll hear. Pure aggregation of
  * user_applications + user_point_balances; nothing new is stored.
  */
+import { Ionicons } from '@expo/vector-icons';
 import { Stack, useRouter } from 'expo-router';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Screen, Sentence, Serif } from '@/components/system';
@@ -96,6 +97,7 @@ export default function Ledger() {
                       </Text>
                     ) : null}
                   </View>
+                  <Ionicons name="chevron-forward" size={14} color={color.copper} style={{ marginLeft: space.x8 }} />
                 </Pressable>
               );
             })}

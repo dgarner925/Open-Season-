@@ -2,9 +2,9 @@ import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
 import { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Alert, FlatList, Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
-import { Micro, Pill, Screen, Sentence, Serif, SunArc } from '@/components/system';
+import { LinkSentence, Micro, Pill, Screen, Sentence, Serif, SunArc } from '@/components/system';
 import { Disclaimer } from '@/components/Provenance';
-import { LicenseRow } from '@/components/LicenseRow';
+import { ActionRow, LicenseRow } from '@/components/LicenseRow';
 import { useAuth } from '@/providers/AuthProvider';
 import { useFollowedSeasons, useSeasonById } from '@/features/reference/queries';
 import type { SeasonWithRefs } from '@/features/reference/types';
@@ -318,7 +318,8 @@ function SeasonPageBody({ id }: { id: string | undefined }) {
             </Sentence>
           ) : null}
           {season.open_date && season.close_date && season.state?.code ? (
-            <Pressable
+            <LinkSentence
+              style={{ marginTop: space.x12 }}
               onPress={() =>
                 router.push({
                   pathname: '/shooting-hours',
@@ -330,28 +331,26 @@ function SeasonPageBody({ id }: { id: string | undefined }) {
                   },
                 })
               }
-              accessibilityRole="button"
             >
-              <Sentence style={{ marginTop: space.x12 }}>
-                Every day's hours, the whole season. <Text style={{ color: color.dim }}>›</Text>
-              </Sentence>
-            </Pressable>
+              Every day's hours, the whole season.
+            </LinkSentence>
           ) : null}
         </View>
       ) : null}
 
       {/* Provenance stays bare — a footnote beneath the tiles, not another object. */}
       {season.last_verified_at ? (
-        <Pressable
-          onPress={season.source?.url ? () => openExternalUrl(season.source!.url) : undefined}
-          disabled={!season.source?.url}
-          accessibilityRole={season.source?.url ? 'link' : undefined}
-        >
+        season.source?.url ? (
+          <LinkSentence size={13} style={{ marginTop: space.x16 }} onPress={() => openExternalUrl(season.source!.url)}>
+            Verified against {season.source?.agency_name ?? season.state?.name ?? 'the state agency'},{' '}
+            {spoken(season.last_verified_at.slice(0, 10)).date}.
+          </LinkSentence>
+        ) : (
           <Sentence tone="dim" style={{ marginTop: space.x16, fontSize: 13 }}>
             Verified against {season.source?.agency_name ?? season.state?.name ?? 'the state agency'},{' '}
-            {spoken(season.last_verified_at.slice(0, 10)).date}.{season.source?.url ? ' ›' : ''}
+            {spoken(season.last_verified_at.slice(0, 10)).date}.
           </Sentence>
-        </Pressable>
+        )
       ) : null}
 
       <View style={{ height: space.section }} />
@@ -374,12 +373,12 @@ function SeasonPageBody({ id }: { id: string | undefined }) {
       </View>
 
       {/* Parties aren't just for draws — the deer camp needs a roster too. */}
-      <Pressable onPress={onParty} accessibilityRole="button" disabled={createParty.isPending}>
-        <Sentence style={{ marginTop: space.x16 }}>
-          {myParty ? 'View your hunting party.' : 'Hunt this season with your party.'}{' '}
-          <Text style={{ color: color.dim }}>›</Text>
-        </Sentence>
-      </Pressable>
+      <ActionRow
+        icon="people-outline"
+        title={myParty ? 'View your hunting party.' : 'Hunt this season with your party.'}
+        sub={myParty ? 'Your camp roster and invite code.' : 'One link invites your buddies — everyone gets the reminders.'}
+        onPress={onParty}
+      />
 
       <LicenseRow stateName={season.state?.name} url={season.state?.license_url} />
 

@@ -67,7 +67,7 @@ export function Row({
         {subtitle ? <Text style={styles.rowSubtitle}>{subtitle}</Text> : null}
       </View>
       {right}
-      {onPress ? <Ionicons name="chevron-forward" size={14} color={color.dim} /> : null}
+      {onPress ? <Ionicons name="chevron-forward" size={14} color={color.copper} /> : null}
       {!last ? <View style={styles.rowRule} /> : null}
     </Pressable>
   );
@@ -97,6 +97,30 @@ export function Pill({
       style={({ pressed }) => [styles.pill, primary ? styles.pillPrimary : styles.pillSecondary, pressed && { opacity: 0.8 }, style]}
     >
       <Text style={[styles.pillLabel, { color: primary ? color.copper : color.bone }]}>{label}</Text>
+    </Pressable>
+  );
+}
+
+/**
+ * A tappable sentence, in copper — so the hand can tell reading from doing
+ * (David, 2026-09-06: "anything the user needs to click should be accentuated").
+ */
+export function LinkSentence({
+  children,
+  onPress,
+  size,
+  style,
+}: {
+  children: ReactNode;
+  onPress: () => void;
+  size?: number;
+  style?: StyleProp<TextStyle>;
+}) {
+  return (
+    <Pressable onPress={onPress} accessibilityRole="button" hitSlop={6}>
+      <Text style={[styles.linkSentence, size ? { fontSize: size } : null, style]}>
+        {children} <Text style={{ color: color.copperDim }}>›</Text>
+      </Text>
     </Pressable>
   );
 }
@@ -312,6 +336,7 @@ const styles = StyleSheet.create({
   word: { fontFamily: type.uiMedium, fontSize: 14.5, lineHeight: 22, color: color.dim },
   scrollBody: { paddingHorizontal: space.gutter, paddingBottom: space.x38 },
   rule: { height: 1, backgroundColor: color.rule, marginHorizontal: -space.gutter },
+  linkSentence: { fontFamily: type.ui, fontSize: 15, lineHeight: 22, color: color.copper },
   row: { minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: space.x12, paddingVertical: space.x12 },
   rowTitle: { fontFamily: type.ui, fontSize: type.size.body + 0.5, color: color.bone },
   rowSubtitle: { fontFamily: type.ui, fontSize: 13, color: color.muted },

@@ -51,7 +51,7 @@ export default function Applications() {
         }
         ListFooterComponent={
           <Pressable onPress={() => router.push({ pathname: '/ledger' })} accessibilityRole="button" style={styles.ledgerLink}>
-            <AppText variant="body" color={theme.color.textSecondary}>
+            <AppText variant="body" color={theme.color.accentSoft}>
               The ledger — your applications, costs, and results. ›
             </AppText>
           </Pressable>

@@ -23,8 +23,8 @@ export function SourceLink({ agencyName, url }: { agencyName: string | null; url
   }
   return (
     <Pressable onPress={() => Linking.openURL(url)} accessibilityRole="link">
-      <Text style={styles.dim}>
-        Official source: {agencyName ?? 'state agency'} <Text style={{ color: color.muted }}>›</Text>
+      <Text style={[styles.dim, { color: color.copper }]}>
+        Official source: {agencyName ?? 'state agency'} <Text style={{ color: color.copperDim }}>›</Text>
       </Text>
     </Pressable>
   );
@@ -51,9 +51,9 @@ export function ProvenanceBlock({
 }) {
   const line = url ? (
     <Pressable onPress={() => Linking.openURL(url)} accessibilityRole="link">
-      <Text style={styles.dim}>
+      <Text style={[styles.dim, { color: color.copper }]}>
         Verified against {agencyName ?? 'the state agency'}, {verifiedAgo(verifiedAt).toLowerCase()}.{' '}
-        <Text style={{ color: color.muted }}>›</Text>
+        <Text style={{ color: color.copperDim }}>›</Text>
       </Text>
     </Pressable>
   ) : (

@@ -8,7 +8,7 @@
 import { Stack, useLocalSearchParams } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import { Pressable, Share, StyleSheet, Text, View } from 'react-native';
-import { Micro, Screen, Sentence, Serif } from '@/components/system';
+import { LinkSentence, Micro, Screen, Sentence, Serif } from '@/components/system';
 import rules from '@/assets/legal-light.json';
 import centroids from '@/assets/state-centroids.json';
 import { getFix } from '@/features/legalLight/useLegalLight';
@@ -153,11 +153,9 @@ export default function ShootingHours() {
       )}
 
       {rows && rows.length > 0 ? (
-        <Pressable onPress={onShare} accessibilityRole="button">
-          <Sentence style={{ marginTop: space.section }}>
-            Share the table — print it for the dash. <Text style={{ color: color.dim }}>›</Text>
-          </Sentence>
-        </Pressable>
+        <LinkSentence style={{ marginTop: space.section }} onPress={onShare}>
+          Share the table — print it for the dash.
+        </LinkSentence>
       ) : null}
       {rule.note ? (
         <Sentence tone="dim" style={{ marginTop: space.x12, fontSize: 13 }}>

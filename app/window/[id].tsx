@@ -1,6 +1,6 @@
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { ActivityIndicator, Alert, Pressable, Share, StyleSheet, Text, View } from 'react-native';
-import { Pill, Rule, Screen, Sentence, Serif, Thread } from '@/components/system';
+import { LinkSentence, Pill, Rule, Screen, Sentence, Serif, Thread } from '@/components/system';
 import { ProvenanceBlock } from '@/components/Provenance';
 import { LicenseRow } from '@/components/LicenseRow';
 import { useWindowById } from '@/features/reference/queries';
@@ -177,7 +177,7 @@ export default function WindowDetail() {
 
       <Rule />
       {w.closes_at ? (
-        <Pressable
+        <LinkSentence
           onPress={() =>
             addToCalendar({
               title: `${label} — draw deadline`,
@@ -186,24 +186,20 @@ export default function WindowDetail() {
               url: w.application_url ?? w.state?.license_url ?? undefined,
             })
           }
-          accessibilityRole="button"
         >
-          <Sentence>
-            Add the deadline to your calendar. <Text style={{ color: color.dim }}>›</Text>
-          </Sentence>
-        </Pressable>
+          Add the deadline to your calendar.
+        </LinkSentence>
       ) : null}
       {w.results_expected_at ? (
-        <Pressable
+        <LinkSentence
+          style={{ marginTop: space.x12 }}
           onPress={() => addToCalendar({ title: `${label} — draw results`, date: w.results_expected_at! })}
-          accessibilityRole="button"
         >
-          <Sentence style={{ marginTop: space.x12 }}>
-            Add the results date too. <Text style={{ color: color.dim }}>›</Text>
-          </Sentence>
-        </Pressable>
+          Add the results date too.
+        </LinkSentence>
       ) : null}
-      <Pressable
+      <LinkSentence
+        style={{ marginTop: space.x12 }}
         onPress={() =>
           router.push({
             pathname: '/application-edit',
@@ -216,18 +212,13 @@ export default function WindowDetail() {
             },
           })
         }
-        accessibilityRole="button"
       >
-        <Sentence style={{ marginTop: space.x12 }}>
-          Track this application under Tags. <Text style={{ color: color.dim }}>›</Text>
-        </Sentence>
-      </Pressable>
+        Track this application under Tags.
+      </LinkSentence>
       <LicenseRow stateName={w.state?.name} url={w.state?.license_url} />
-      <Pressable onPress={onShare} accessibilityRole="button">
-        <Sentence style={{ marginTop: space.x12 }}>
-          Share this deadline with a buddy. <Text style={{ color: color.dim }}>›</Text>
-        </Sentence>
-      </Pressable>
+      <LinkSentence style={{ marginTop: space.x12 }} onPress={onShare}>
+        Share this deadline with a buddy.
+      </LinkSentence>
 
       <ProvenanceBlock
         verifiedAt={w.last_verified_at}
@@ -235,11 +226,9 @@ export default function WindowDetail() {
         url={w.source?.url ?? null}
       />
 
-      <Pressable onPress={onReport} accessibilityRole="button" style={{ marginTop: space.x16 }}>
-        <Sentence tone="dim" style={{ fontSize: 13 }}>
-          Something look wrong? Report this date.
-        </Sentence>
-      </Pressable>
+      <LinkSentence size={13} style={{ marginTop: space.x16 }} onPress={onReport}>
+        Something look wrong? Report this date.
+      </LinkSentence>
     </Screen>
   );
 }

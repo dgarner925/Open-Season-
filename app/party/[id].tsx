@@ -1,7 +1,7 @@
 import { Stack, useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback } from 'react';
 import { ActivityIndicator, Alert, Pressable, Share, StyleSheet, Text, View } from 'react-native';
-import { Pill, Rule, Screen, Sentence, Serif, Thread } from '@/components/system';
+import { LinkSentence, Pill, Rule, Screen, Sentence, Serif, Thread } from '@/components/system';
 import {
   usePartyById,
   usePartyRoster,
@@ -245,9 +245,9 @@ export default function Party() {
         ) : null}
       </View>
 
-      <Pressable onPress={onLeave} accessibilityRole="button" style={{ marginTop: space.section }}>
-        <Sentence tone="dim">{iAmOwner ? 'Dissolve this party.' : 'Leave this party.'}</Sentence>
-      </Pressable>
+      <LinkSentence size={13} style={{ marginTop: space.section }} onPress={onLeave}>
+        {iAmOwner ? 'Dissolve this party.' : 'Leave this party.'}
+      </LinkSentence>
     </Screen>
   );
 }
