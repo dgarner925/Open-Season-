@@ -1,5 +1,5 @@
-import { Stack, useRouter } from 'expo-router';
-import { useState } from 'react';
+import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
+import { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, StyleSheet, TextInput, View } from 'react-native';
 import { Pill, Row, Rule, Screen, Sentence, Serif } from '@/components/system';
 import { useJoinParty, useMyParties } from '@/features/parties/queries';
@@ -12,6 +12,7 @@ const { color, space, type } = lang;
 
 export default function Parties() {
   const router = useRouter();
+  const params = useLocalSearchParams<{ code?: string }>();
   const { data: parties = [], isLoading } = useMyParties();
   const join = useJoinParty();
   const requirePro = useRequirePro();
@@ -20,6 +21,17 @@ export default function Parties() {
   // which left Android's join button dead).
   const [joining, setJoining] = useState(false);
   const [code, setCode] = useState('');
+
+  // An invite link (osdatesanddraws.com/join/?c=CODE -> openseason://parties?code=CODE)
+  // lands here with the code aboard: open the join flow pre-filled, one tap
+  // from the roster. The Pro gate still applies, same as tapping Join by hand.
+  useEffect(() => {
+    const c = typeof params.code === 'string' ? params.code.trim() : '';
+    if (!c) return;
+    setCode(c.toUpperCase());
+    if (requirePro()) setJoining(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [params.code]);
 
   function onJoinStart() {
     if (!requirePro()) return;

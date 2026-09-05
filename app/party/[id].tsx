@@ -75,9 +75,9 @@ export default function Party() {
   async function onInvite() {
     await Share.share({
       message:
-        `Join my hunting party for ${isDraw ? `the ${label} draw` : `${label} season`} on Open Season. ` +
-        `Open the app → Profile → Hunting parties → code ${party!.invite_code}. ` +
-        `Don't have the app? ${STORE_URL}`,
+        `Join my hunting party for ${isDraw ? `the ${label} draw` : `${label} season`} on Open Season: ` +
+        `https://osdatesanddraws.com/join/?c=${party!.invite_code} ` +
+        `(code ${party!.invite_code})`,
     }).catch(() => {});
   }
 
