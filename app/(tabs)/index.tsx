@@ -91,8 +91,6 @@ export default function Home() {
     ...new Set([...follows.map((f) => f.state_id), ...(profile?.resident_state_id ? [profile.resident_state_id] : [])]),
   ];
   const followedPairs = new Set(follows.map((f) => `${f.state_id}|${f.species_id}`));
-  // Today's legal light on the hero — the 5 AM answer, zero taps (David, 2026-09-05).
-  const todayLight = useLegalLight(homeStateCode, 0);
   const hasFollows = follows.length > 0;
   const locationLabel = !hasFollows ? 'Add your hunts' : trackedStates.length === 1 ? (states.find((s) => s.code === trackedStates[0])?.name ?? trackedStates[0]!) : `${trackedStates.length} states`;
 
@@ -144,18 +142,9 @@ export default function Home() {
           )}
         </View>
 
-        {/* The light strip closes the hero — today's window between two copper
-            rules, like the masthead line under a banner (David picked B,
-            2026-09-06). */}
-        {todayLight ? (
-          <View style={styles.lightStrip}>
-            <Text style={styles.lightTimes}>
-              {todayLight.approx ? '≈ ' : ''}
-              {todayLight.window}
-            </Text>
-            <Text style={styles.lightLabel}>legal light today</Text>
-          </View>
-        ) : null}
+        {/* The Daily Outlook — the Weekend Brief's everyday sibling: today's
+            legal light and today's dawn conditions (David, 2026-09-06). */}
+        <DailyOutlookCard stateCode={homeStateCode} />
 
         <View style={{ marginTop: spacing.xl }}>
           <NotificationsOffBanner />
@@ -240,6 +229,61 @@ export default function Home() {
         </View>
       </ScrollView>
     </SafeAreaView>
+  );
+}
+
+/**
+ * The Daily Outlook — every day of the year: today's legal light and today's
+ * dawn conditions, in the brief card's clothes. The moon renders even offline;
+ * the weather columns appear as NWS answers.
+ */
+function DailyOutlookCard({ stateCode }: { stateCode: string | null }) {
+  const light = useLegalLight(stateCode, 0);
+  const dawn = useDawnConditions(stateCode, 0);
+  if (!light && !dawn) return null;
+  const now = new Date();
+  const head = `${['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'][now.getDay()]}, ${MONTHS[now.getMonth()]} ${now.getDate()}`;
+  return (
+    <View style={styles.briefCard}>
+      <View style={styles.briefHead}>
+        <AppText variant="overline" color={theme.color.accentSoft}>
+          THE DAILY OUTLOOK
+        </AppText>
+        <AppText variant="overline" color={theme.color.textMuted}>
+          {head}
+        </AppText>
+      </View>
+      <View style={styles.briefRule} />
+      {light ? (
+        <View style={styles.outlookLight}>
+          <Text style={styles.lightTimes}>
+            {light.approx ? '≈ ' : ''}
+            {light.window}
+          </Text>
+          <Text style={styles.lightLabel}>legal light</Text>
+        </View>
+      ) : null}
+      {dawn ? (
+        <>
+          <View style={styles.almanacRow}>
+            {dawn.tempF != null ? <AlmanacCol value={`${dawn.tempF}°`} label={(dawn.sky ?? 'temp').toUpperCase()} first /> : null}
+            {dawn.windDir && dawn.windMph != null ? (
+              <AlmanacCol value={`${dawn.windDir} ${dawn.windMph}`} label="WIND · MPH" first={dawn.tempF == null} />
+            ) : null}
+            {dawn.pressureInHg != null ? (
+              <AlmanacCol
+                value={dawn.pressureInHg.toFixed(1)}
+                label={dawn.pressureTrend ? `PRESSURE · ${dawn.pressureTrend.toUpperCase()}` : 'PRESSURE'}
+                trend={dawn.pressureTrend}
+                first={false}
+              />
+            ) : null}
+            <AlmanacCol value={`${dawn.moonPct}%`} label={`MOON · ${dawn.moonWaxing ? 'WAXING' : 'WANING'}`} first={false} />
+          </View>
+          {dawn.frontLine ? <Text style={styles.briefLight}>{dawn.frontLine}</Text> : null}
+        </>
+      ) : null}
+    </View>
   );
 }
 
@@ -464,18 +508,7 @@ const styles = StyleSheet.create({
   heroBlock: { marginTop: spacing.xl },
   hero: { fontSize: 62, lineHeight: 70, paddingTop: 4 },
   dateLine: { marginTop: spacing.lg },
-  lightStrip: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-    justifyContent: 'space-between',
-    marginTop: spacing.xl,
-    marginHorizontal: -lang.space.gutter,
-    paddingHorizontal: lang.space.gutter,
-    paddingVertical: spacing.md,
-    borderTopWidth: 1,
-    borderBottomWidth: 1,
-    borderColor: lang.color.rule,
-  },
+  outlookLight: { flexDirection: 'row', alignItems: 'baseline', gap: spacing.md, marginVertical: 2 },
   lightTimes: { fontFamily: fontFamily.serif, fontSize: 22, color: lang.color.bone },
   lightLabel: { fontFamily: fontFamily.sansMedium, fontSize: 12.5, color: theme.color.textMuted },
   greeting: { fontFamily: fontFamily.sansMedium, fontSize: 15, color: theme.color.textSecondary, marginTop: spacing.xs },
