@@ -111,7 +111,7 @@ export default function Onboarding() {
           {step === 0
             ? 'Pick the states you hunt.'
             : step === 1
-              ? 'Only what's legal in your states. Pick what you follow.'
+              ? "Only what's legal in your states. Pick what you follow."
               : "We'll remind you before every opener and application deadline — so you never miss a season."}
         </Sentence>
       </View>
