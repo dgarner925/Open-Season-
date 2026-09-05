@@ -277,7 +277,7 @@ function SeasonPageBody({ id }: { id: string | undefined }) {
           <Sentence style={{ marginTop: season.bag_limit_summary ? space.x8 : space.x12 }}>{season.notes}</Sentence>
         ) : null}
         {!season.bag_limit_summary && !season.notes ? (
-          <Sentence style={{ marginTop: space.x12 }}>No bag limit or notes on file — check the official regulations.</Sentence>
+          <Sentence style={{ marginTop: space.x12 }}>No bag limit on file. Check the state regs.</Sentence>
         ) : null}
       </View>
 
@@ -332,7 +332,7 @@ function SeasonPageBody({ id }: { id: string | undefined }) {
                 })
               }
             >
-              Every day's hours, the whole season.
+              Shooting hours for every day.
             </LinkSentence>
           ) : null}
         </View>
@@ -358,7 +358,7 @@ function SeasonPageBody({ id }: { id: string | undefined }) {
       {/* The caveat sits directly above the action it qualifies. */}
       {armed ? (
         <Sentence tone="dim" style={{ marginBottom: space.x16, fontSize: 13 }}>
-          We'll remind you before the opener — adjust how far ahead in Profile.
+          You'll get a reminder before the opener. Change the timing in Profile.
         </Sentence>
       ) : null}
       <View style={styles.actions}>

@@ -48,7 +48,7 @@ export function LicenseRow({ stateName, url }: { stateName: string | null | unde
     <ActionRow
       icon="ticket-outline"
       title={`Buy your ${stateName ?? ''} license before you go.`}
-      sub="Straight to the official licensing site."
+      sub="Opens the state's licensing site."
       onPress={() => openExternalUrl(url)}
     />
   );

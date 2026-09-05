@@ -154,7 +154,7 @@ export default function ShootingHours() {
 
       {rows && rows.length > 0 ? (
         <LinkSentence style={{ marginTop: space.section }} onPress={onShare}>
-          Share the table — print it for the dash.
+          Share or print this table.
         </LinkSentence>
       ) : null}
       {rule.note ? (

@@ -34,7 +34,7 @@ export default function HowTo() {
     <Screen scroll>
       <Stack.Screen options={{ headerShown: true, title: 'How it works' }} />
 
-      <Sentence style={{ marginTop: space.x16 }}>Setup to opening day, in five steps.</Sentence>
+      <Sentence style={{ marginTop: space.x16 }}>Five steps to opening day.</Sentence>
 
       {STEPS.map((s, i) => (
         <View key={s.title}>

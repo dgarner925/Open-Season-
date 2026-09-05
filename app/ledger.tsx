@@ -60,7 +60,7 @@ export default function Ledger() {
         <ActivityIndicator color={color.copper} style={{ marginTop: space.x38 }} />
       ) : apps.length === 0 ? (
         <Sentence style={{ marginTop: space.section }}>
-          Nothing tracked yet. Open any draw and tap "Track this application under Tags" — it lands here.
+          Nothing here yet. Track a draw from any deadline page.
         </Sentence>
       ) : (
         <>

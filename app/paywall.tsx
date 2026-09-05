@@ -93,7 +93,7 @@ export default function Paywall() {
       <Stack.Screen options={{ headerShown: true, title: 'Open Season Pro' }} />
 
       <Sentence tone="bone" style={{ marginTop: space.x16 }}>
-        Browsing is free, forever. Pro is the reminder machine — it works while you don't.
+        Every date in the app is free. Pro remembers them for you.
       </Sentence>
 
       {PITCH.map((p) => (
@@ -135,7 +135,7 @@ export default function Paywall() {
 
       <Pressable onPress={restore} disabled={busy !== null} accessibilityRole="button" style={{ marginTop: space.section }}>
         <Sentence tone="dim">
-          {busy === 'restore' ? 'Restoring…' : 'Bought Pro before, or the app back when it was paid? Restore purchases.'}
+          {busy === 'restore' ? 'Restoring…' : 'Already paid? Restore purchases.'}
         </Sentence>
       </Pressable>
 

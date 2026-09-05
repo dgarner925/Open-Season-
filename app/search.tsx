@@ -86,7 +86,7 @@ export default function Search() {
       ) : shown.length === 0 ? (
         <Sentence style={{ marginTop: space.x38 }}>
           {query.trim() || openNow || myState || deadlinesOnly
-            ? 'Nothing matches — try a species, a state, or a month.'
+            ? 'No matches. Try a species, state, or month.'
             : 'Search every season, deadline, and federal permit hunt in all 50 states.'}
         </Sentence>
       ) : (

@@ -56,7 +56,7 @@ export default function ResetPassword() {
     setSaving(true);
     try {
       await updatePassword(password);
-      setNotice({ tone: 'info', text: 'Password updated — taking you to your hunts…' });
+      setNotice({ tone: 'info', text: 'Password updated.' });
       setTimeout(() => router.replace('/'), 900);
     } catch (e) {
       setNotice({ tone: 'error', text: e instanceof Error ? e.message : 'Could not update password. Try again.' });

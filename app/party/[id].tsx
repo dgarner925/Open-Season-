@@ -76,7 +76,7 @@ export default function Party() {
 
   const partySentence =
     roster.length <= 1
-      ? "It's just you so far — invite your buddies below."
+      ? "Just you so far."
       : `${nw(roster.length)} of you are in.${
           isDraw
             ? ` ${appliedCount === 0 ? 'Nobody has applied yet.' : appliedCount === roster.length ? 'Everyone has applied.' : `${nw(appliedCount)} ${appliedCount === 1 ? 'has' : 'have'} applied.`}`

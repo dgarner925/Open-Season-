@@ -109,9 +109,9 @@ export default function Onboarding() {
         </Serif>
         <Sentence style={{ marginTop: space.x8, maxWidth: 310 }}>
           {step === 0
-            ? 'Choose the states you hunt — pick as many as you like.'
+            ? 'Pick the states you hunt.'
             : step === 1
-              ? 'Just the species you can hunt in the states you picked. Choose what to track.'
+              ? 'Only what's legal in your states. Pick what you follow.'
               : "We'll remind you before every opener and application deadline — so you never miss a season."}
         </Sentence>
       </View>

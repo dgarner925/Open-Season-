@@ -207,6 +207,10 @@ export default function ApplicationEdit() {
     <Screen scroll>
       <Stack.Screen options={{ headerShown: true, title: editing ? 'Edit application' : 'New application' }} />
 
+      {!editing ? (
+        <Sentence style={{ marginTop: space.x16 }}>Track any application, even one the app doesn't list.</Sentence>
+      ) : null}
+
       <Micro style={{ marginTop: space.x16 }}>What do you call it?</Micro>
       <Input
         value={form.title}
@@ -290,7 +294,7 @@ export default function ApplicationEdit() {
             <Input value={form.results_on} onChangeText={(v) => set('results_on', v)} placeholder="YYYY-MM-DD" />
           </View>
         </View>
-        <Micro style={styles.fieldLabel}>The portal, so results day is one tap</Micro>
+        <Micro style={styles.fieldLabel}>The state's application site</Micro>
         <Input
           value={form.application_url}
           onChangeText={(v) => set('application_url', v)}

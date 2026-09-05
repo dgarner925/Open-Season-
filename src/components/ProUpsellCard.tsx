@@ -17,8 +17,8 @@ export function ProUpsellCard({ context = 'home' }: { context?: 'home' | 'alerts
   if (isPro || loading) return null;
   const copy =
     context === 'alerts'
-      ? 'Reminders are paused on the free plan. Go Pro and every alert below starts working.'
-      : 'You’re browsing free. Go Pro to get opener and deadline reminders for everything you follow.';
+      ? 'These are set up but paused — Pro turns them on.'
+      : 'Reminders are off on the free plan. Pro turns them on.';
   return (
     <Pressable
       onPress={() => router.push('/paywall')}

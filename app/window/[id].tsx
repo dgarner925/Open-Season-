@@ -151,7 +151,7 @@ export default function WindowDetail() {
 
         {w.fee_summary ? <Sentence>{w.fee_summary}</Sentence> : null}
         {w.notes ? <Sentence style={{ marginTop: w.fee_summary ? space.x12 : 0 }}>{w.notes}</Sentence> : null}
-        {!w.fee_summary && !w.notes ? <Sentence>No fees or notes on file — check the official source.</Sentence> : null}
+        {!w.fee_summary && !w.notes ? <Sentence>No fee info on file.</Sentence> : null}
       </View>
 
       <Rule />
@@ -159,7 +159,7 @@ export default function WindowDetail() {
       {/* The caveat sits above the action that leaves the app. */}
       {w.application_url ? (
         <Sentence tone="dim" style={{ marginBottom: space.x16, fontSize: 13, paddingLeft: 26 }}>
-          The application itself happens on the state's official site.
+          You'll apply on the state's site.
         </Sentence>
       ) : null}
       <View style={styles.actions}>
@@ -213,7 +213,7 @@ export default function WindowDetail() {
           })
         }
       >
-        Track this application under Tags.
+        Track this application in your ledger.
       </LinkSentence>
       <LicenseRow stateName={w.state?.name} url={w.state?.license_url} />
       <LinkSentence style={{ marginTop: space.x12 }} onPress={onShare}>
