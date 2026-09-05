@@ -509,8 +509,14 @@ const styles = StyleSheet.create({
   hero: { fontSize: 62, lineHeight: 70, paddingTop: 4 },
   dateLine: { marginTop: spacing.lg },
   outlookLight: { flexDirection: 'row', alignItems: 'baseline', gap: spacing.md, marginVertical: 2 },
-  lightTimes: { fontFamily: fontFamily.serif, fontSize: 30, color: lang.color.copper },
-  lightLabel: { fontFamily: fontFamily.sansMedium, fontSize: 12.5, color: theme.color.textMuted },
+  lightTimes: { fontFamily: fontFamily.serif, fontSize: 22, color: lang.color.bone },
+  lightLabel: {
+    fontFamily: fontFamily.sansSemiBold,
+    fontSize: 12,
+    letterSpacing: 1.8,
+    textTransform: 'uppercase',
+    color: lang.color.copper,
+  },
   greeting: { fontFamily: fontFamily.sansMedium, fontSize: 15, color: theme.color.textSecondary, marginTop: spacing.xs },
   greetingName: { fontFamily: fontFamily.sansSemiBold, color: lang.color.copper },
 
