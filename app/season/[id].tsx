@@ -142,7 +142,8 @@ function SeasonPageBody({ id }: { id: string | undefined }) {
       { seasonId: id! },
       {
         onSuccess: ({ party_id }) => router.push({ pathname: '/party/[id]', params: { id: party_id } }),
-        onError: () => Alert.alert('Could not start a party', 'Please try again in a moment.'),
+        onError: (e) =>
+          Alert.alert('Could not start a party', e instanceof Error && e.message ? e.message : 'Please try again in a moment.'),
       },
     );
   }
