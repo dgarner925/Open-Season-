@@ -1,11 +1,13 @@
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
-import { ActivityIndicator, Alert, Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { useEffect, useMemo, useState } from 'react';
+import { ActivityIndicator, Alert, FlatList, Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { Micro, Pill, Screen, Sentence, Serif, SunArc } from '@/components/system';
 import { Disclaimer } from '@/components/Provenance';
 import { LicenseRow } from '@/components/LicenseRow';
 import { useAuth } from '@/providers/AuthProvider';
-import { useSeasonById } from '@/features/reference/queries';
+import { useFollowedSeasons, useSeasonById } from '@/features/reference/queries';
+import type { SeasonWithRefs } from '@/features/reference/types';
 import { useMethodReminder } from '@/features/follows/queries';
 import { useCreateParty, useMyParties } from '@/features/parties/queries';
 import { useLegalLight } from '@/features/legalLight/useLegalLight';
@@ -31,10 +33,93 @@ function cap(s: string) {
   return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
-/** The reference implementation of the field-journal language. */
+/**
+ * Pager wrapper (David's swipe idea, approved 2026-09-06): when the season you
+ * opened belongs to a followed hunt, the screen becomes horizontally pageable
+ * across ALL your followed hunts — one page per (state, species) follow,
+ * showing its current-or-next season, ordered open-first like Home. Copper
+ * dots signal position; an unfollowed season stays a single page. Precedent:
+ * Apple Weather's city paging, Flighty's flight paging.
+ */
 export default function SeasonDetail() {
-  const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
+  const { width } = useWindowDimensions();
+  const { data: followedSeasons = [] } = useFollowedSeasons();
+  const [pageIndex, setPageIndex] = useState(0);
+
+  // One representative season per followed pair: open now, else soonest
+  // upcoming, else the most recent. The tapped season stands in for its pair.
+  const pages = useMemo(() => {
+    const iso = new Date().toISOString().slice(0, 10);
+    const byPair = new Map<string, SeasonWithRefs[]>();
+    for (const s of followedSeasons) {
+      const k = `${s.state_id}|${s.species_id}`;
+      const arr = byPair.get(k) ?? [];
+      arr.push(s);
+      byPair.set(k, arr);
+    }
+    const reps: { key: string; seasonId: string; openNow: boolean; nextOpen: string }[] = [];
+    for (const [key, arr] of byPair) {
+      const open = arr.find((s) => s.open_date && s.close_date && s.open_date <= iso && iso <= s.close_date);
+      const upcoming = arr
+        .filter((s) => s.open_date && s.open_date > iso)
+        .sort((a, b) => (a.open_date! < b.open_date! ? -1 : 1))[0];
+      const rep = open ?? upcoming ?? arr[0];
+      if (!rep) continue;
+      reps.push({ key, seasonId: rep.id, openNow: Boolean(open), nextOpen: rep.open_date ?? '9999' });
+    }
+    reps.sort((a, b) => Number(b.openNow) - Number(a.openNow) || a.nextOpen.localeCompare(b.nextOpen));
+    // The tapped season replaces its pair's representative, wherever it sits.
+    const tapped = followedSeasons.find((s) => s.id === id);
+    if (!tapped) return null; // not followed — no pager
+    const idx = reps.findIndex((r) => r.key === `${tapped.state_id}|${tapped.species_id}`);
+    if (idx === -1) return null;
+    reps[idx] = { ...reps[idx], seasonId: id! };
+    return reps;
+  }, [followedSeasons, id]);
+
+  const startIndex = useMemo(() => Math.max(0, (pages ?? []).findIndex((p) => p.seasonId === id)), [pages, id]);
+  useEffect(() => setPageIndex(startIndex), [startIndex]);
+
+  if (!pages || pages.length <= 1) {
+    return (
+      <View style={{ flex: 1, backgroundColor: color.bg }}>
+        <Stack.Screen options={{ headerShown: true, title: '' }} />
+        <SeasonPageBody id={id} />
+      </View>
+    );
+  }
+
+  return (
+    <View style={{ flex: 1, backgroundColor: color.bg }}>
+      <Stack.Screen options={{ headerShown: true, title: '' }} />
+      <FlatList
+        data={pages}
+        horizontal
+        pagingEnabled
+        showsHorizontalScrollIndicator={false}
+        keyExtractor={(p) => p.key}
+        initialScrollIndex={startIndex}
+        getItemLayout={(_, i) => ({ length: width, offset: width * i, index: i })}
+        onMomentumScrollEnd={(e) => setPageIndex(Math.round(e.nativeEvent.contentOffset.x / width))}
+        renderItem={({ item }) => (
+          <View style={{ width }}>
+            <SeasonPageBody id={item.seasonId} />
+          </View>
+        )}
+      />
+      <View style={styles.dots} pointerEvents="none">
+        {pages.map((p, i) => (
+          <View key={p.key} style={[styles.dot, i === pageIndex && styles.dotActive]} />
+        ))}
+      </View>
+    </View>
+  );
+}
+
+/** One hunt's page — the field-journal season detail, unchanged. */
+function SeasonPageBody({ id }: { id: string | undefined }) {
+  const router = useRouter();
   const { data: season, isLoading } = useSeasonById(id);
   const { profile } = useAuth();
   const requirePro = useRequirePro();
@@ -151,8 +236,6 @@ export default function SeasonDetail() {
 
   return (
     <Screen scroll>
-      <Stack.Screen options={{ headerShown: true, title: '' }} />
-
       {/* The cascade: species first, then the hunt, then its dates, then its light. */}
       <Serif size={type.size.hero} style={{ marginTop: space.x16, lineHeight: type.size.hero + 6 }}>
         {season.species?.name ?? cap(season.method)}
@@ -319,4 +402,16 @@ const styles = StyleSheet.create({
   },
   tickRow: { height: 16, marginTop: 2 },
   actions: { flexDirection: 'row', gap: space.x12 },
+  dots: {
+    position: 'absolute',
+    bottom: 10,
+    left: 0,
+    right: 0,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 7,
+  },
+  dot: { width: 6, height: 6, borderRadius: 3, backgroundColor: 'rgba(255,255,255,0.25)' },
+  dotActive: { width: 8, height: 8, borderRadius: 4, backgroundColor: color.copper },
 });
