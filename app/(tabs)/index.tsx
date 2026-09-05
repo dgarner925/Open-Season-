@@ -135,15 +135,6 @@ export default function Home() {
           <AppText variant="overline" color={theme.color.textMuted} style={styles.dateLine}>
             {WEEKDAYS[now.getDay()]}, {MONTHS[now.getMonth()]} {now.getDate()}
           </AppText>
-          {todayLight ? (
-            <View style={styles.lightRow}>
-              <Text style={styles.lightTimes}>
-                {todayLight.approx ? '≈ ' : ''}
-                {todayLight.window}
-              </Text>
-              <Text style={styles.lightLabel}>legal light today</Text>
-            </View>
-          ) : null}
           {firstName ? (
             <Text style={styles.greeting}>
               {partOfDay}, <Text style={styles.greetingName}>{firstName}</Text>
@@ -152,6 +143,19 @@ export default function Home() {
             <Text style={styles.greeting}>{partOfDay}</Text>
           )}
         </View>
+
+        {/* The light strip closes the hero — today's window between two copper
+            rules, like the masthead line under a banner (David picked B,
+            2026-09-06). */}
+        {todayLight ? (
+          <View style={styles.lightStrip}>
+            <Text style={styles.lightTimes}>
+              {todayLight.approx ? '≈ ' : ''}
+              {todayLight.window}
+            </Text>
+            <Text style={styles.lightLabel}>legal light today</Text>
+          </View>
+        ) : null}
 
         <View style={{ marginTop: spacing.xl }}>
           <NotificationsOffBanner />
@@ -460,8 +464,19 @@ const styles = StyleSheet.create({
   heroBlock: { marginTop: spacing.xl },
   hero: { fontSize: 62, lineHeight: 70, paddingTop: 4 },
   dateLine: { marginTop: spacing.lg },
-  lightRow: { flexDirection: 'row', alignItems: 'baseline', gap: spacing.md, marginTop: spacing.sm },
-  lightTimes: { fontFamily: fontFamily.serif, fontSize: 21, color: lang.color.bone },
+  lightStrip: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    justifyContent: 'space-between',
+    marginTop: spacing.xl,
+    marginHorizontal: -lang.space.gutter,
+    paddingHorizontal: lang.space.gutter,
+    paddingVertical: spacing.md,
+    borderTopWidth: 1,
+    borderBottomWidth: 1,
+    borderColor: lang.color.rule,
+  },
+  lightTimes: { fontFamily: fontFamily.serif, fontSize: 22, color: lang.color.bone },
   lightLabel: { fontFamily: fontFamily.sansMedium, fontSize: 12.5, color: theme.color.textMuted },
   greeting: { fontFamily: fontFamily.sansMedium, fontSize: 15, color: theme.color.textSecondary, marginTop: spacing.xs },
   greetingName: { fontFamily: fontFamily.sansSemiBold, color: lang.color.copper },
