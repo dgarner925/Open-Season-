@@ -66,8 +66,16 @@ export function useDawnConditions(stateCode: string | null | undefined, dayOffse
 
       const day = new Date();
       day.setDate(day.getDate() + dayOffset);
-      const dawn = SunCalc.getTimes(day, at.lat, at.lng).sunrise;
+      let dawn = SunCalc.getTimes(day, at.lat, at.lng).sunrise;
       if (!dawn || isNaN(dawn.getTime())) return;
+      // A dawn already behind us can't be forecast (NWS only looks forward),
+      // and an evening hunter is planning tomorrow morning anyway — advance to
+      // the NEXT first light (David's evening moon-only card, 2026-09-06).
+      if (dawn.getTime() < Date.now()) {
+        day.setDate(day.getDate() + 1);
+        dawn = SunCalc.getTimes(day, at.lat, at.lng).sunrise;
+        if (!dawn || isNaN(dawn.getTime())) return;
+      }
       const dayName = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][day.getDay()];
 
       // The moon needs no network — it anchors the row even offline.
@@ -75,7 +83,7 @@ export function useDawnConditions(stateCode: string | null | undefined, dayOffse
       const moonPct = Math.round(illum.fraction * 100);
       const moonWaxing = illum.phase < 0.5;
 
-      const key = `${at.lat.toFixed(2)},${at.lng.toFixed(2)},${dayOffset}`;
+      const key = `${at.lat.toFixed(2)},${at.lng.toFixed(2)},${day.toISOString().slice(0, 10)}`;
       const cached = cache.get(key);
       if (cached) {
         if (!cancelled) setResult(cached);
@@ -164,7 +172,9 @@ export function useDawnConditions(stateCode: string | null | undefined, dayOffse
         frontLine,
         approx: !fix,
       };
-      cache.set(key, out);
+      // A moon-only result means the network flaked — show it, but don't
+      // cache it, so the next mount tries the weather again.
+      if (tempF != null || pressureInHg != null) cache.set(key, out);
       if (!cancelled) setResult(out);
     })();
     return () => {

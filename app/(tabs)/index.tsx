@@ -274,6 +274,11 @@ function DailyOutlookCard({ stateCode }: { stateCode: string | null }) {
       ) : null}
       {dawn ? (
         <>
+          <Text style={styles.almanacHead}>
+            {dawn.dayName === ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][now.getDay()]
+              ? 'AT FIRST LIGHT'
+              : `${dawn.dayName.toUpperCase()} AT FIRST LIGHT`}
+          </Text>
           <View style={styles.almanacRow}>
             {dawn.tempF != null ? <AlmanacCol value={`${dawn.tempF}°`} label={(dawn.sky ?? 'temp').toUpperCase()} first /> : null}
             {dawn.windDir && dawn.windMph != null ? (
