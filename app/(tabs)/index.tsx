@@ -49,7 +49,7 @@ function rosterStatus(seasons: SeasonWithRefs[]): { state: 'open' | 'upcoming' |
 export default function Home() {
   const router = useRouter();
   const { profile } = useAuth();
-  const { data: follows = [] } = useFollows();
+  const { data: follows = [], isError: followsError } = useFollows();
   const { data: permitFollows = [] } = usePermitFollows();
   const { data: seasons = [], isLoading } = useFollowedSeasons();
   const { data: allSpecies = [] } = useSpecies();
@@ -166,7 +166,16 @@ export default function Home() {
           <StatTile value={deadlineCount} label="Deadlines" onPress={() => router.push('/applications')} />
         </View>
 
-        {isLoading ? null : !hasFollows ? (
+        {isLoading ? null : followsError && !hasFollows ? (
+          /* A failed fetch must never dress up as a fresh account — that
+             looked like a wiped app on a Sunday morning (2026-09-06). */
+          <Pressable onPress={() => queryClient.invalidateQueries()} style={styles.emptyCard}>
+            <AppText variant="h3">Couldn't reach camp.</AppText>
+            <AppText variant="caption" color={theme.color.textSecondary}>
+              Your hunts are safe — the connection hiccuped. Tap to try again.
+            </AppText>
+          </Pressable>
+        ) : !hasFollows ? (
           <Pressable onPress={() => router.push('/follows')} style={styles.emptyCard}>
             <AppText variant="h3">Choose your quarry</AppText>
             <AppText variant="caption" color={theme.color.textSecondary}>
