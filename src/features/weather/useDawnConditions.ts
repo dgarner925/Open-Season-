@@ -54,6 +54,36 @@ async function fetchJson(url: string, timeoutMs = 8000): Promise<any | null> {
   }
 }
 
+export type LatLng = { lat: number; lng: number };
+
+// The /points lookup and the hourly forecast, session-cached per gridpoint —
+// shared with the outlook page, which reads a whole week of dawns from the
+// same periods list. Failures aren't cached, so the next mount tries again.
+const pointsCache = new Map<string, any>();
+const hourlyCache = new Map<string, any[]>();
+
+export async function fetchNwsPoints(at: LatLng): Promise<any | null> {
+  const key = `${at.lat.toFixed(2)},${at.lng.toFixed(2)}`;
+  const hit = pointsCache.get(key);
+  if (hit) return hit;
+  const points = await fetchJson(`https://api.weather.gov/points/${at.lat.toFixed(4)},${at.lng.toFixed(4)}`);
+  if (points?.properties) pointsCache.set(key, points);
+  return points;
+}
+
+export async function fetchHourlyPeriods(at: LatLng): Promise<any[]> {
+  const key = `${at.lat.toFixed(2)},${at.lng.toFixed(2)}`;
+  const hit = hourlyCache.get(key);
+  if (hit) return hit;
+  const points = await fetchNwsPoints(at);
+  const hourlyUrl = points?.properties?.forecastHourly;
+  if (!hourlyUrl) return [];
+  const hourly = await fetchJson(hourlyUrl);
+  const periods: any[] = hourly?.properties?.periods ?? [];
+  if (periods.length) hourlyCache.set(key, periods);
+  return periods;
+}
+
 export function useDawnConditions(stateCode: string | null | undefined, dayOffset = 1): DawnConditions {
   const [result, setResult] = useState<DawnConditions>(null);
 
@@ -98,13 +128,11 @@ export function useDawnConditions(stateCode: string | null | undefined, dayOffse
       let pressureTrend: 'falling' | 'rising' | 'steady' | null = null;
       let frontLine: string | null = null;
 
-      const points = await fetchJson(`https://api.weather.gov/points/${at.lat.toFixed(4)},${at.lng.toFixed(4)}`);
-      const hourlyUrl = points?.properties?.forecastHourly;
+      const points = await fetchNwsPoints(at);
       const stationsUrl = points?.properties?.observationStations;
 
-      if (hourlyUrl) {
-        const hourly = await fetchJson(hourlyUrl);
-        const periods: any[] = hourly?.properties?.periods ?? [];
+      {
+        const periods = await fetchHourlyPeriods(at);
         const dawnT = dawn.getTime();
         const atDawn = periods.find((p) => {
           const s = new Date(p.startTime).getTime();

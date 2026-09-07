@@ -154,7 +154,7 @@ export default function Settings() {
 
       <SectionRule label="THE PURSUIT" />
       <Card style={styles.group}>
-        <Row first title="What you follow" caption="Your states and species." onPress={() => router.push('/follows')} />
+        <Row first title="Manage your hunts" caption="Your states and species." onPress={() => router.push('/follows')} />
         <Row
           title="Residency"
           caption={residentStateName ? `Home state: ${residentStateName}.` : 'Set your home state for resident pricing.'}

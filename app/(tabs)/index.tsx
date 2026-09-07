@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AppText } from '@/components/ui';
+import { AlmanacCol, almanacStyles } from '@/components/AlmanacRow';
 import { PageTitle, SpeciesBadge } from '@/components/midnight';
 import { NotificationsOffBanner } from '@/components/NotificationsOffBanner';
 import { ProUpsellCard } from '@/components/ProUpsellCard';
@@ -143,8 +144,12 @@ export default function Home() {
         </View>
 
         {/* The Daily Outlook — the Weekend Brief's everyday sibling: today's
-            legal light and today's dawn conditions (David, 2026-09-06). */}
-        <DailyOutlookCard stateCode={homeStateCode} />
+            legal light and today's dawn conditions (David, 2026-09-06). Opens
+            the full outlook page. */}
+        <DailyOutlookCard
+          stateCode={homeStateCode}
+          onPress={homeStateCode ? () => router.push({ pathname: '/outlook', params: { state: homeStateCode } }) : undefined}
+        />
 
         <View style={{ marginTop: spacing.xl }}>
           <NotificationsOffBanner />
@@ -165,33 +170,6 @@ export default function Home() {
           <StatTile value={openerCount} label="Openers" onPress={() => router.push('/calendar')} />
           <StatTile value={deadlineCount} label="Deadlines" onPress={() => router.push('/applications')} />
         </View>
-
-        {isLoading ? null : followsError && !hasFollows ? (
-          /* A failed fetch must never dress up as a fresh account — that
-             looked like a wiped app on a Sunday morning (2026-09-06). */
-          <Pressable onPress={() => queryClient.invalidateQueries()} style={styles.emptyCard}>
-            <AppText variant="h3">Couldn't reach camp.</AppText>
-            <AppText variant="caption" color={theme.color.textSecondary}>
-              Your hunts are safe — the connection hiccuped. Tap to try again.
-            </AppText>
-          </Pressable>
-        ) : !hasFollows ? (
-          <Pressable onPress={() => router.push('/follows')} style={styles.emptyCard}>
-            <AppText variant="h3">Choose your quarry</AppText>
-            <AppText variant="caption" color={theme.color.textSecondary}>
-              Add states and the species you hunt to start tracking seasons and tag deadlines.
-            </AppText>
-          </Pressable>
-        ) : (
-          <View style={styles.section}>
-            <Serif size={22}>Your species</Serif>
-            <View style={styles.tileGroup}>
-              {roster.map((r, i) => (
-                <RosterRow key={r.speciesId} item={r} divider={i > 0} onPress={() => router.push({ pathname: '/species/[id]', params: { id: r.speciesId } })} />
-              ))}
-            </View>
-          </View>
-        )}
 
         {permitFollows.length > 0 ? (
           <View style={styles.section}>
@@ -233,9 +211,34 @@ export default function Home() {
           </View>
         ) : null}
 
-        <View style={styles.footer}>
-          <FooterLink icon="options-outline" label="Manage your hunts" onPress={() => router.push('/follows')} />
-        </View>
+        {/* What you follow ends the page (David, 2026-09-07) — managing it
+            lives on Profile now. */}
+        {isLoading ? null : followsError && !hasFollows ? (
+          /* A failed fetch must never dress up as a fresh account — that
+             looked like a wiped app on a Sunday morning (2026-09-06). */
+          <Pressable onPress={() => queryClient.invalidateQueries()} style={styles.emptyCard}>
+            <AppText variant="h3">Couldn't reach camp.</AppText>
+            <AppText variant="caption" color={theme.color.textSecondary}>
+              Your hunts are safe — the connection hiccuped. Tap to try again.
+            </AppText>
+          </Pressable>
+        ) : !hasFollows ? (
+          <Pressable onPress={() => router.push('/follows')} style={styles.emptyCard}>
+            <AppText variant="h3">Choose your quarry</AppText>
+            <AppText variant="caption" color={theme.color.textSecondary}>
+              Add states and the species you hunt to start tracking seasons and tag deadlines.
+            </AppText>
+          </Pressable>
+        ) : (
+          <View style={styles.section}>
+            <Serif size={22}>Your species</Serif>
+            <View style={styles.tileGroup}>
+              {roster.map((r, i) => (
+                <RosterRow key={r.speciesId} item={r} divider={i > 0} onPress={() => router.push({ pathname: '/species/[id]', params: { id: r.speciesId } })} />
+              ))}
+            </View>
+          </View>
+        )}
       </ScrollView>
     </SafeAreaView>
   );
@@ -246,21 +249,24 @@ export default function Home() {
  * dawn conditions, in the brief card's clothes. The moon renders even offline;
  * the weather columns appear as NWS answers.
  */
-function DailyOutlookCard({ stateCode }: { stateCode: string | null }) {
+function DailyOutlookCard({ stateCode, onPress }: { stateCode: string | null; onPress?: () => void }) {
   const light = useLegalLight(stateCode, 0);
   const dawn = useDawnConditions(stateCode, 0);
   if (!light && !dawn) return null;
   const now = new Date();
   const head = `${['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'][now.getDay()]}, ${MONTHS[now.getMonth()]} ${now.getDate()}`;
   return (
-    <View style={styles.briefCard}>
+    <Pressable onPress={onPress} disabled={!onPress} style={({ pressed }) => [styles.briefCard, pressed && !!onPress && styles.pressed]}>
       <View style={styles.briefHead}>
         <AppText variant="overline" color={theme.color.accentSoft}>
           THE DAILY OUTLOOK
         </AppText>
-        <AppText variant="overline" color={theme.color.textMuted}>
-          {head}
-        </AppText>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+          <AppText variant="overline" color={theme.color.textMuted}>
+            {head}
+          </AppText>
+          {onPress ? <Ionicons name="chevron-forward" size={12} color={lang.color.copper} /> : null}
+        </View>
       </View>
       <View style={styles.briefRule} />
       {light ? (
@@ -274,12 +280,12 @@ function DailyOutlookCard({ stateCode }: { stateCode: string | null }) {
       ) : null}
       {dawn ? (
         <>
-          <Text style={styles.almanacHead}>
+          <Text style={almanacStyles.head}>
             {dawn.dayName === ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][now.getDay()]
               ? 'AT FIRST LIGHT'
               : `${dawn.dayName.toUpperCase()} AT FIRST LIGHT`}
           </Text>
-          <View style={styles.almanacRow}>
+          <View style={almanacStyles.row}>
             {dawn.tempF != null ? <AlmanacCol value={`${dawn.tempF}°`} label={(dawn.sky ?? 'temp').toUpperCase()} first /> : null}
             {dawn.windDir && dawn.windMph != null ? (
               <AlmanacCol value={`${dawn.windDir} ${dawn.windMph}`} label="WIND · MPH" first={dawn.tempF == null} />
@@ -297,7 +303,7 @@ function DailyOutlookCard({ stateCode }: { stateCode: string | null }) {
           {dawn.frontLine ? <Text style={styles.briefLight}>{dawn.frontLine}</Text> : null}
         </>
       ) : null}
-    </View>
+    </Pressable>
   );
 }
 
@@ -415,10 +421,10 @@ function WeekendBriefCard({
       {dawn ? (
         <>
           <View style={styles.briefRule} />
-          <Text style={styles.almanacHead}>
+          <Text style={almanacStyles.head}>
             {dawn.dayName.toUpperCase()} DAWN{dawn.approx ? ' · ≈' : ''}
           </Text>
-          <View style={styles.almanacRow}>
+          <View style={almanacStyles.row}>
             {dawn.tempF != null ? (
               <AlmanacCol value={`${dawn.tempF}°`} label={(dawn.sky ?? 'temp').toUpperCase()} first />
             ) : null}
@@ -439,22 +445,6 @@ function WeekendBriefCard({
         </>
       ) : null}
     </Pressable>
-  );
-}
-
-/** One almanac column: serif value over a micro label; hairline to its left. */
-function AlmanacCol({ value, label, trend, first }: { value: string; label: string; trend?: 'falling' | 'rising' | 'steady' | null; first?: boolean }) {
-  return (
-    <View style={[styles.almanacCol, !first && styles.almanacColDivider]}>
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3 }}>
-        <Text style={styles.almanacValue}>{value}</Text>
-        {trend === 'falling' ? <Ionicons name="arrow-down" size={13} color={lang.color.copper} /> : null}
-        {trend === 'rising' ? <Ionicons name="arrow-up" size={13} color={lang.color.copper} /> : null}
-      </View>
-      <AppText variant="caption" color={theme.color.textMuted} style={styles.almanacLabel} numberOfLines={1}>
-        {label}
-      </AppText>
-    </View>
   );
 }
 
@@ -488,17 +478,6 @@ function RosterRow({ item, divider, onPress }: { item: RosterItem; divider: bool
         </AppText>
       </View>
       <Text style={[styles.rowMetric, { color: rightColor }]}>{right}</Text>
-    </Pressable>
-  );
-}
-
-function FooterLink({ icon, label, onPress }: { icon: keyof typeof Ionicons.glyphMap; label: string; onPress: () => void }) {
-  return (
-    <Pressable onPress={onPress} style={({ pressed }) => [styles.glassBtn, pressed && styles.pressed]}>
-      <Ionicons name={icon} size={14} color={theme.color.accentSoft} />
-      <AppText variant="caption" color={theme.color.textSecondary}>
-        {label}
-      </AppText>
     </Pressable>
   );
 }
@@ -552,13 +531,6 @@ const styles = StyleSheet.create({
   briefLine: { fontFamily: fontFamily.serifItalic, fontSize: 16.5, lineHeight: 24, color: lang.color.bone },
   briefLight: { fontFamily: fontFamily.sansMedium, fontSize: 12.5, color: theme.color.textMuted, marginTop: 4 },
 
-  almanacHead: { fontFamily: fontFamily.sansSemiBold, fontSize: 10, letterSpacing: 1.8, color: lang.color.dim, marginTop: 4 },
-  almanacRow: { flexDirection: 'row', marginTop: 6, marginBottom: 2 },
-  almanacCol: { flex: 1, alignItems: 'center', gap: 2, paddingVertical: 2 },
-  almanacColDivider: { borderLeftWidth: StyleSheet.hairlineWidth, borderLeftColor: theme.color.borderFlat },
-  almanacValue: { fontFamily: fontFamily.serif, fontSize: 19, color: lang.color.bone },
-  almanacLabel: { fontSize: 8.5, letterSpacing: 1, textAlign: 'center' },
-
   stats: { flexDirection: 'row', gap: spacing.sm, marginTop: spacing.xl },
   tile: { flex: 1, padding: spacing.lg, borderRadius: radius.md, backgroundColor: theme.color.surfaceFlat, borderWidth: StyleSheet.hairlineWidth, borderColor: theme.color.borderFlat, gap: 2 },
   tileValue: { fontFamily: fontFamily.serif, fontSize: 30, color: lang.color.copper },
@@ -589,7 +561,5 @@ const styles = StyleSheet.create({
   rowDivider: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: lang.color.hair },
   rowMetric: { fontFamily: fontFamily.sansSemiBold, fontSize: 13, marginLeft: spacing.md },
 
-  footer: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginTop: spacing.xxl },
-  glassBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: spacing.md, paddingVertical: 9, borderRadius: radius.pill, backgroundColor: 'rgba(255,255,255,0.06)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)' },
   pressed: { opacity: 0.85 },
 });

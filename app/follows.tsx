@@ -6,7 +6,7 @@ import { lang } from '@/theme/tokens';
 export default function ManageFollows() {
   return (
     <Screen scroll>
-      <Stack.Screen options={{ headerShown: true, title: 'What you follow' }} />
+      <Stack.Screen options={{ headerShown: true, title: 'Manage your hunts' }} />
       <Sentence style={{ marginTop: lang.space.x16 }}>
         Your hunts, state by state. Changes save instantly.
       </Sentence>
