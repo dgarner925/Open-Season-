@@ -13,5 +13,10 @@ export function drawTitle(speciesName: string | undefined | null, name: string |
   const n = (name ?? '').trim();
   if (!n) return `${species} Draw`.trim();
   if (species && new RegExp(`\\b${escapeRegExp(species)}\\b`, 'i').test(n)) return n;
+  // The head noun is enough: "Bobwhite quail" + "Quail Quota Hunts" is
+  // already self-describing — prefixing made "Bobwhite quail Quail Quota
+  // Hunts" (David's screenshot, 2026-09-07).
+  const head = species.split(/\s+/).pop() ?? '';
+  if (head && new RegExp(`\\b${escapeRegExp(head)}\\b`, 'i').test(n)) return n;
   return `${species} ${n}`.trim();
 }

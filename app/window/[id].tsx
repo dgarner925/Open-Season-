@@ -1,8 +1,8 @@
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
-import { ActivityIndicator, Alert, Pressable, Share, StyleSheet, Text, View } from 'react-native';
-import { LinkSentence, Pill, Rule, Screen, Sentence, Serif, Thread } from '@/components/system';
+import { ActivityIndicator, Alert, Share, StyleSheet, View } from 'react-native';
+import { LinkSentence, Micro, Rule, Screen, Sentence, Serif } from '@/components/system';
 import { ProvenanceBlock } from '@/components/Provenance';
-import { LicenseRow } from '@/components/LicenseRow';
+import { ActionRow, LicenseRow } from '@/components/LicenseRow';
 import { useWindowById } from '@/features/reference/queries';
 import { useCreateParty, useMyParties } from '@/features/parties/queries';
 import { useReportDate, promptReport } from '@/features/reports/queries';
@@ -24,8 +24,20 @@ function spoken(dateISO: string): string {
   const dt = new Date(y, m - 1, d);
   return `${WEEKDAYS[dt.getDay()]}, ${MONTHS[m - 1]} ${d}`;
 }
+function todayISO(): string {
+  const t = new Date();
+  return `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, '0')}-${String(t.getDate()).padStart(2, '0')}`;
+}
+function weekdayOf(dateISO: string): string {
+  const [y, m, d] = dateISO.split('-').map(Number);
+  return WEEKDAYS[new Date(y, m - 1, d).getDay()];
+}
+function monthDay(dateISO: string): string {
+  const [, m, d] = dateISO.split('-').map(Number);
+  return `${MONTHS[m - 1]} ${d}`;
+}
 
-/** The draw-deadline detail — the second Thread screen: opens → deadline → results. */
+/** The draw-deadline detail: THE DRAW tile, then the actions. */
 export default function WindowDetail() {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -42,6 +54,7 @@ export default function WindowDetail() {
       router.push({ pathname: '/party/[id]', params: { id: myParty.id } });
       return;
     }
+    if (createParty.isPending) return;
     if (!requirePro()) return;
     createParty.mutate(
       { windowId: id! },
@@ -113,16 +126,14 @@ export default function WindowDetail() {
       </Serif>
       <Sentence style={{ marginTop: space.x8 }}>{heroSentence}</Sentence>
 
-      <View style={styles.threaded}>
-        <Thread />
-
-        {w.opens_at ? (
-          <Sentence style={{ marginTop: space.x32 }}>The window opened {spoken(w.opens_at)}.</Sentence>
-        ) : null}
-
+      {/* THE DRAW — the deadline said once: the date, the countdown, the
+          window's history. Fee and notes only when we have them (the "No fee
+          info on file" row is gone — David's reflow, 2026-09-07). */}
+      <View style={styles.tile}>
+        <Micro>The draw</Micro>
         {w.closes_at ? (
           <>
-            <Serif size={30} style={{ marginTop: w.opens_at ? space.x16 : space.x32 }}>
+            <Serif size={30} style={{ marginTop: space.x12 }}>
               {formatDate(w.closes_at)}
             </Serif>
             <Sentence style={{ marginTop: space.x8 }}>
@@ -132,7 +143,7 @@ export default function WindowDetail() {
                   <Serif italic copper size={20}>
                     {d} {d === 1 ? 'day' : 'days'}
                   </Serif>
-                  {` — ${spoken(w.closes_at)}.`}
+                  {d === 0 ? ' — today.' : ` — that's a ${weekdayOf(w.closes_at)}.`}
                 </>
               ) : (
                 `This window closed ${spoken(w.closes_at)}.`
@@ -140,40 +151,41 @@ export default function WindowDetail() {
             </Sentence>
           </>
         ) : (
-          <Sentence style={{ marginTop: space.x32 }}>The closing date hasn't been posted yet.</Sentence>
+          <Sentence style={{ marginTop: space.x12 }}>The closing date hasn't been posted yet.</Sentence>
         )}
-
+        {w.opens_at ? (
+          <Sentence style={{ marginTop: space.x8 }}>
+            {w.opens_at <= todayISO()
+              ? `The window has been open since ${monthDay(w.opens_at)}.`
+              : `The window opens ${spoken(w.opens_at)}.`}
+          </Sentence>
+        ) : null}
         {w.results_expected_at ? (
-          <Sentence style={{ marginTop: space.x16 }}>Results expected {spoken(w.results_expected_at)}.</Sentence>
+          <Sentence style={{ marginTop: space.x8 }}>Results expected {spoken(w.results_expected_at)}.</Sentence>
         ) : null}
-
-        <Rule />
-
-        {w.fee_summary ? <Sentence>{w.fee_summary}</Sentence> : null}
-        {w.notes ? <Sentence style={{ marginTop: w.fee_summary ? space.x12 : 0 }}>{w.notes}</Sentence> : null}
-        {!w.fee_summary && !w.notes ? <Sentence>No fee info on file.</Sentence> : null}
+        {w.fee_summary || w.notes ? (
+          <>
+            <Rule />
+            {w.fee_summary ? <Sentence>{w.fee_summary}</Sentence> : null}
+            {w.notes ? <Sentence style={{ marginTop: w.fee_summary ? space.x12 : 0 }}>{w.notes}</Sentence> : null}
+          </>
+        ) : null}
       </View>
 
-      <Rule />
-
-      {/* The caveat sits above the action that leaves the app. */}
       {w.application_url ? (
-        <Sentence tone="dim" style={{ marginBottom: space.x16, fontSize: 13, paddingLeft: 26 }}>
-          You'll apply on the state's site.
-        </Sentence>
-      ) : null}
-      <View style={styles.actions}>
-        {w.application_url ? (
-          <Pill label="Apply on the official site" onPress={() => openExternalUrl(w.application_url)} style={{ flex: 1.4 }} />
-        ) : null}
-        <Pill
-          label={myParty ? 'View your party' : 'Hunt with your party'}
-          variant="secondary"
-          onPress={onParty}
-          disabled={createParty.isPending}
-          style={{ flex: 1 }}
+        <ActionRow
+          icon="open-outline"
+          title="Apply on the official site"
+          sub="You'll finish on the state's site."
+          onPress={() => openExternalUrl(w.application_url)}
         />
-      </View>
+      ) : null}
+      <ActionRow
+        icon="people-outline"
+        title={myParty ? 'View your party' : 'Hunt with your party'}
+        sub={myParty ? 'See who has applied.' : 'Plan the draw with your crew.'}
+        onPress={onParty}
+      />
 
       <Rule />
       {w.closes_at ? (
@@ -234,6 +246,12 @@ export default function WindowDetail() {
 }
 
 const styles = StyleSheet.create({
-  threaded: { position: 'relative', paddingLeft: 26, marginTop: space.x8 },
-  actions: { flexDirection: 'row', gap: space.x12 },
+  tile: {
+    marginTop: space.x16,
+    padding: space.gutter,
+    borderRadius: lang.radius.card,
+    backgroundColor: 'rgba(255,255,255,0.04)',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: color.hair,
+  },
 });
