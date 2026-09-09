@@ -186,6 +186,7 @@ export default function WindowDetail() {
         sub={myParty ? 'See who has applied.' : 'Plan the draw with your crew.'}
         onPress={onParty}
       />
+      <LicenseRow stateName={w.state?.name} url={w.state?.license_url} />
 
       <Rule />
       {w.closes_at ? (
@@ -227,7 +228,6 @@ export default function WindowDetail() {
       >
         Track this application in your ledger.
       </LinkSentence>
-      <LicenseRow stateName={w.state?.name} url={w.state?.license_url} />
       <LinkSentence style={{ marginTop: space.x12 }} onPress={onShare}>
         Share this deadline with a buddy.
       </LinkSentence>
