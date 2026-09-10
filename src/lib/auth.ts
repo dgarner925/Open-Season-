@@ -1,4 +1,5 @@
 import * as AppleAuthentication from 'expo-apple-authentication';
+import * as Crypto from 'expo-crypto';
 import * as WebBrowser from 'expo-web-browser';
 import * as Linking from 'expo-linking';
 import { Platform } from 'react-native';
@@ -10,16 +11,25 @@ import { supabase } from './supabase';
  *   - Supabase dashboard: Auth > Providers > Apple enabled with your Service ID
  */
 export async function signInWithApple(): Promise<void> {
+  // Apple embeds a nonce in the identity token on newer iOS whether we ask or
+  // not, and Supabase rejects a token whose nonce it can't check ("Passed
+  // nonce and nonce in id_token should either both exist or not", 2026-09-10).
+  // So we run the handshake by the book: Apple gets the SHA-256 of a random
+  // nonce, Supabase gets the raw one and verifies the pair.
+  const rawNonce = Crypto.randomUUID();
+  const hashedNonce = await Crypto.digestStringAsync(Crypto.CryptoDigestAlgorithm.SHA256, rawNonce);
   const credential = await AppleAuthentication.signInAsync({
     requestedScopes: [
       AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
       AppleAuthentication.AppleAuthenticationScope.EMAIL,
     ],
+    nonce: hashedNonce,
   });
   if (!credential.identityToken) throw new Error('No identity token returned from Apple.');
   const { error } = await supabase.auth.signInWithIdToken({
     provider: 'apple',
     token: credential.identityToken,
+    nonce: rawNonce,
   });
   if (error) throw error;
 }
