@@ -357,18 +357,27 @@ function WeekendBriefCard({
   const PLURAL_SPECIES = new Set(['Geese', 'Ducks']);
   const verb = (name: string | null | undefined, base: string) => (PLURAL_SPECIES.has(name ?? '') ? base : `${base}s`);
 
+  // One sentence per fact: two seasons of the same species opening the same
+  // day in the same state ("Archery" + "Extended Archery") must not say
+  // "Deer opens tomorrow in Georgia." twice (David's screenshot, 2026-09-11).
   const lines: { priority: number; d: string; text: string }[] = [];
+  const seen = new Set<string>();
+  const add = (l: { priority: number; d: string; text: string }) => {
+    if (seen.has(l.text)) return;
+    seen.add(l.text);
+    lines.push(l);
+  };
   for (const s of seasons) {
     if (!s.open_date) continue;
     if (s.open_date >= iso && s.open_date <= sunday) {
-      lines.push({ priority: 1, d: s.open_date, text: `${s.species?.name} ${verb(s.species?.name, 'open')} ${dayLabel(s.open_date)} in ${s.state?.name ?? s.state?.code}.` });
+      add({ priority: 1, d: s.open_date, text: `${s.species?.name} ${verb(s.species?.name, 'open')} ${dayLabel(s.open_date)} in ${s.state?.name ?? s.state?.code}.` });
     } else if (s.close_date && s.open_date <= iso && s.close_date >= iso && s.close_date <= sunday) {
-      lines.push({ priority: 2, d: s.close_date, text: `${s.species?.name} ${verb(s.species?.name, 'close')} ${dayLabel(s.close_date)} in ${s.state?.name ?? s.state?.code} — the last days.` });
+      add({ priority: 2, d: s.close_date, text: `${s.species?.name} ${verb(s.species?.name, 'close')} ${dayLabel(s.close_date)} in ${s.state?.name ?? s.state?.code} — the last days.` });
     }
   }
   for (const w of windows) {
     if (w.closes_at && w.closes_at >= iso && w.closes_at <= addDays(iso, 7)) {
-      lines.push({
+      add({
         priority: 3,
         d: w.closes_at,
         text: `The ${w.state?.name ?? w.state?.code} ${(w.species?.name ?? '').toLowerCase()} draw closes ${dayLabel(w.closes_at)}.`,
@@ -376,14 +385,14 @@ function WeekendBriefCard({
     }
   }
   // Discovery: weekend openers in your states for species you don't follow.
-  const seen = new Set(lines.map((l) => l.text));
   for (const s of stateOpeners) {
     if (!s.open_date || !s.state_id || !s.species_id) continue;
     if (followedPairs.has(`${s.state_id}|${s.species_id}`)) continue;
-    const text = `${s.species?.name} ${verb(s.species?.name, 'open')} ${dayLabel(s.open_date)} in ${s.state?.name ?? s.state?.code}.`;
-    if (seen.has(text)) continue;
-    seen.add(text);
-    lines.push({ priority: 4, d: s.open_date, text });
+    add({
+      priority: 4,
+      d: s.open_date,
+      text: `${s.species?.name} ${verb(s.species?.name, 'open')} ${dayLabel(s.open_date)} in ${s.state?.name ?? s.state?.code}.`,
+    });
   }
   if (lines.length === 0) return null;
   const shown = lines.sort((a, b) => a.priority - b.priority || a.d.localeCompare(b.d)).slice(0, 3);
