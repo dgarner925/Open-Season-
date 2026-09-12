@@ -167,7 +167,7 @@ export default function Home() {
 
         <View style={styles.stats}>
           <StatTile value={openCount} label="Open now" onPress={() => router.push('/calendar')} />
-          <StatTile value={openerCount} label="Openers" onPress={() => router.push('/calendar')} />
+          <StatTile value={openerCount} label="Openers" onPress={() => router.push({ pathname: '/timeline' })} />
           <StatTile value={deadlineCount} label="Deadlines" onPress={() => router.push('/applications')} />
         </View>
 
