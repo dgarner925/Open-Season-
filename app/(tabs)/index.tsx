@@ -18,7 +18,7 @@ import { useActiveStates, useFollowedSeasons, useFollowedWindows, useSpecies, us
 import type { SeasonWithRefs } from '@/features/reference/types';
 import { queryClient } from '@/lib/queryClient';
 import { maybeRequestReview } from '@/lib/rateApp';
-import { pushWidgetEvent } from '@/lib/widget';
+import { pushWidgetEvent, pushWidgetLight } from '@/lib/widget';
 import { fontFamily, radius, spacing, theme } from '@/theme';
 import { Serif } from '@/components/system';
 import { lang } from '@/theme/tokens';
@@ -99,6 +99,11 @@ export default function Home() {
   useEffect(() => {
     pushWidgetEvent(items[0]);
   }, [items[0]?.id, items[0]?.date, items[0]?.kind]);
+
+  // Feed the Legal Light widget a week of windows whenever Home has a state.
+  useEffect(() => {
+    pushWidgetLight(homeStateCode);
+  }, [homeStateCode]);
 
   // Ask for a rating on the 5th session with real follows — a moment of value.
   useEffect(() => {

@@ -156,6 +156,189 @@ struct WidgetView: View {
   }
 }
 
+// MARK: - Legal Light widget — countdown to first and last light.
+// The app writes a week of legal-light windows (epoch ms) to the App Group;
+// the timeline walks the phases and WidgetKit's date styles tick the
+// countdown natively between entries. Text-only on the Lock Screen.
+
+struct LightDay: Decodable {
+  let s: Double
+  let e: Double
+}
+
+struct LightEntry: TimelineEntry {
+  let date: Date
+  /// 0 = before first light, 1 = in legal light, 2 = after last light
+  let phase: Int
+  /// What the countdown runs toward (first light, or last light). For
+  /// phase 2 it is tomorrow's first light.
+  let target: Date
+  let hasData: Bool
+}
+
+struct LightProvider: TimelineProvider {
+  func placeholder(in context: Context) -> LightEntry {
+    LightEntry(date: Date(), phase: 0, target: Date().addingTimeInterval(3180), hasData: true)
+  }
+
+  func getSnapshot(in context: Context, completion: @escaping (LightEntry) -> Void) {
+    completion(currentEntry() ?? placeholder(in: context))
+  }
+
+  func getTimeline(in context: Context, completion: @escaping (Timeline<LightEntry>) -> Void) {
+    let days = readDays()
+    let now = Date()
+    var entries: [LightEntry] = []
+
+    for (i, day) in days.enumerated() {
+      let start = Date(timeIntervalSince1970: day.s / 1000)
+      let end = Date(timeIntervalSince1970: day.e / 1000)
+      if end < now { continue }
+      // Phase 0: counting down to first light (entry starts immediately or
+      // at the previous day's last light — WidgetKit ignores past dates
+      // beyond the first entry).
+      entries.append(LightEntry(date: entries.isEmpty ? now : entries.last!.target,
+                                phase: 0, target: start, hasData: true))
+      // Phase 1: in the light, counting to last light.
+      entries.append(LightEntry(date: start, phase: 1, target: end, hasData: true))
+      // Phase 2: done for the day; show tomorrow's first light.
+      if i + 1 < days.count {
+        let nextStart = Date(timeIntervalSince1970: days[i + 1].s / 1000)
+        entries.append(LightEntry(date: end, phase: 2, target: nextStart, hasData: true))
+      }
+    }
+
+    if entries.isEmpty {
+      entries = [LightEntry(date: now, phase: 0, target: now, hasData: false)]
+    }
+    completion(Timeline(entries: entries, policy: .atEnd))
+  }
+
+  private func currentEntry() -> LightEntry? {
+    let days = readDays()
+    let now = Date()
+    for (i, day) in days.enumerated() {
+      let start = Date(timeIntervalSince1970: day.s / 1000)
+      let end = Date(timeIntervalSince1970: day.e / 1000)
+      if now < start { return LightEntry(date: now, phase: 0, target: start, hasData: true) }
+      if now <= end { return LightEntry(date: now, phase: 1, target: end, hasData: true) }
+      if i + 1 < days.count {
+        let nextStart = Date(timeIntervalSince1970: days[i + 1].s / 1000)
+        if now < nextStart { return LightEntry(date: now, phase: 2, target: nextStart, hasData: true) }
+      }
+    }
+    return nil
+  }
+
+  private func readDays() -> [LightDay] {
+    guard let raw = UserDefaults(suiteName: appGroup)?.string(forKey: "widget_light"),
+          let data = raw.data(using: .utf8),
+          let days = try? JSONDecoder().decode([LightDay].self, from: data)
+    else { return [] }
+    return days
+  }
+}
+
+struct LightWidgetView: View {
+  var entry: LightEntry
+  @Environment(\.widgetFamily) var family
+
+  private var label: String {
+    switch entry.phase {
+    case 0: return "FIRST LIGHT"
+    case 1: return "LEGAL LIGHT"
+    default: return "DONE FOR THE DAY"
+    }
+  }
+  private var clock: String {
+    let f = DateFormatter()
+    f.timeStyle = .short
+    return f.string(from: entry.target)
+  }
+
+  var body: some View {
+    content
+      .containerBackground(for: .widget) {
+        if family == .systemSmall { slate } else { Color.clear }
+      }
+  }
+
+  @ViewBuilder private var content: some View {
+    switch family {
+    case .accessoryInline:
+      if !entry.hasData {
+        Text("Open Season")
+      } else if entry.phase == 2 {
+        Text("First light \(clock)")
+      } else {
+        Text("\(entry.phase == 0 ? "Light" : "Ends") \(clock)")
+      }
+    case .accessoryRectangular:
+      VStack(alignment: .leading, spacing: 1) {
+        if entry.hasData {
+          Text(label).font(.system(size: 11, weight: .semibold)).widgetAccentable()
+          if entry.phase == 2 {
+            Text("First light \(clock)").font(.system(size: 13, weight: .semibold))
+          } else {
+            Text(entry.target, style: .timer)
+              .font(.system(size: 17, weight: .bold, design: .rounded))
+            Text(entry.phase == 0 ? "until first light · \(clock)" : "until last light · \(clock)")
+              .font(.system(size: 11))
+          }
+        } else {
+          Text("Open Season").font(.system(size: 13, weight: .semibold))
+          Text("Open the app once").font(.system(size: 11))
+        }
+      }
+      .frame(maxWidth: .infinity, alignment: .leading)
+    default:
+      VStack(alignment: .leading, spacing: 3) {
+        if entry.hasData {
+          Text(label)
+            .font(.system(size: 10, weight: .semibold)).kerning(1.3)
+            .foregroundColor(entry.phase == 0 ? ember : muted)
+          Spacer(minLength: 0)
+          if entry.phase == 2 {
+            Text(clock)
+              .font(.system(size: 34, weight: .bold, design: .serif))
+              .foregroundColor(ember)
+              .minimumScaleFactor(0.6).lineLimit(1)
+            Text("first light tomorrow")
+              .font(.system(size: 12, weight: .semibold)).foregroundColor(mist)
+          } else {
+            Text(entry.target, style: .timer)
+              .font(.system(size: 34, weight: .bold, design: .serif))
+              .foregroundColor(entry.phase == 0 ? ember : mist)
+              .minimumScaleFactor(0.6).lineLimit(1)
+            Text(entry.phase == 0 ? "until first light" : "until last light")
+              .font(.system(size: 12, weight: .semibold)).foregroundColor(muted)
+            Text(clock).font(.system(size: 12)).foregroundColor(muted)
+          }
+        } else {
+          Text("Legal light")
+            .font(.system(size: 16, weight: .semibold, design: .serif)).foregroundColor(mist)
+          Text("Open the app once to set your state")
+            .font(.system(size: 12)).foregroundColor(muted)
+        }
+      }
+      .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
+      .padding(16)
+    }
+  }
+}
+
+struct LegalLightWidget: Widget {
+  let kind = "OpenSeasonLightWidget"
+  var body: some WidgetConfiguration {
+    StaticConfiguration(kind: kind, provider: LightProvider()) { entry in
+      LightWidgetView(entry: entry)
+    }
+    .configurationDisplayName("Legal Light")
+    .description("Counts down to first and last legal light.")
+    .supportedFamilies([.systemSmall, .accessoryInline, .accessoryRectangular])
+  }
+}
+
 struct OpenSeasonWidget: Widget {
   let kind = "OpenSeasonWidget"
   var body: some WidgetConfiguration {
@@ -175,5 +358,6 @@ struct OpenSeasonWidget: Widget {
 struct OpenSeasonWidgetBundle: WidgetBundle {
   var body: some Widget {
     OpenSeasonWidget()
+    LegalLightWidget()
   }
 }

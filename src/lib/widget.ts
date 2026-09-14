@@ -6,3 +6,5 @@ import type { CountdownItem } from '@/features/reference/types';
  * home-screen widget can show it. Metro resolves the .ios.ts variant on iOS.
  */
 export function pushWidgetEvent(_item: CountdownItem | undefined): void {}
+
+export async function pushWidgetLight(_stateCode: string | null): Promise<void> {}
