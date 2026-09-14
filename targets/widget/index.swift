@@ -186,31 +186,37 @@ struct LightProvider: TimelineProvider {
   }
 
   func getTimeline(in context: Context, completion: @escaping (Timeline<LightEntry>) -> Void) {
+    // First entry = the CURRENT phase, dated now; then only FUTURE
+    // transitions, in order. (v1 emitted today's whole day including past
+    // boundaries — out-of-order entries, blank widget when added mid-day.)
     let days = readDays()
     let now = Date()
     var entries: [LightEntry] = []
+    if let cur = currentEntry() { entries.append(cur) }
 
     for (i, day) in days.enumerated() {
       let start = Date(timeIntervalSince1970: day.s / 1000)
       let end = Date(timeIntervalSince1970: day.e / 1000)
-      if end < now { continue }
-      // Phase 0: counting down to first light (entry starts immediately or
-      // at the previous day's last light — WidgetKit ignores past dates
-      // beyond the first entry).
-      entries.append(LightEntry(date: entries.isEmpty ? now : entries.last!.target,
-                                phase: 0, target: start, hasData: true))
-      // Phase 1: in the light, counting to last light.
-      entries.append(LightEntry(date: start, phase: 1, target: end, hasData: true))
-      // Phase 2: done for the day; show tomorrow's first light.
-      if i + 1 < days.count {
+      // At first light: switch to counting down to last light.
+      if start > now {
+        entries.append(LightEntry(date: start, phase: 1, target: end, hasData: true))
+      }
+      // At last light: done for the day, show tomorrow's first light —
+      // then at midnight, start counting down to it.
+      if end > now, i + 1 < days.count {
         let nextStart = Date(timeIntervalSince1970: days[i + 1].s / 1000)
         entries.append(LightEntry(date: end, phase: 2, target: nextStart, hasData: true))
+        let midnight = Calendar.current.startOfDay(for: nextStart)
+        if midnight > end {
+          entries.append(LightEntry(date: midnight, phase: 0, target: nextStart, hasData: true))
+        }
       }
     }
 
     if entries.isEmpty {
       entries = [LightEntry(date: now, phase: 0, target: now, hasData: false)]
     }
+    entries.sort { $0.date < $1.date }
     completion(Timeline(entries: entries, policy: .atEnd))
   }
 
