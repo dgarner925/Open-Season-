@@ -5,6 +5,7 @@ import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'r
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AppText } from '@/components/ui';
 import { AlmanacCol, almanacStyles } from '@/components/AlmanacRow';
+import { LightCountdown } from '@/components/LightCountdown';
 import { PageTitle, SpeciesBadge } from '@/components/midnight';
 import { NotificationsOffBanner } from '@/components/NotificationsOffBanner';
 import { ProUpsellCard } from '@/components/ProUpsellCard';
@@ -270,13 +271,16 @@ function DailyOutlookCard({ stateCode, onPress }: { stateCode: string | null; on
       </View>
       <View style={styles.briefRule} />
       {light ? (
-        <View style={styles.outlookLight}>
-          <Text style={styles.lightTimes}>
-            {light.approx ? '≈ ' : ''}
-            {light.window}
-          </Text>
-          <Text style={styles.lightLabel}>legal light</Text>
-        </View>
+        <>
+          <View style={styles.outlookLight}>
+            <Text style={styles.lightTimes}>
+              {light.approx ? '≈ ' : ''}
+              {light.window}
+            </Text>
+            <Text style={styles.lightLabel}>legal light</Text>
+          </View>
+          <LightCountdown light={light} stateCode={stateCode} />
+        </>
       ) : null}
       {dawn ? (
         <>

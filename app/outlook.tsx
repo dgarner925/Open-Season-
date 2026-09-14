@@ -12,6 +12,7 @@ import { StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import * as SunCalc from 'suncalc';
 import { Micro, Screen, Sentence, Serif, SunArc } from '@/components/system';
 import { AlmanacCol, almanacStyles } from '@/components/AlmanacRow';
+import { LightCountdown } from '@/components/LightCountdown';
 import rules from '@/assets/legal-light.json';
 import centroids from '@/assets/state-centroids.json';
 import { getFix, useLegalLight } from '@/features/legalLight/useLegalLight';
@@ -168,6 +169,9 @@ export default function Outlook() {
             </Serif>
             {`. Sunrise ${light.sunrise}, sunset ${light.sunset}.`}
           </Sentence>
+          <View style={{ marginTop: space.x8 }}>
+            <LightCountdown light={light} stateCode={stateCode} />
+          </View>
           <View style={{ marginTop: space.x12 }}>
             <SunArc width={arcWidth} startFrac={dayFrac(light.startMs)} endFrac={dayFrac(light.endMs)} nowFrac={dayFrac(Date.now())} />
             <View style={styles.tickRow}>
