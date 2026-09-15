@@ -201,15 +201,12 @@ struct LightProvider: TimelineProvider {
       if start > now {
         entries.append(LightEntry(date: start, phase: 1, target: end, hasData: true))
       }
-      // At last light: done for the day, show tomorrow's first light —
-      // then at midnight, start counting down to it.
+      // At last light: flip straight to counting down to the next first
+      // light — the widget always ticks toward the next line that matters
+      // (David, 2026-09-15: "count down from non-legal to legal" too).
       if end > now, i + 1 < days.count {
         let nextStart = Date(timeIntervalSince1970: days[i + 1].s / 1000)
-        entries.append(LightEntry(date: end, phase: 2, target: nextStart, hasData: true))
-        let midnight = Calendar.current.startOfDay(for: nextStart)
-        if midnight > end {
-          entries.append(LightEntry(date: midnight, phase: 0, target: nextStart, hasData: true))
-        }
+        entries.append(LightEntry(date: end, phase: 0, target: nextStart, hasData: true))
       }
     }
 
@@ -230,7 +227,7 @@ struct LightProvider: TimelineProvider {
       if now <= end { return LightEntry(date: now, phase: 1, target: end, hasData: true) }
       if i + 1 < days.count {
         let nextStart = Date(timeIntervalSince1970: days[i + 1].s / 1000)
-        if now < nextStart { return LightEntry(date: now, phase: 2, target: nextStart, hasData: true) }
+        if now < nextStart { return LightEntry(date: now, phase: 0, target: nextStart, hasData: true) }
       }
     }
     return nil
