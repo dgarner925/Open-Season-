@@ -1,0 +1,72 @@
+App: Open Season: Dates & Draws (com.osdatesanddraws.app)
+Issue cited: Misleading Claims - Broken or Inaccessible Source Link
+
+We are contesting this finding as factually incorrect. We are NOT claiming
+government affiliation; we are an independent app and say so in our
+description.
+
+WHAT THE DESCRIPTION CONTAINS
+
+Our full description already does everything the policy's "How to fix"
+section asks for:
+
+1. A prominent disclaimer in the second paragraph, in capitals:
+   "DISCLAIMER: Open Season is an independent app by Piece & Quiet, LLC.
+   It is NOT a government app and does not represent any government
+   entity."
+
+2. Every source of government information, enumerated by state, with the
+   official website for each - all 50 state wildlife agencies plus
+   Recreation.gov for federal permit hunts, and a statement that no other
+   sources are used.
+
+3. A single published index of every exact source URL we read, at
+   https://osdatesanddraws.com/sources.html (publicly accessible, returns
+   HTTP 200 to any client).
+
+4. Every individual date inside the app links to the official source page
+   it came from.
+
+WHY THE "BROKEN LINK" FINDING IS INCORRECT
+
+We tested every domain listed in the description. All of them load
+normally in a web browser. However, ten of the state agency websites
+return HTTP 403 (Forbidden) or drop the connection when requested by an
+automated client rather than a browser, because those state government
+sites use bot-protection services:
+
+   - azgfd.com (Arizona Game & Fish Department)
+   - dec.ny.gov (New York State Dept. of Environmental Conservation)
+   - dlnr.hawaii.gov (Hawaii DLNR)
+   - in.gov (Indiana DNR)
+   - ksoutdoors.gov (Kansas Dept. of Wildlife & Parks)
+   - mass.gov (Massachusetts Div. of Fisheries & Wildlife)
+   - ndow.org (Nevada Dept. of Wildlife)
+   - outdoornebraska.gov (Nebraska Game and Parks Commission)
+   - tn.gov (Tennessee Wildlife Resources Agency)
+   - wildlife.nh.gov (New Hampshire Fish and Game Department)
+
+These are the genuine, official websites of those state wildlife
+agencies. They are publicly accessible to any person using a browser.
+They cannot be replaced with different links, because they are the
+authoritative government sources for the hunting season dates our app
+reports - which is precisely what this policy requires us to cite.
+
+THE RESULT IS A REQUIREMENT WE CANNOT SATISFY
+
+Across previous reviews of this listing we have been told, in turn, that
+naming the sources without URLs is "Insufficient Sources Provided," and
+that providing the URLs is a "Broken or Inaccessible Source Link." The
+links are not broken. Any reviewer can confirm this in seconds by
+opening, for example, https://www.azgfd.com or https://dec.ny.gov in a
+browser.
+
+WHAT WE ARE ASKING
+
+We ask that a reviewer verify these source links in a browser rather than
+with an automated checker, and approve the listing. We are glad to make
+any concrete change that would resolve this - if there is a specific link
+you need removed or reworded, please name it and we will change it the
+same day.
+
+Thank you for your time.
