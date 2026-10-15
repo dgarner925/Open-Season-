@@ -157,7 +157,7 @@ export default function Settings() {
         <Row first title="Manage your hunts" caption="Your states and species." onPress={() => router.push('/follows')} />
         <Row
           title="Residency"
-          caption={residentStateName ? `Home state: ${residentStateName}.` : 'Set your home state for resident pricing.'}
+          caption={residentStateName ? `Home state: ${residentStateName}.` : 'Set it — it drives resident rules and your legal light.'}
           onPress={() => router.push('/residency')}
         />
         <Row title="Hunting parties" caption="Apply for draws with your buddies." onPress={() => router.push('/parties')} />

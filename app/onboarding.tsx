@@ -39,6 +39,17 @@ export default function Onboarding() {
   const [saving, setSaving] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
 
+  // Home state. It decides which state's shooting-hours rule we apply to the
+  // ground under your feet, and whether a tag reads resident or nonresident —
+  // so the app has to ask rather than guess at the first state you followed
+  // (David, 2026-10-15). One state picked = no question worth asking.
+  const [homeStateId, setHomeStateId] = useState<string | null>(null);
+  useEffect(() => {
+    if (stateIds.size === 1) setHomeStateId([...stateIds][0]);
+    else if (homeStateId && !stateIds.has(homeStateId)) setHomeStateId(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stateIds]);
+
   // First name for the Home greeting. Apple/Google sign-ins prefill it via the
   // profile trigger; email signups get to type it here (optional).
   const [name, setName] = useState('');
@@ -49,6 +60,7 @@ export default function Onboarding() {
 
   // Only the species huntable in the states they picked.
   const { data: huntable = [], isLoading: huntLoading } = useStateSpeciesMulti([...stateIds]);
+  const pickedStates = states.filter((s) => stateIds.has(s.id));
 
   function toggle(id: string, setter: React.Dispatch<React.SetStateAction<Set<string>>>) {
     setter((prev) => {
@@ -75,9 +87,12 @@ export default function Onboarding() {
         const { error } = await supabase.from('follows').upsert(rows, { onConflict: 'user_id,state_id,species_id', ignoreDuplicates: true });
         if (error) throw error;
       }
+      const patch: { display_name?: string; resident_state_id?: string } = {};
       const trimmed = name.trim();
-      if (trimmed && trimmed !== profile?.display_name) {
-        await supabase.from('profiles').update({ display_name: trimmed }).eq('id', user.id);
+      if (trimmed && trimmed !== profile?.display_name) patch.display_name = trimmed;
+      if (homeStateId) patch.resident_state_id = homeStateId;
+      if (Object.keys(patch).length > 0) {
+        await supabase.from('profiles').update(patch).eq('id', user.id);
       }
       await completeOnboarding.mutateAsync();
       router.replace('/');
@@ -117,7 +132,7 @@ export default function Onboarding() {
       </View>
 
       {step === 2 ? (
-        <View style={styles.confirm}>
+        <ScrollView contentContainerStyle={styles.confirm} showsVerticalScrollIndicator={false}>
           <Serif size={44}>
             {stateIds.size} {stateIds.size === 1 ? 'state' : 'states'} · {speciesIds.size} species
           </Serif>
@@ -132,7 +147,35 @@ export default function Onboarding() {
               returnKeyType="done"
             />
           </View>
-        </View>
+
+          {/* Which of those states is home — asked only when it's a real
+              question. Drives resident rules and legal shooting light. */}
+          {pickedStates.length > 1 ? (
+            <View style={{ alignSelf: 'stretch', marginTop: space.x32 }}>
+              <Sentence>Which one do you live in?</Sentence>
+              <Sentence tone="dim" style={{ fontSize: 13, marginTop: space.x4 }}>
+                It sets your resident rules and your legal shooting light.
+              </Sentence>
+              <View style={{ marginTop: space.x8 }}>
+                {pickedStates.map((s, i) => (
+                  <SelectRow
+                    key={s.id}
+                    label={s.name}
+                    selected={homeStateId === s.id}
+                    last={false}
+                    onPress={() => setHomeStateId(s.id)}
+                  />
+                ))}
+                <SelectRow
+                  label="None of these"
+                  selected={homeStateId === null}
+                  last
+                  onPress={() => setHomeStateId(null)}
+                />
+              </View>
+            </View>
+          ) : null}
+        </ScrollView>
       ) : (
         <ScrollView contentContainerStyle={styles.list} showsVerticalScrollIndicator={false}>
           {step === 0 ? (
@@ -241,7 +284,7 @@ const styles = StyleSheet.create({
     backgroundColor: color.hair,
   },
   rowLabel: { flex: 1, fontFamily: type.ui, fontSize: type.size.body + 0.5 },
-  confirm: { flex: 1, paddingHorizontal: space.gutter, paddingTop: space.x38 },
+  confirm: { paddingHorizontal: space.gutter, paddingTop: space.x38, paddingBottom: space.x32 },
   actions: {
     flexDirection: 'row',
     alignItems: 'center',

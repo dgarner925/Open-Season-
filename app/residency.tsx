@@ -41,8 +41,9 @@ export default function Residency() {
     <Screen scroll>
       <Stack.Screen options={{ headerShown: true, title: 'Residency' }} />
       <Sentence style={{ marginTop: space.x16 }}>
-        Pick the state you're a resident of. Everywhere else, the app labels tags and deadlines as
-        nonresident — a reminder that dates and fees often differ.
+        Pick the state you live in. It sets the shooting-hours rule the app applies to where you
+        stand, and everywhere else it labels tags and deadlines as nonresident — a reminder that
+        dates and fees often differ.
       </Sentence>
 
       <Rule />
