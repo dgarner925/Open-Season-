@@ -39,7 +39,7 @@ export default function Residency() {
 
   return (
     <Screen scroll>
-      <Stack.Screen options={{ headerShown: true, title: 'Residency' }} />
+      <Stack.Screen options={{ headerShown: true, title: 'Home state' }} />
       <Sentence style={{ marginTop: space.x16 }}>
         Pick the state you live in. It sets the shooting-hours rule the app applies to where you
         stand, and everywhere else it labels tags and deadlines as nonresident — a reminder that

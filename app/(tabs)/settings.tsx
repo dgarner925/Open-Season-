@@ -156,7 +156,7 @@ export default function Settings() {
       <Card style={styles.group}>
         <Row first title="Manage your hunts" caption="Your states and species." onPress={() => router.push('/follows')} />
         <Row
-          title="Residency"
+          title="Home state"
           caption={residentStateName ? `Home state: ${residentStateName}.` : 'Set it — it drives resident rules and your legal light.'}
           onPress={() => router.push('/residency')}
         />
