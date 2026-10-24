@@ -6,6 +6,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { AppText } from '@/components/ui';
 import { AlmanacCol, almanacStyles } from '@/components/AlmanacRow';
 import { LightCountdown } from '@/components/LightCountdown';
+import { useDailyBrief } from '@/features/brief/queries';
 import { PageTitle, SpeciesBadge } from '@/components/midnight';
 import { NotificationsOffBanner } from '@/components/NotificationsOffBanner';
 import { ProUpsellCard } from '@/components/ProUpsellCard';
@@ -258,6 +259,9 @@ export default function Home() {
 function DailyOutlookCard({ stateCode, onPress }: { stateCode: string | null; onPress?: () => void }) {
   const light = useLegalLight(stateCode, 0);
   const dawn = useDawnConditions(stateCode, 0);
+  // Your own day, in a sentence — sits under the light, never above it.
+  const { data: dailyBrief } = useDailyBrief();
+  const brief = dailyBrief?.brief ?? null;
   if (!light && !dawn) return null;
   const now = new Date();
   const head = `${['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'][now.getDay()]}, ${MONTHS[now.getMonth()]} ${now.getDate()}`;
@@ -287,6 +291,7 @@ function DailyOutlookCard({ stateCode, onPress }: { stateCode: string | null; on
           <LightCountdown light={light} stateCode={stateCode} />
         </>
       ) : null}
+      {brief ? <Text style={styles.briefLine2}>{brief}</Text> : null}
       {dawn ? (
         <>
           <Text style={almanacStyles.head}>
@@ -548,6 +553,15 @@ const styles = StyleSheet.create({
   briefRule: { height: StyleSheet.hairlineWidth, backgroundColor: theme.color.borderFlat, marginVertical: 4 },
   briefLine: { fontFamily: fontFamily.serifItalic, fontSize: 16.5, lineHeight: 24, color: lang.color.bone },
   briefLight: { fontFamily: fontFamily.sansMedium, fontSize: 12.5, color: theme.color.textMuted, marginTop: 4 },
+  // The daily brief: quiet, under the light. Plain sans so it doesn't compete
+  // with the serif times or the italic countdown above it.
+  briefLine2: {
+    fontFamily: fontFamily.sansMedium,
+    fontSize: 13.5,
+    lineHeight: 20,
+    color: theme.color.textSecondary,
+    marginTop: 10,
+  },
 
   stats: { flexDirection: 'row', gap: spacing.sm, marginTop: spacing.xl },
   tile: { flex: 1, padding: spacing.lg, borderRadius: radius.md, backgroundColor: theme.color.surfaceFlat, borderWidth: StyleSheet.hairlineWidth, borderColor: theme.color.borderFlat, gap: 2 },
