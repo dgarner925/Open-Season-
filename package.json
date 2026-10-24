@@ -8,7 +8,9 @@
     "ios": "expo start --ios",
     "web": "expo start --web",
     "lint": "expo lint",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "dependencies": {
     "@bacons/apple-targets": "^5.0.0",
@@ -58,8 +60,9 @@
   },
   "devDependencies": {
     "@types/react": "~19.2.4",
+    "@types/suncalc": "^1.9.2",
     "typescript": "~6.0.3",
-    "@types/suncalc": "^1.9.2"
+    "vitest": "^3.2.7"
   },
   "private": true
 }

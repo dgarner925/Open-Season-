@@ -8,6 +8,8 @@ import { useAuth } from '@/providers/AuthProvider';
 import { usePermitFollows, useTogglePermitFollow } from '@/features/follows/queries';
 import { useActiveStates } from '@/features/reference/queries';
 import { useSearchMemo, type SearchResult } from '@/features/search/useSearch';
+import { useAskBook, isAnswer, isPaywall, isRateLimited, type AskAnswer } from '@/features/ask/queries';
+import { looksLikeQuestion } from '@/features/ask/routing';
 import { openExternalUrl } from '@/lib/openUrl';
 import { lang } from '@/theme/tokens';
 
@@ -48,6 +50,38 @@ export default function Search() {
     else if (r.url) openExternalUrl(r.url);
   }
 
+  // A question wants a sentence back; a keyword wants the list. The field
+  // serves both — this only offers the model when the input reads like a
+  // question, and never runs it without a tap.
+  const ask = useAskBook();
+  const [answer, setAnswer] = useState<AskAnswer | null>(null);
+  const isQuestion = looksLikeQuestion(raw);
+
+  function onAsk() {
+    const q = raw.trim();
+    if (!q) return;
+    setAnswer(null);
+    ask.mutate(
+      { question: q, stateCode: myStateCode },
+      {
+        onSuccess: (r) => {
+          if (isPaywall(r)) {
+            router.push('/paywall');
+            return;
+          }
+          if (isRateLimited(r)) return;
+          if (isAnswer(r)) setAnswer(r);
+        },
+      },
+    );
+  }
+
+  // Editing the question clears a stale answer.
+  useEffect(() => {
+    if (answer) setAnswer(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [raw]);
+
   const shown = results.slice(0, 60);
 
   return (
@@ -65,7 +99,8 @@ export default function Search() {
           style={styles.input}
           autoFocus
           autoCorrect={false}
-          returnKeyType="search"
+          returnKeyType={isQuestion ? 'go' : 'search'}
+          onSubmitEditing={isQuestion ? onAsk : undefined}
         />
         {raw ? (
           <Pressable onPress={() => setRaw('')} hitSlop={8}>
@@ -80,6 +115,29 @@ export default function Search() {
         {myStateCode ? <FilterWord label="My state" on={myState} onPress={() => setMyState((v) => !v)} /> : null}
         <FilterWord label="Deadlines" on={deadlinesOnly} onPress={() => setDeadlinesOnly((v) => !v)} />
       </View>
+
+      {/* The offer, and then the answer. Copper because it's tappable. */}
+      {isQuestion && !answer ? (
+        <Pressable onPress={onAsk} disabled={ask.isPending} style={styles.askRow}>
+          {ask.isPending ? (
+            <ActivityIndicator size="small" color={color.copper} />
+          ) : (
+            <Ionicons name="sparkles-outline" size={15} color={color.copper} />
+          )}
+          <Text style={styles.askWord} numberOfLines={1}>
+            {ask.isPending ? 'Reading the book…' : 'Ask the book'}
+          </Text>
+          {!ask.isPending ? <Text style={styles.askChev}>›</Text> : null}
+        </Pressable>
+      ) : null}
+
+      {ask.isError && !answer ? (
+        <Sentence tone="dim" style={{ marginTop: space.x16, fontSize: 13 }}>
+          Couldn't reach the book just now. Try again in a moment.
+        </Sentence>
+      ) : null}
+
+      {answer ? <AnswerCard answer={answer} onSeason={(id) => router.push(`/season/${id}`)} /> : null}
 
       {!ready || isLoading ? (
         <ActivityIndicator color={color.copper} style={{ marginTop: space.x38 }} />
@@ -143,6 +201,48 @@ export default function Search() {
   );
 }
 
+/**
+ * The answer, in the app's own voice: the sentence in serif, the records it
+ * rests on as tappable chips, and the standing caveat underneath. Never a
+ * chat bubble.
+ */
+function AnswerCard({ answer, onSeason }: { answer: AskAnswer; onSeason: (id: string) => void }) {
+  return (
+    <View style={styles.answerCard}>
+      <Text style={styles.answerText}>{answer.answer}</Text>
+
+      {answer.season_ids.length > 0 ? (
+        <View style={styles.chipRow}>
+          {answer.citations.slice(0, 4).map((c, i) => {
+            const seasonId = c.record_id ?? answer.season_ids[i];
+            const tappable = Boolean(seasonId && answer.season_ids.includes(seasonId));
+            return (
+              <Pressable
+                key={`${c.label}-${i}`}
+                disabled={!tappable}
+                onPress={() => seasonId && onSeason(seasonId)}
+                style={styles.chip}
+              >
+                <Text style={[styles.chipText, tappable && { color: color.copper }]} numberOfLines={1}>
+                  {c.label}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
+      ) : null}
+
+      {answer.official_url ? (
+        <Pressable onPress={() => openExternalUrl(answer.official_url!)}>
+          <Text style={styles.answerLink}>Open the official regulations ›</Text>
+        </Pressable>
+      ) : null}
+
+      <Text style={styles.answerDisclaimer}>{answer.disclaimer}</Text>
+    </View>
+  );
+}
+
 function FilterWord({ label, on, onPress }: { label: string; on: boolean; onPress: () => void }) {
   return (
     <Pressable onPress={onPress} hitSlop={8} accessibilityRole="button" accessibilityLabel={`${label} filter`}>
@@ -164,6 +264,34 @@ const styles = StyleSheet.create({
     borderColor: color.hair,
   },
   input: { flex: 1, color: color.bone, fontSize: 15, fontFamily: type.ui },
+
+  askRow: { flexDirection: 'row', alignItems: 'center', gap: space.x8, marginTop: space.x16, minHeight: 28 },
+  askWord: { fontFamily: type.uiMedium, fontSize: 14.5, color: color.copper },
+  askChev: { fontFamily: type.ui, fontSize: 15, color: 'rgba(224,164,128,0.6)' },
+
+  answerCard: {
+    marginTop: space.x16,
+    padding: space.x16,
+    borderRadius: radius.card,
+    backgroundColor: 'rgba(255,255,255,0.04)',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: color.hair,
+    borderLeftWidth: 2,
+    borderLeftColor: color.copper,
+  },
+  answerText: { fontFamily: type.display, fontSize: 19, lineHeight: 27, color: color.bone },
+  chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: space.x8, marginTop: space.x12 },
+  chip: {
+    paddingHorizontal: space.x12,
+    paddingVertical: 6,
+    borderRadius: radius.pill,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: color.hair,
+    maxWidth: 240,
+  },
+  chipText: { fontFamily: type.ui, fontSize: 12.5, color: color.muted },
+  answerLink: { fontFamily: type.uiMedium, fontSize: 13.5, color: color.copper, marginTop: space.x12 },
+  answerDisclaimer: { fontFamily: type.ui, fontSize: 12, color: color.dim, marginTop: space.x12 },
 
   filterRow: { flexDirection: 'row', gap: space.section, marginTop: space.x16 },
   filterWord: { fontFamily: type.uiMedium, fontSize: 14, color: color.dim },
