@@ -66,11 +66,21 @@ function isServiceRole(token: string): boolean {
 
 // Structured-output schema. Constraints: additionalProperties:false, every key
 // in `required`, no min/max/length (unsupported by structured outputs).
-const SEASON_ITEM = {
+// Structured-output schemas. Constraints: additionalProperties:false, every key
+// in `required`, no min/max/length (unsupported by structured outputs).
+//
+// The species enum is built from the DB at run time. It used to be hardcoded to
+// four keys while the prompt offered all fifty — and because structured outputs
+// ENFORCE the schema, the model physically could not emit turkey, goose, dove or
+// any furbearer. That one line was silently capping extraction to deer, elk,
+// bear and duck (found in the GA accuracy run, 2026-10-25).
+const speciesEnum = (keys: string[]) => ({ type: 'string', enum: keys });
+
+const seasonItem = (keys: string[]) => ({
   type: 'object',
   additionalProperties: false,
   properties: {
-    species: { type: 'string', enum: ['deer', 'elk', 'bear', 'duck'] },
+    species: speciesEnum(keys),
     method: { type: 'string', enum: ['archery', 'muzzleloader', 'firearm', 'general'] },
     zone: { type: 'string' },
     label: { type: ['string', 'null'] },
@@ -91,13 +101,13 @@ const SEASON_ITEM = {
     },
   },
   required: ['species', 'method', 'zone', 'label', 'season_year', 'open_date', 'close_date', 'bag_limit_summary', 'notes', 'confidence', 'evidence'],
-};
+});
 
-const WINDOW_ITEM = {
+const windowItem = (keys: string[]) => ({
   type: 'object',
   additionalProperties: false,
   properties: {
-    species: { type: 'string', enum: ['deer', 'elk', 'bear', 'duck'] },
+    species: speciesEnum(keys),
     zone: { type: ['string', 'null'] },
     season_year: { type: 'integer' },
     name: { type: ['string', 'null'] },
@@ -108,28 +118,28 @@ const WINDOW_ITEM = {
     application_url: { type: ['string', 'null'] },
   },
   required: ['species', 'zone', 'season_year', 'name', 'opens_at', 'closes_at', 'results_expected_at', 'fee_summary', 'application_url'],
-};
+});
 
-const REG_ITEM = {
+const regItem = (keys: string[]) => ({
   type: 'object',
   additionalProperties: false,
   properties: {
-    species: { type: 'string', enum: ['deer', 'elk', 'bear', 'duck'] },
+    species: speciesEnum(keys),
     body: { type: 'string' },
   },
   required: ['species', 'body'],
-};
+});
 
-const EXTRACTION_SCHEMA = {
+const extractionSchema = (keys: string[]) => ({
   type: 'object',
   additionalProperties: false,
   properties: {
-    seasons: { type: 'array', items: SEASON_ITEM },
-    application_windows: { type: 'array', items: WINDOW_ITEM },
-    regulation_summaries: { type: 'array', items: REG_ITEM },
+    seasons: { type: 'array', items: seasonItem(keys) },
+    application_windows: { type: 'array', items: windowItem(keys) },
+    regulation_summaries: { type: 'array', items: regItem(keys) },
   },
   required: ['seasons', 'application_windows', 'regulation_summaries'],
-};
+});
 
 const SYSTEM = `You extract U.S. hunting data from official state wildlife-agency documents.
 Rules:
@@ -221,7 +231,7 @@ async function fetchDocumentBlock(url: string): Promise<any> {
   return { type: 'text', text };
 }
 
-async function extract(doc: any, agency: string, catalog: string): Promise<{ seasons: any[]; application_windows: any[]; regulation_summaries: any[] }> {
+async function extract(doc: any, agency: string, catalog: string, schema: unknown): Promise<{ seasons: any[]; application_windows: any[]; regulation_summaries: any[] }> {
   const res = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
     headers: {
@@ -233,7 +243,7 @@ async function extract(doc: any, agency: string, catalog: string): Promise<{ sea
       model: MODEL,
       max_tokens: 16000,
       system: SYSTEM + catalog,
-      output_config: { format: { type: 'json_schema', schema: EXTRACTION_SCHEMA } },
+      output_config: { format: { type: 'json_schema', schema } },
       messages: [{
         role: 'user',
         content: [doc, { type: 'text', text: `This document is from ${agency}. Extract everything it lists.` }],
@@ -289,14 +299,14 @@ async function pendingExists(targetTable: string, targetId: string | null, keys:
 type Tally = { created: number; updated: number; unchanged: number; skipped: number };
 const emptyTally = (): Tally => ({ created: 0, updated: 0, unchanged: 0, skipped: 0 });
 
-async function processSource(source: any, runId: string, speciesByKey: Record<string, string>, catalog: string) {
+async function processSource(source: any, runId: string, speciesByKey: Record<string, string>, catalog: string, schema: unknown) {
   // Stamp FIRST so the round-robin advances even if this source later kills the
   // worker (a huge PDF hitting the memory/CPU limit, or a slow site hitting the
   // 150s wall clock). Otherwise last_extracted_at stays null and the same poison
   // source gets re-picked forever, stalling the sweep.
   await admin.from('sources').update({ last_extracted_at: new Date().toISOString() }).eq('id', source.id);
   const doc = await fetchDocumentBlock(source.url);
-  const { seasons, application_windows, regulation_summaries } = await extract(doc, source.agency_name, catalog);
+  const { seasons, application_windows, regulation_summaries } = await extract(doc, source.agency_name, catalog, schema);
   const t = emptyTally();
 
   // --- seasons ---
@@ -434,6 +444,7 @@ Deno.serve(async (req) => {
 
       const { data: species } = await admin.from('species').select('id, key, name').order('sort_order');
       const catalog = speciesCatalog((species ?? []) as { key: string; name: string }[]);
+      const schema = extractionSchema((species ?? []).map((s: any) => s.key));
       const keyById = Object.fromEntries((species ?? []).map((s: any) => [s.id, s.key]));
 
       const { data: srcs } = await admin.from('sources').select('*')
@@ -445,7 +456,7 @@ Deno.serve(async (req) => {
       for (const source of srcs) {
         try {
           const doc = await fetchDocumentBlock(source.url);
-          const out = await extract(doc, source.agency_name, catalog);
+          const out = await extract(doc, source.agency_name, catalog, schema);
           for (const row of out.seasons) {
             const v = validateSeason(row);
             extracted.push({
@@ -512,14 +523,15 @@ Deno.serve(async (req) => {
     const runId = crypto.randomUUID();
     const { data: species } = await admin.from('species').select('id, key, name').order('sort_order');
     const speciesByKey = Object.fromEntries((species ?? []).map((s: any) => [s.key, s.id]));
-    const catalog = speciesCatalog((species ?? []) as { key: string; name: string }[]);
+const catalog = speciesCatalog((species ?? []) as { key: string; name: string }[]);
+    const schema = extractionSchema((species ?? []).map((s: any) => s.key));
 
     // Process sequentially; isolate per-source errors so one bad source doesn't
     // abort the whole run.
     const results = [];
     for (const source of sources) {
       try {
-        results.push(await processSource(source, runId, speciesByKey, catalog));
+        results.push(await processSource(source, runId, speciesByKey, catalog, schema));
       } catch (e) {
         await admin.from('sources').update({ last_extracted_at: new Date().toISOString() }).eq('id', source.id);
         results.push({ source: source.agency_name, url: source.url, error: e instanceof Error ? e.message : String(e) });
