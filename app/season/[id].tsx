@@ -9,6 +9,7 @@ import { useAuth } from '@/providers/AuthProvider';
 import { useFollowedSeasons, useSeasonById } from '@/features/reference/queries';
 import type { SeasonWithRefs } from '@/features/reference/types';
 import { useMethodReminder } from '@/features/follows/queries';
+import { useSeasonChange } from '@/features/changes/queries';
 import { useCreateParty, useMyParties } from '@/features/parties/queries';
 import { useLegalLight } from '@/features/legalLight/useLegalLight';
 import { useRequirePro } from '@/hooks/useRequirePro';
@@ -121,6 +122,8 @@ export default function SeasonDetail() {
 function SeasonPageBody({ id }: { id: string | undefined }) {
   const router = useRouter();
   const { data: season, isLoading } = useSeasonById(id);
+  // Did this season move since last year? Drives the badge in THE SEASON tile.
+  const { data: seasonChange } = useSeasonChange(id);
   const { profile } = useAuth();
   const requirePro = useRequirePro();
   const { width } = useWindowDimensions();
@@ -246,10 +249,18 @@ function SeasonPageBody({ id }: { id: string | undefined }) {
       {/* THE SEASON — the facts of the hunt in one tile: dates, countdown,
           and the bag limit together (David's reflow, 2026-08-29). */}
       <View style={styles.tile}>
-        <Micro>The season</Micro>
+        <View style={styles.tileHead}>
+          <Micro>The season</Micro>
+          {seasonChange?.note ? <Text style={styles.changedBadge}>CHANGED THIS YEAR</Text> : null}
+        </View>
         <Serif size={30} style={{ marginTop: space.x12 }}>
           {formatDateRange(season.open_date, season.close_date)}
         </Serif>
+        {seasonChange?.note ? (
+          <Sentence tone="dim" style={{ marginTop: space.x8, fontSize: 13 }}>
+            {seasonChange.note}
+          </Sentence>
+        ) : null}
         <Sentence style={{ marginTop: space.x8 }}>
           {open && season.close_date ? (
             <>
@@ -401,6 +412,13 @@ const styles = StyleSheet.create({
     borderColor: color.hair,
   },
   tickRow: { height: 16, marginTop: 2 },
+  tileHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: space.x8 },
+  changedBadge: {
+    fontFamily: type.uiSemiBold,
+    fontSize: 9.5,
+    letterSpacing: 1.2,
+    color: color.copper,
+  },
   actions: { flexDirection: 'row', gap: space.x12 },
   dots: {
     position: 'absolute',

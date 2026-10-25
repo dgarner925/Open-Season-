@@ -56,6 +56,26 @@ export type DateChangeRow = {
   created_at: string;
 };
 
+export type RegulationChangeRow = {
+  id: string;
+  state_id: string;
+  species_id: string | null;
+  target_table: string;
+  change_type: 'added' | 'removed' | 'modified';
+  old_id: string | null;
+  new_id: string | null;
+  old_year: number | null;
+  new_year: number | null;
+  field_diffs: { field: string; old: string | null; new: string | null }[];
+  note: string | null;
+  note_phrased: boolean;
+  note_model: string | null;
+  published: boolean;
+  dedupe_key: string;
+  created_at: string;
+  updated_at: string;
+};
+
 type Timestamps = { created_at: string; updated_at: string };
 
 export type SourceRow = Timestamps & {
@@ -315,6 +335,7 @@ export type Database = {
       user_point_balances: Table<PointBalanceRow, Omit<PointBalanceRow, Gen> & { id?: string }>;
       date_reports: Table<DateReportRow, Omit<DateReportRow, 'id' | 'created_at'> & { id?: string }>;
       date_changes: Table<DateChangeRow, Omit<DateChangeRow, 'id' | 'created_at'> & { id?: string }>;
+      regulation_changes: Table<RegulationChangeRow, Omit<RegulationChangeRow, Gen> & { id?: string }>;
       parties: Table<PartyRow, Omit<PartyRow, 'id' | 'created_at'> & { id?: string }>;
       party_members: Table<PartyMemberRow, Omit<PartyMemberRow, 'joined_at'> & { joined_at?: string }>;
     };
