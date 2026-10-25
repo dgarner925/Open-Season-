@@ -156,9 +156,9 @@ Rules:
   time, never convert a timezone, never shift a date by a day.
 - confidence: 0 to 1, how certain you are this row is correct as printed. Be honest
   — a table you had to interpret deserves a lower number than one you read directly.
-- evidence: the page number if the document has one (else null) and `quote`, a
+- evidence: the page number if the document has one (else null) and a quote: a
   VERBATIM span of AT MOST 25 WORDS copied from the document showing these dates.
-  Never paraphrase in `quote`; it exists so a human can check you.`;
+  Never paraphrase the quote; it exists so a human can check you.`;
 
 // The set of valid species keys is injected per-run from the DB (see handler), so
 // the model can extract every huntable species — not a hardcoded few. Maps common
