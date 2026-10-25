@@ -19,6 +19,7 @@ import {
   accuracyReport,
   LOW_CONFIDENCE,
   normalizeExtractedDate,
+  normalizeLabel,
   scoreConfidence,
   validateSeason,
 } from '../_shared/extraction.ts';
@@ -317,13 +318,22 @@ async function processSource(source: any, runId: string, speciesByKey: Record<st
     // Archery" for the same species, zone, method and year; matching without
     // the label made the second window look like an edit of the first — and
     // made maybeSingle() throw once both existed.
-    let q = admin.from('seasons').select('*')
+    // Fetch the whole group and match in code, two passes: normalized label
+    // first, then identical dates. Comparing labels verbatim made "Firearms"
+    // and "Firearms (one day)" look like different seasons and proposed a
+    // duplicate (GA accuracy run, 2026-10-25).
+    const { data: groupRows } = await admin.from('seasons').select('*')
       .eq('state_id', source.state_id).eq('species_id', species_id)
-      .eq('zone_id', zone_id!).eq('method', row.method).eq('season_year', row.season_year);
-    q = label === null ? q.is('label', null) : q.eq('label', label);
-    const { data: matches } = await q.limit(2);
-    const current = (matches ?? [])[0] ?? null;
-    const ambiguous = (matches ?? []).length > 1;
+      .eq('zone_id', zone_id!).eq('method', row.method).eq('season_year', row.season_year)
+      .limit(50);
+    const group = groupRows ?? [];
+    const wantedLabel = normalizeLabel(label);
+    const sameLabel = group.filter((r: any) => normalizeLabel(r.label) === wantedLabel);
+    let current = sameLabel[0] ?? null;
+    if (!current && open_date) {
+      current = group.find((r: any) => r.open_date === open_date && r.close_date === close_date) ?? null;
+    }
+    const ambiguous = sameLabel.length > 1;
 
     const payload = {
       state_id: source.state_id, species_id, zone_id, season_year: row.season_year,

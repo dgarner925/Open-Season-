@@ -59,6 +59,44 @@ export function normalizeExtractedDate(value: unknown): string | null {
   return null;
 }
 
+/**
+ * Labels are prose written by whoever typed the regulations, so they vary in
+ * ways that mean nothing: "youth firearms" vs "youth-only firearms",
+ * "firearms" vs "firearms (one day)". Comparing them verbatim turned one
+ * season into a phantom addition plus a phantom removal (GA accuracy run,
+ * 2026-10-25). Normalize away the noise, keep what distinguishes a window.
+ */
+export function normalizeLabel(label: string | null | undefined): string {
+  return (label ?? '')
+    .toLowerCase()
+    .replace(/\([^)]*\)/g, ' ')          // "(one day)", "(select days)"
+    .replace(/&/g, ' and ')
+    .replace(/[^a-z0-9]+/g, ' ')         // punctuation, dashes, en-dashes
+    .split(/\s+/)
+    .filter((w) => w && !LABEL_NOISE.has(w))
+    .join(' ')
+    .trim();
+}
+
+// Words that never distinguish one season window from another.
+const LABEL_NOISE = new Set([
+  'only', 'the', 'a', 'an', 'and', 'season', 'seasons', 'day', 'days', 'select',
+]);
+
+/** Everything about a season except its label — the matching group. */
+export function seasonGroup(r: {
+  species_id?: string;
+  species?: string;
+  zone_id?: string | null;
+  zone?: string | null;
+  method: string;
+  season_year: number;
+}): string {
+  const species = r.species_id ?? r.species ?? '';
+  const zone = (r.zone_id ?? r.zone ?? 'Statewide') || 'Statewide';
+  return [species, String(zone).trim().toLowerCase(), r.method, r.season_year].join('|');
+}
+
 /** What makes two season rows the same row. Label included — see the header. */
 export function seasonIdentity(r: {
   species_id?: string;
@@ -69,10 +107,7 @@ export function seasonIdentity(r: {
   label: string | null;
   season_year: number;
 }): string {
-  const species = r.species_id ?? r.species ?? '';
-  const zone = (r.zone_id ?? r.zone ?? 'Statewide') || 'Statewide';
-  const label = (r.label ?? '').trim().toLowerCase();
-  return [species, String(zone).trim().toLowerCase(), r.method, r.season_year, label].join('|');
+  return [seasonGroup(r), normalizeLabel(r.label)].join('|');
 }
 
 export type Validation = { ok: boolean; errors: string[]; dates: { open: string | null; close: string | null } };
@@ -145,37 +180,71 @@ export type AccuracyReport = {
 
 const range = (o: string | null, c: string | null) => `${o ?? '?'}..${c ?? '?'}`;
 
+/**
+ * Grade an extraction against hand-verified data.
+ *
+ * Matching runs in two passes, because a label is prose and prose varies:
+ *   1. exact identity (group + normalized label)
+ *   2. for whatever is left, same group AND identical dates — a season whose
+ *      dates agree exactly is the same season even if one source calls it
+ *      "firearms" and the other "firearms (one day)".
+ * Only what survives both passes is reported as added or missing.
+ */
 export function accuracyReport(extracted: ExtractedSeason[], current: CurrentSeason[]): AccuracyReport {
-  const ex = new Map<string, ExtractedSeason>();
-  for (const r of extracted) ex.set(seasonIdentity(r), r);
-  const cur = new Map<string, CurrentSeason>();
-  for (const r of current) cur.set(seasonIdentity(r), r);
+  const exRows = extracted.map((r) => ({
+    key: seasonIdentity(r),
+    group: seasonGroup(r),
+    open: normalizeExtractedDate(r.open_date),
+    close: normalizeExtractedDate(r.close_date),
+  }));
+  const curRows = current.map((r) => ({
+    key: seasonIdentity(r),
+    group: seasonGroup(r),
+    open: r.open_date,
+    close: r.close_date,
+  }));
+
+  const exUsed = new Array(exRows.length).fill(false);
+  const curUsed = new Array(curRows.length).fill(false);
 
   let exact = 0;
   const date_mismatch: AccuracyReport['date_mismatch'] = [];
-  const only_current: string[] = [];
 
-  for (const [key, c] of cur) {
-    const e = ex.get(key);
-    if (!e) {
-      only_current.push(key);
-      continue;
-    }
-    const eo = normalizeExtractedDate(e.open_date);
-    const ec = normalizeExtractedDate(e.close_date);
-    if (eo === c.open_date && ec === c.close_date) exact++;
-    else date_mismatch.push({ identity: key, current: range(c.open_date, c.close_date), extracted: range(eo, ec) });
+  // Pass 1 — same group, same normalized label.
+  for (let ci = 0; ci < curRows.length; ci++) {
+    const c = curRows[ci];
+    const ei = exRows.findIndex((e, i) => !exUsed[i] && e.key === c.key);
+    if (ei === -1) continue;
+    exUsed[ei] = true;
+    curUsed[ci] = true;
+    const e = exRows[ei];
+    if (e.open === c.open && e.close === c.close) exact++;
+    else date_mismatch.push({ identity: c.key, current: range(c.open, c.close), extracted: range(e.open, e.close) });
   }
 
-  const only_extracted = [...ex.keys()].filter((k) => !cur.has(k));
+  // Pass 2 — same group, identical dates, label wording ignored.
+  for (let ci = 0; ci < curRows.length; ci++) {
+    if (curUsed[ci]) continue;
+    const c = curRows[ci];
+    const ei = exRows.findIndex(
+      (e, i) => !exUsed[i] && e.group === c.group && e.open === c.open && e.close === c.close,
+    );
+    if (ei === -1) continue;
+    exUsed[ei] = true;
+    curUsed[ci] = true;
+    exact++;
+  }
+
+  const only_extracted = exRows.filter((_, i) => !exUsed[i]).map((e) => e.key);
+  const only_current = curRows.filter((_, i) => !curUsed[i]).map((c) => c.key);
 
   return {
-    total_extracted: ex.size,
-    total_current: cur.size,
+    total_extracted: exRows.length,
+    total_current: curRows.length,
     exact,
     date_mismatch,
     only_extracted,
     only_current,
-    accuracy: cur.size === 0 ? 0 : Math.round((exact / cur.size) * 1000) / 1000,
+    accuracy: curRows.length === 0 ? 0 : Math.round((exact / curRows.length) * 1000) / 1000,
   };
 }

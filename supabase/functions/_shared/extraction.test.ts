@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
   accuracyReport,
+  normalizeLabel,
+  seasonGroup,
   isLocalISODate,
   LOW_CONFIDENCE,
   normalizeExtractedDate,
@@ -162,5 +164,73 @@ describe('accuracyReport', () => {
 
   it('handles an empty baseline without dividing by zero', () => {
     expect(accuracyReport([season()], []).accuracy).toBe(0);
+  });
+});
+
+describe('label noise — the real Georgia accuracy-run failures (2026-10-25)', () => {
+  it('treats "youth-only firearms" and "youth firearms" as the same window', () => {
+    expect(normalizeLabel('Primitive Weapons & Youth-Only Firearms')).toBe(
+      normalizeLabel('Primitive Weapons & Youth Firearms'),
+    );
+  });
+
+  it('ignores a parenthetical qualifier', () => {
+    expect(normalizeLabel('Firearms (one day)')).toBe(normalizeLabel('Firearms'));
+    expect(normalizeLabel('Firearms (select days)')).toBe(normalizeLabel('Firearms'));
+  });
+
+  it('still separates genuinely different windows', () => {
+    expect(normalizeLabel('Segment 1')).not.toBe(normalizeLabel('Segment 2'));
+    expect(normalizeLabel('Archery')).not.toBe(normalizeLabel('Extended Archery'));
+  });
+
+  it('matches identity across those wording differences', () => {
+    const a = season({ label: 'Primitive Weapons & Youth-Only Firearms', method: 'muzzleloader' });
+    const b = season({ label: 'Primitive Weapons & Youth Firearms', method: 'muzzleloader' });
+    expect(seasonIdentity(a)).toBe(seasonIdentity(b));
+  });
+
+  it('groups ignore the label entirely', () => {
+    expect(seasonGroup(season({ label: 'anything' }))).toBe(seasonGroup(season({ label: 'else' })));
+    expect(seasonGroup(season({ zone: 'Zone B' }))).not.toBe(seasonGroup(season()));
+  });
+});
+
+describe('accuracyReport — second pass on dates', () => {
+  const current: CurrentSeason[] = [
+    { id: '1', species: 'bear', zone: 'Central Zone', method: 'firearm', label: 'Firearms (one day)', season_year: 2026, open_date: '2026-12-05', close_date: '2026-12-05' },
+  ];
+
+  it('matches a differently-worded label when the dates are identical', () => {
+    const r = accuracyReport(
+      [season({ species: 'bear', zone: 'Central Zone', method: 'firearm', label: 'Firearms', open_date: '2026-12-05', close_date: '2026-12-05' })],
+      current,
+    );
+    expect(r.exact).toBe(1);
+    expect(r.only_extracted).toEqual([]);
+    expect(r.only_current).toEqual([]);
+  });
+
+  it('does not match across groups just because dates agree', () => {
+    const r = accuracyReport(
+      [season({ species: 'deer', zone: 'Central Zone', method: 'firearm', label: 'Firearms', open_date: '2026-12-05', close_date: '2026-12-05' })],
+      current,
+    );
+    expect(r.exact).toBe(0);
+    expect(r.only_current).toHaveLength(1);
+    expect(r.only_extracted).toHaveLength(1);
+  });
+
+  it('never counts one extracted row against two current rows', () => {
+    const twoWindows: CurrentSeason[] = [
+      { id: 'a', species: 'duck', zone: 'Statewide', method: 'general', label: 'Segment 1', season_year: 2026, open_date: '2026-11-21', close_date: '2026-11-29' },
+      { id: 'b', species: 'duck', zone: 'Statewide', method: 'general', label: 'Segment 2', season_year: 2026, open_date: '2026-12-12', close_date: '2027-01-31' },
+    ];
+    const r = accuracyReport(
+      [season({ species: 'duck', zone: 'Statewide', method: 'general', label: 'Segment 1', open_date: '2026-11-21', close_date: '2026-11-29' })],
+      twoWindows,
+    );
+    expect(r.exact).toBe(1);
+    expect(r.only_current).toHaveLength(1); // segment 2 genuinely missing
   });
 });
