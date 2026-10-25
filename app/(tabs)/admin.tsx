@@ -122,11 +122,21 @@ function ReviewCard({
     <Card>
       <View style={styles.header}>
         <GlassChip label={meta.chip} />
-        {field(p, 'season_year') !== '—' ? (
-          <AppText variant="caption" color={theme.color.textMuted}>
-            {field(p, 'season_year')}
-          </AppText>
-        ) : null}
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
+          {typeof review.confidence === 'number' ? (
+            <AppText
+              variant="caption"
+              color={review.confidence < 0.7 ? '#c96f5a' : theme.color.textMuted}
+            >
+              {Math.round(review.confidence * 100)}% sure
+            </AppText>
+          ) : null}
+          {field(p, 'season_year') !== '—' ? (
+            <AppText variant="caption" color={theme.color.textMuted}>
+              {field(p, 'season_year')}
+            </AppText>
+          ) : null}
+        </View>
       </View>
 
       <AppText variant="h3">{meta.title(p)}</AppText>
@@ -142,6 +152,19 @@ function ReviewCard({
             ),
           )}
         </>
+      ) : null}
+
+      {review.evidence?.quote ? (
+        <AppText variant="caption" color={theme.color.textMuted} style={{ marginTop: spacing.sm, fontStyle: 'italic' }}>
+          “{review.evidence.quote}”
+          {review.evidence.page ? ` — p.${review.evidence.page}` : ''}
+        </AppText>
+      ) : null}
+
+      {review.validation_errors?.length ? (
+        <AppText variant="caption" color="#c96f5a" style={{ marginTop: spacing.xs }}>
+          {review.validation_errors.join(' · ')}
+        </AppText>
       ) : null}
 
       {extra !== '—' ? (

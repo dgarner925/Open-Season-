@@ -11,6 +11,8 @@ export function usePendingReviews() {
         .from('review_queue')
         .select('*')
         .eq('status', 'pending')
+        // Least-certain first: the rows that need a human eye, not the easy ones.
+        .order('confidence', { ascending: true, nullsFirst: false })
         .order('created_at', { ascending: false });
       if (error) throw error;
       return data ?? [];

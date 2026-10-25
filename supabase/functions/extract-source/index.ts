@@ -15,6 +15,13 @@
 //
 // deno-lint-ignore-file no-explicit-any
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import {
+  accuracyReport,
+  LOW_CONFIDENCE,
+  normalizeExtractedDate,
+  scoreConfidence,
+  validateSeason,
+} from '../_shared/extraction.ts';
 
 const ANTHROPIC_API_KEY = Deno.env.get('ANTHROPIC_API_KEY')!;
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
@@ -23,7 +30,7 @@ const SERVICE_ROLE = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 // reasoning, and Sonnet is roughly 5x cheaper per call — meaningful for an
 // hourly cron over 13+ sources. Every extraction is still human-reviewed
 // before publishing (review_queue), so this doesn't change the safety net.
-const MODEL = 'claude-sonnet-5';
+const MODEL = Deno.env.get('EXTRACT_MODEL') ?? 'claude-sonnet-5-5';
 
 const admin = createClient(SUPABASE_URL, SERVICE_ROLE, { auth: { persistSession: false } });
 
@@ -71,8 +78,18 @@ const SEASON_ITEM = {
     close_date: { type: ['string', 'null'] },
     bag_limit_summary: { type: ['string', 'null'] },
     notes: { type: ['string', 'null'] },
+    confidence: { type: 'number' },
+    evidence: {
+      type: 'object',
+      additionalProperties: false,
+      properties: {
+        page: { type: ['integer', 'null'] },
+        quote: { type: ['string', 'null'] },
+      },
+      required: ['page', 'quote'],
+    },
   },
-  required: ['species', 'method', 'zone', 'label', 'season_year', 'open_date', 'close_date', 'bag_limit_summary', 'notes'],
+  required: ['species', 'method', 'zone', 'label', 'season_year', 'open_date', 'close_date', 'bag_limit_summary', 'notes', 'confidence', 'evidence'],
 };
 
 const WINDOW_ITEM = {
@@ -130,7 +147,18 @@ Rules:
   Primary Draw" (the species is a separate field). zone null if not zone-specific.
   application_url is the page where hunters apply, if the document states one.
 - regulation_summaries: a short markdown summary of the key rules for that species in
-  this state (bag limits, legal weapons, license requirements). Keep it factual and brief.`;
+  this state (bag limits, legal weapons, license requirements). Keep it factual and brief.
+- MULTI-WINDOW SEASONS: when a season runs in separate windows (splits, segments,
+  an early and a late portion, archery plus extended archery), emit ONE ROW PER
+  WINDOW, each with its own label and its own dates. Never merge two windows into
+  a single row spanning the gap between them.
+- Dates are calendar days exactly as printed. Write them YYYY-MM-DD. Never add a
+  time, never convert a timezone, never shift a date by a day.
+- confidence: 0 to 1, how certain you are this row is correct as printed. Be honest
+  — a table you had to interpret deserves a lower number than one you read directly.
+- evidence: the page number if the document has one (else null) and `quote`, a
+  VERBATIM span of AT MOST 25 WORDS copied from the document showing these dates.
+  Never paraphrase in `quote`; it exists so a human can check you.`;
 
 // The set of valid species keys is injected per-run from the DB (see handler), so
 // the model can extract every huntable species — not a hardcoded few. Maps common
@@ -275,22 +303,46 @@ async function processSource(source: any, runId: string, speciesByKey: Record<st
     const species_id = speciesByKey[row.species];
     if (!species_id) { t.skipped++; continue; }
     const zone_id = await resolveZoneId(source.state_id, row.zone, false);
-    const { data: current } = await admin.from('seasons').select('*')
+
+    // Validate before matching: dates are taken literally, never parsed through
+    // a Date (which would shift a calendar day westward), and a row that fails
+    // still reaches the queue — flagged and low-confidence, never published.
+    const v = validateSeason(row);
+    const confidence = scoreConfidence(row, v);
+    const open_date = v.dates.open;
+    const close_date = v.dates.close;
+    const label = row.label ?? null;
+
+    // Identity INCLUDES the label. Georgia runs "Archery" and "Extended
+    // Archery" for the same species, zone, method and year; matching without
+    // the label made the second window look like an edit of the first — and
+    // made maybeSingle() throw once both existed.
+    let q = admin.from('seasons').select('*')
       .eq('state_id', source.state_id).eq('species_id', species_id)
-      .eq('zone_id', zone_id!).eq('method', row.method).eq('season_year', row.season_year)
-      .maybeSingle();
+      .eq('zone_id', zone_id!).eq('method', row.method).eq('season_year', row.season_year);
+    q = label === null ? q.is('label', null) : q.eq('label', label);
+    const { data: matches } = await q.limit(2);
+    const current = (matches ?? [])[0] ?? null;
+    const ambiguous = (matches ?? []).length > 1;
+
     const payload = {
       state_id: source.state_id, species_id, zone_id, season_year: row.season_year,
-      method: row.method, label: row.label, open_date: row.open_date, close_date: row.close_date,
+      method: row.method, label, open_date, close_date,
       bag_limit_summary: row.bag_limit_summary, notes: row.notes, source_id: source.id,
     };
+    const meta = {
+      confidence,
+      evidence: row.evidence ?? null,
+      validation_errors: ambiguous ? [...v.errors, 'multiple existing rows share this identity'] : v.errors,
+    };
+
     if (!current) {
-      if (await pendingExists('seasons', null, { state_id: source.state_id, species_id, zone_id, method: row.method, season_year: row.season_year })) { t.skipped++; continue; }
-      await admin.from('review_queue').insert({ target_table: 'seasons', change_type: 'create', proposed_payload: payload, source_id: source.id, extraction_run_id: runId });
+      if (await pendingExists('seasons', null, { state_id: source.state_id, species_id, zone_id, method: row.method, season_year: row.season_year, label })) { t.skipped++; continue; }
+      await admin.from('review_queue').insert({ target_table: 'seasons', change_type: 'create', proposed_payload: payload, source_id: source.id, extraction_run_id: runId, ...meta });
       t.created++;
-    } else if (current.open_date !== row.open_date || current.close_date !== row.close_date) {
+    } else if (current.open_date !== open_date || current.close_date !== close_date) {
       if (await pendingExists('seasons', current.id, {})) { t.skipped++; continue; }
-      await admin.from('review_queue').insert({ target_table: 'seasons', change_type: 'update', target_id: current.id, proposed_payload: payload, current_snapshot: current, source_id: source.id, extraction_run_id: runId });
+      await admin.from('review_queue').insert({ target_table: 'seasons', change_type: 'update', target_id: current.id, proposed_payload: payload, current_snapshot: current, source_id: source.id, extraction_run_id: runId, ...meta });
       t.updated++;
     } else { t.unchanged++; }
   }
@@ -304,18 +356,23 @@ async function processSource(source: any, runId: string, speciesByKey: Record<st
       .eq('state_id', source.state_id).eq('species_id', species_id).eq('season_year', row.season_year);
     match = zone_id ? match.eq('zone_id', zone_id) : match.is('zone_id', null);
     match = row.name ? match.eq('name', row.name) : match.is('name', null);
-    const { data: current } = await match.maybeSingle();
+    const { data: windowMatches } = await match.limit(2);
+    const current = (windowMatches ?? [])[0] ?? null;
+    // Same literal-date rule as seasons: a deadline is a calendar day.
+    const opens_at = normalizeExtractedDate(row.opens_at);
+    const closes_at = normalizeExtractedDate(row.closes_at);
+    const results_expected_at = normalizeExtractedDate(row.results_expected_at);
     const payload = {
       state_id: source.state_id, species_id, zone_id, season_year: row.season_year,
-      name: row.name, opens_at: row.opens_at, closes_at: row.closes_at,
-      results_expected_at: row.results_expected_at, fee_summary: row.fee_summary,
+      name: row.name, opens_at, closes_at,
+      results_expected_at, fee_summary: row.fee_summary,
       application_url: row.application_url ?? source.url, source_id: source.id,
     };
     if (!current) {
       if (await pendingExists('application_windows', null, { state_id: source.state_id, species_id, season_year: row.season_year, name: row.name })) { t.skipped++; continue; }
       await admin.from('review_queue').insert({ target_table: 'application_windows', change_type: 'create', proposed_payload: payload, source_id: source.id, extraction_run_id: runId });
       t.created++;
-    } else if (current.closes_at !== row.closes_at || current.opens_at !== row.opens_at) {
+    } else if (current.closes_at !== closes_at || current.opens_at !== opens_at) {
       if (await pendingExists('application_windows', current.id, {})) { t.skipped++; continue; }
       await admin.from('review_queue').insert({ target_table: 'application_windows', change_type: 'update', target_id: current.id, proposed_payload: payload, current_snapshot: current, source_id: source.id, extraction_run_id: runId });
       t.updated++;
@@ -351,7 +408,81 @@ Deno.serve(async (req) => {
     }
 
     const body = req.method === 'POST' ? await req.json().catch(() => ({})) : {};
-    const { sourceId, max } = body as { sourceId?: string; max?: number };
+    const { sourceId, max, accuracy, state_code, season_year } = body as {
+      sourceId?: string; max?: number; accuracy?: boolean; state_code?: string; season_year?: number;
+    };
+
+    // --- accuracy mode -----------------------------------------------------
+    // Grade the extractor against hand-verified data for one state. Writes
+    // NOTHING: no review_queue rows, no last_extracted_at stamps. This is the
+    // gate a new state has to pass before we trust the pipeline on it.
+    if (accuracy) {
+      const code = String(state_code ?? '').trim().toUpperCase();
+      if (!code) return json({ error: 'accuracy mode needs state_code' }, 400);
+      const { data: state } = await admin.from('states').select('id,name').eq('code', code).maybeSingle();
+      if (!state) return json({ error: `unknown state ${code}` }, 404);
+
+      const { data: species } = await admin.from('species').select('id, key, name').order('sort_order');
+      const catalog = speciesCatalog((species ?? []) as { key: string; name: string }[]);
+      const keyById = Object.fromEntries((species ?? []).map((s: any) => [s.id, s.key]));
+
+      const { data: srcs } = await admin.from('sources').select('*')
+        .eq('state_id', (state as any).id).limit(Math.min(Math.max(max ?? 3, 1), 10));
+      if (!srcs?.length) return json({ error: `no sources for ${code}` }, 404);
+
+      const extracted: any[] = [];
+      const errors: string[] = [];
+      for (const source of srcs) {
+        try {
+          const doc = await fetchDocumentBlock(source.url);
+          const out = await extract(doc, source.agency_name, catalog);
+          for (const row of out.seasons) {
+            const v = validateSeason(row);
+            extracted.push({
+              ...row,
+              open_date: v.dates.open,
+              close_date: v.dates.close,
+              zone: row.zone ?? 'Statewide',
+              _confidence: scoreConfidence(row, v),
+              _errors: v.errors,
+            });
+          }
+        } catch (e) {
+          errors.push(`${source.url}: ${e instanceof Error ? e.message : String(e)}`);
+        }
+      }
+
+      let cur = admin.from('seasons')
+        .select('id,method,label,season_year,open_date,close_date,species_id,zone:zones(name)')
+        .eq('state_id', (state as any).id).eq('status', 'published');
+      if (season_year) cur = cur.eq('season_year', season_year);
+      const { data: currentRows } = await cur.limit(1000);
+
+      const current = (currentRows ?? []).map((r: any) => ({
+        id: r.id,
+        species: keyById[r.species_id] ?? r.species_id,
+        zone: r.zone?.name ?? 'Statewide',
+        method: r.method,
+        label: r.label,
+        season_year: r.season_year,
+        open_date: r.open_date,
+        close_date: r.close_date,
+      }));
+
+      const report = accuracyReport(extracted, current);
+      const lowConfidence = extracted.filter((r) => r._confidence < LOW_CONFIDENCE).length;
+
+      return json({
+        mode: 'accuracy',
+        state: (state as any).name,
+        season_year: season_year ?? 'all published',
+        sources_read: srcs.length,
+        source_errors: errors,
+        low_confidence_rows: lowConfidence,
+        ...report,
+        wrote_nothing: true,
+      });
+    }
 
     // Pick the source(s) to process.
     let sources: any[] = [];

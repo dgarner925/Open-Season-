@@ -294,6 +294,8 @@ export type ReviewQueueRow = Timestamps & {
   source_id: string | null;
   extraction_run_id: string | null;
   confidence: number | null;
+  evidence: { page?: number | null; quote?: string | null } | null;
+  validation_errors: string[] | null;
   status: ReviewStatus;
   reviewed_by: string | null;
   reviewed_at: string | null;
