@@ -9,8 +9,7 @@
     "web": "expo start --web",
     "lint": "expo lint",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run",
-    "test:watch": "vitest"
+    "test": "npm --prefix supabase test"
   },
   "dependencies": {
     "@bacons/apple-targets": "^5.0.0",
@@ -60,9 +59,8 @@
   },
   "devDependencies": {
     "@types/react": "~19.2.4",
-    "@types/suncalc": "^1.9.2",
     "typescript": "~6.0.3",
-    "vitest": "^3.2.7"
+    "@types/suncalc": "^1.9.2"
   },
   "private": true
 }

@@ -1,0 +1,12 @@
+{
+  "name": "openseason-server-tests",
+  "private": true,
+  "description": "Test runner for the Edge Functions' shared logic. Deliberately a SEPARATE package: adding vitest to the app's package.json rewrote its lockfile and dropped a nested typescript@5 that @bacons/apple-targets needs, which broke the native build (2026-10-31).",
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "devDependencies": {
+    "vitest": "^3.2.7"
+  }
+}
