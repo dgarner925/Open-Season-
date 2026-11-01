@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  The Ember palette, by hand: RemoteViews can't read the app's theme, so the
+  colours here mirror src/theme/colors.ts. Keep them in step.
+-->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/ll_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:gravity="center_vertical"
+    android:background="@drawable/widget_bg"
+    android:padding="16dp">
+
+    <TextView
+        android:id="@+id/ll_label"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="FIRST LIGHT"
+        android:textColor="#D99E7F"
+        android:textSize="11sp"
+        android:textStyle="bold"
+        android:letterSpacing="0.14"
+        android:maxLines="1" />
+
+    <Chronometer
+        android:id="@+id/ll_timer"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="4dp"
+        android:textColor="#F4F1EA"
+        android:textSize="30sp"
+        android:maxLines="1" />
+
+    <TextView
+        android:id="@+id/ll_caption"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="2dp"
+        android:text="until first light"
+        android:textColor="#9E988F"
+        android:textSize="12sp"
+        android:maxLines="2" />
+
+</LinearLayout>

@@ -29,11 +29,11 @@
           "group.com.openseason.shared"
         ]
       },
-      "buildNumber": "88"
+      "buildNumber": "89"
     },
     "android": {
       "package": "com.osdatesanddraws.app",
-      "versionCode": 6,
+      "versionCode": 7,
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#100e0c"
@@ -84,7 +84,8 @@
         {
           "locationWhenInUsePermission": "Open Season uses your location to work out today's legal shooting light and the dawn forecast where you stand. Your location is never sent to our servers or stored in your account."
         }
-      ]
+      ],
+      "./plugins/android-widget"
     ],
     "experiments": {
       "typedRoutes": true

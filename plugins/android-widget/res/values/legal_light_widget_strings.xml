@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- A separate file so Expo's managed res/values/strings.xml stays untouched. -->
+<resources>
+    <string name="legal_light_widget_description">Counts down to first light, then to last light.</string>
+</resources>

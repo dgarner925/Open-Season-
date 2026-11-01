@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  updatePeriodMillis is the backstop, not the countdown: the Chronometer ticks
+  itself, and an alarm flips the label at each boundary. 30 minutes is the
+  floor the system honours anyway, and it costs nothing when the widget is
+  just redrawing the same phase.
+-->
+<appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
+    android:minWidth="180dp"
+    android:minHeight="110dp"
+    android:targetCellWidth="3"
+    android:targetCellHeight="2"
+    android:updatePeriodMillis="1800000"
+    android:initialLayout="@layout/legal_light_widget"
+    android:previewLayout="@layout/legal_light_widget"
+    android:resizeMode="horizontal|vertical"
+    android:widgetCategory="home_screen"
+    android:description="@string/legal_light_widget_description" />
