@@ -159,6 +159,11 @@ Rules:
   application_url is the page where hunters apply, if the document states one.
 - regulation_summaries: a short markdown summary of the key rules for that species in
   this state (bag limits, legal weapons, license requirements). Keep it factual and brief.
+- ZONE vs LABEL: zone is a GEOGRAPHIC area only — a named zone or unit, a county
+  group, or Statewide. Access and land-type qualifiers are NOT zones: private
+  lands, WMAs, public land, national forest, falconry, youth, military. Those go
+  in the label, and zone stays the geographic area they apply to (Statewide if
+  they apply state-wide).
 - MULTI-WINDOW SEASONS: when a season runs in separate windows (splits, segments,
   an early and a late portion, archery plus extended archery), emit ONE ROW PER
   WINDOW, each with its own label and its own dates. Never merge two windows into
@@ -308,6 +313,11 @@ async function processSource(source: any, runId: string, speciesByKey: Record<st
   const doc = await fetchDocumentBlock(source.url);
   const { seasons, application_windows, regulation_summaries } = await extract(doc, source.agency_name, catalog, schema);
   const t = emptyTally();
+  // An existing row may be claimed by at most ONE proposal per run. Without
+  // this, a season the document splits into four windows — all labelled
+  // "Firearms" — produces four proposals that each try to update the same row
+  // (GA accuracy run, 2026-10-31).
+  const claimed = new Set<string>();
 
   // --- seasons ---
   for (const row of seasons) {
@@ -336,14 +346,17 @@ async function processSource(source: any, runId: string, speciesByKey: Record<st
       .eq('state_id', source.state_id).eq('species_id', species_id)
       .eq('zone_id', zone_id!).eq('method', row.method).eq('season_year', row.season_year)
       .limit(50);
-    const group = groupRows ?? [];
+    const group = (groupRows ?? []).filter((r: any) => !claimed.has(r.id));
     const wantedLabel = normalizeLabel(label);
+    // Dates first when we have them: they identify a window exactly, where a
+    // label may be shared across several. Fall back to the label for a season
+    // whose dates moved.
+    let current =
+      (open_date ? group.find((r: any) => r.open_date === open_date && r.close_date === close_date) : null) ?? null;
     const sameLabel = group.filter((r: any) => normalizeLabel(r.label) === wantedLabel);
-    let current = sameLabel[0] ?? null;
-    if (!current && open_date) {
-      current = group.find((r: any) => r.open_date === open_date && r.close_date === close_date) ?? null;
-    }
-    const ambiguous = sameLabel.length > 1;
+    if (!current && sameLabel.length === 1) current = sameLabel[0];
+    if (current) claimed.add(current.id);
+    const ambiguous = !current && sameLabel.length > 1;
 
     const payload = {
       state_id: source.state_id, species_id, zone_id, season_year: row.season_year,
