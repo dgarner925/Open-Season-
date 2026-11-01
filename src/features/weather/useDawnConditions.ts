@@ -2,6 +2,11 @@
  * Tomorrow's dawn, as an almanac row: temperature and sky, wind, barometric
  * pressure with its trend, and the moon. The Weekend Brief's conditions block.
  *
+ * Location leaves the phone here, and only here: the coordinates below go
+ * directly to the National Weather Service, rounded to ~1 km. They are not sent
+ * to our servers and are not stored. Everything else (legal light, the moon)
+ * is computed on-device.
+ *
  * Weather: the National Weather Service API (api.weather.gov) — free, keyless,
  * US-only, and a federal source like everything else we cite. Moon: suncalc,
  * on-device. Location: the same session-cached fix legal light uses; falls
@@ -19,6 +24,9 @@ import { getFix } from '@/features/legalLight/useLegalLight';
 const CENTROIDS = centroids as Record<string, { lat: number; lng: number }>;
 const UA = { 'User-Agent': 'OpenSeason-DatesAndDraws (osdatesanddraws.com)' };
 const PA_PER_INHG = 3386.39;
+
+/** Round a coordinate to ~1 km before it is sent to a third party. */
+const coarse = (deg: number): string => deg.toFixed(2);
 
 export type DawnConditions = {
   /** "Saturday" — the morning these numbers describe. */
@@ -66,7 +74,10 @@ export async function fetchNwsPoints(at: LatLng): Promise<any | null> {
   const key = `${at.lat.toFixed(2)},${at.lng.toFixed(2)}`;
   const hit = pointsCache.get(key);
   if (hit) return hit;
-  const points = await fetchJson(`https://api.weather.gov/points/${at.lat.toFixed(4)},${at.lng.toFixed(4)}`);
+  // Two decimals (~1 km) is the coarsest precision that still resolves an NWS
+  // forecast grid cell (~2.5 km), so the forecast is unchanged while the
+  // hunter's actual stand never leaves the phone at full precision.
+  const points = await fetchJson(`https://api.weather.gov/points/${coarse(at.lat)},${coarse(at.lng)}`);
   if (points?.properties) pointsCache.set(key, points);
   return points;
 }

@@ -82,7 +82,7 @@
       [
         "expo-location",
         {
-          "locationWhenInUsePermission": "Open Season uses your location to compute today's legal shooting light where you stand. Your location never leaves this phone."
+          "locationWhenInUsePermission": "Open Season uses your location to work out today's legal shooting light and the dawn forecast where you stand. Your location is never sent to our servers or stored in your account."
         }
       ]
     ],

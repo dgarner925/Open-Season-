@@ -8,9 +8,12 @@ import { useAuth } from '@/providers/AuthProvider';
 /**
  * Pro entitlement. Three ways to be Pro, checked in order of cheapness:
  *
- * 1. `profiles.is_premium` — server truth. Set TRUE for every account that
- *    existed before the freemium switch (they bought the app at $4.99), and
- *    kept current for subscribers by the RevenueCat webhook.
+ * 1. `profiles.is_premium` — server truth, and ONLY the server may write it.
+ *    A database trigger rejects client writes to is_premium/grandfathered, so
+ *    this provider never sets the flag itself: it calls the sync-entitlement
+ *    edge function, which verifies with RevenueCat and writes it server-side.
+ *    TRUE for every account that existed before the freemium switch (they
+ *    bought the app at $4.99), kept current by the RevenueCat webhook.
  * 2. RevenueCat `pro` entitlement — an active subscription on this Apple ID.
  * 3. Receipt grandfathering — the App Store receipt's original download was
  *    from the paid era (build <= LAST_PAID_BUILD). Covers a paid-era buyer
@@ -95,7 +98,9 @@ export function PremiumProvider({ children }: { children: ReactNode }) {
         // Push receipt-grandfathered status to the server so push alerts flow
         // even before the webhook knows this user.
         if (pro && user && !serverPro) {
-          await supabase.from('profiles').update({ is_premium: true }).eq('id', user.id);
+          // The server owns is_premium (the column is locked against client
+          // writes); we can only ask it to re-check with RevenueCat.
+          await supabase.functions.invoke('sync-entitlement');
           await refreshProfile();
         }
       } catch (e) {
@@ -116,7 +121,7 @@ export function PremiumProvider({ children }: { children: ReactNode }) {
       const pro = entitlementActive(info) || ((await receiptTrustworthy()) && receiptIsGrandfathered(info));
       setRcPro(pro);
       if (pro && user) {
-        await supabase.from('profiles').update({ is_premium: true }).eq('id', user.id);
+        await supabase.functions.invoke('sync-entitlement');
         await refreshProfile();
       }
     } catch {
