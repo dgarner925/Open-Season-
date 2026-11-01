@@ -344,7 +344,17 @@ export type Database = {
     Views: Record<string, never>;
     Functions: {
       is_admin: { Args: Record<string, never>; Returns: boolean };
-      apply_review_item: { Args: { p_review_id: string }; Returns: undefined };
+      apply_review_item: { Args: { p_review_id: string; p_quiet?: boolean }; Returns: undefined };
+      approve_clean_reviews: {
+        Args: { p_quiet?: boolean; p_min_confidence?: number; p_limit?: number };
+        Returns: {
+          approved: number;
+          failed: number;
+          quiet: boolean;
+          min_confidence: number;
+          failures: { id: string; error: string }[];
+        };
+      };
       create_party: {
         Args: { p_window_id?: string | null; p_season_id?: string | null };
         Returns: { party_id: string; invite_code: string }[];

@@ -1,8 +1,16 @@
+import { useState } from 'react';
 import { Redirect } from 'expo-router';
-import { ActivityIndicator, Alert, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Alert, StyleSheet, Switch, View } from 'react-native';
 import { AppText, Button, Card, Divider, GlassChip, Screen } from '@/components/ui';
 import { useAuth } from '@/providers/AuthProvider';
-import { usePendingReviews, useApproveReview, useRejectReview } from '@/features/review/queries';
+import {
+  CLEAN_MIN_CONFIDENCE,
+  isCleanReview,
+  usePendingReviews,
+  useApproveReview,
+  useApproveCleanReviews,
+  useRejectReview,
+} from '@/features/review/queries';
 import type { ReviewQueueRow } from '@/lib/database.types';
 import { formatDate } from '@/lib/date';
 import { spacing, theme } from '@/theme';
@@ -15,9 +23,43 @@ export default function Admin() {
   const { isAdmin } = useAuth();
   const { data: reviews = [], isLoading } = usePendingReviews();
   const approve = useApproveReview();
+  const sweep = useApproveCleanReviews();
   const reject = useRejectReview();
+  // Off by default: a sweep is almost always us catching up with our own
+  // extraction, and dates that never moved in the real world are not news.
+  const [alertFollowers, setAlertFollowers] = useState(false);
 
   if (!isAdmin) return <Redirect href="/(tabs)" />;
+
+  const clean = reviews.filter(isCleanReview);
+  const busy = approve.isPending || reject.isPending || sweep.isPending;
+
+  const runSweep = () => {
+    Alert.alert(
+      `Approve ${clean.length} clean item${clean.length === 1 ? '' : 's'}?`,
+      alertFollowers
+        ? 'Applies every item at or above 85% confidence with no validation errors — and pushes a “dates changed” alert to everyone following an affected hunt.'
+        : 'Applies every item at or above 85% confidence with no validation errors, stamped verified. No alerts go out, and the change stays out of the in-app Updates list.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Approve',
+          onPress: () =>
+            sweep.mutate(
+              { quiet: !alertFollowers },
+              {
+                onSuccess: (r) =>
+                  Alert.alert(
+                    'Applied',
+                    `${r.approved} approved${r.failed ? `, ${r.failed} left pending with the error on the card` : ''}.`,
+                  ),
+                onError: (e) => Alert.alert('Sweep failed', e instanceof Error ? e.message : 'Try again.'),
+              },
+            ),
+        },
+      ],
+    );
+  };
 
   return (
     <Screen scroll>
@@ -27,6 +69,42 @@ export default function Admin() {
           Proposed changes from the automated extraction pipeline. Approving applies the change and stamps it verified.
         </AppText>
       </View>
+
+      {reviews.length > 0 ? (
+        <Card>
+          <AppText variant="h3">
+            {reviews.length} pending · {clean.length} clean · {reviews.length - clean.length} need your eye
+          </AppText>
+          <AppText variant="body" color={theme.color.textSecondary}>
+            Clean means {Math.round(CLEAN_MIN_CONFIDENCE * 100)}% confidence or better with no validation errors. The rest
+            stay here, least certain first.
+          </AppText>
+
+          <Divider />
+
+          <View style={styles.dataRow}>
+            <View style={{ flex: 1, paddingRight: spacing.md }}>
+              <AppText variant="bodyStrong">Alert followers</AppText>
+              <AppText variant="caption" color={theme.color.textMuted}>
+                Leave off when you are correcting our own data. Turn on only when an agency really moved these dates.
+              </AppText>
+            </View>
+            <Switch
+              value={alertFollowers}
+              onValueChange={setAlertFollowers}
+              trackColor={{ true: theme.color.accent, false: theme.color.border }}
+            />
+          </View>
+
+          <Button
+            title={clean.length === 0 ? 'Nothing clean to sweep' : `Approve all clean (${clean.length})`}
+            onPress={runSweep}
+            loading={sweep.isPending}
+            disabled={busy || clean.length === 0}
+            style={{ marginTop: spacing.md }}
+          />
+        </Card>
+      ) : null}
 
       {isLoading ? (
         <ActivityIndicator color={theme.color.accent} style={{ marginTop: spacing.xl }} />
@@ -41,11 +119,14 @@ export default function Admin() {
           <ReviewCard
             key={r.id}
             review={r}
-            busy={approve.isPending || reject.isPending}
+            busy={busy}
             onApprove={() =>
-              approve.mutate(r.id, {
-                onError: (e) => Alert.alert('Approve failed', e instanceof Error ? e.message : 'Try again.'),
-              })
+              // One-off approvals are loud on purpose: this is the "an agency
+              // moved a date" case the watchdog push exists for.
+              approve.mutate(
+                { reviewId: r.id },
+                { onError: (e) => Alert.alert('Approve failed', e instanceof Error ? e.message : 'Try again.') },
+              )
             }
             onReject={() =>
               reject.mutate(r.id, {
@@ -164,6 +245,13 @@ function ReviewCard({
       {review.validation_errors?.length ? (
         <AppText variant="caption" color="#c96f5a" style={{ marginTop: spacing.xs }}>
           {review.validation_errors.join(' · ')}
+        </AppText>
+      ) : null}
+
+      {/* Why the clean sweep couldn't apply this one. */}
+      {review.review_notes ? (
+        <AppText variant="caption" color="#c96f5a" style={{ marginTop: spacing.xs }}>
+          Last attempt: {review.review_notes}
         </AppText>
       ) : null}
 
