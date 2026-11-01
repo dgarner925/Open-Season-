@@ -5,6 +5,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { AppText, Card } from '@/components/ui';
 import quotes from '@/assets/quotes.json';
 import { attrName, attrTitle } from '@/components/LaunchQuote';
+import { Medallion } from '@/components/Medallion';
 import { VerifiedStamp, SourceLink } from '@/components/Provenance';
 import { useFollowedSeasons } from '@/features/reference/queries';
 import { useReportDate, promptReport } from '@/features/reports/queries';
@@ -145,20 +146,25 @@ export default function SpeciesDetail() {
               </View>
             </View>
 
-            <View style={styles.headerRow}>
-              <View style={{ flexShrink: 1 }}>
-                <Text style={styles.title}>
-                  {lead ? `${lead}\n` : ''}
-                  <Text style={styles.titleAccent}>{accent}</Text>
-                </Text>
-              </View>
-              {quote ? (
-                <View style={styles.quoteCol}>
-                  <Text style={styles.quoteText}>{`“${quote.text}”`}</Text>
-                  <Text style={styles.quoteAttrName}>{attrName(quote.attr)}</Text>
-                  {attrTitle(quote.attr) ? <Text style={styles.quoteAttrTitle}>{attrTitle(quote.attr)}</Text> : null}
+            <View style={styles.headerWrap}>
+              {/* Rendered first so it paints behind the title — no zIndex,
+                  which Android honours unreliably inside a ScrollView. */}
+              <Medallion species={name} size={248} opacity={0.22} style={styles.watermark} />
+              <View style={styles.headerRow}>
+                <View style={{ flexShrink: 1 }}>
+                  <Text style={styles.title}>
+                    {lead ? `${lead}\n` : ''}
+                    <Text style={styles.titleAccent}>{accent}</Text>
+                  </Text>
                 </View>
-              ) : null}
+                {quote ? (
+                  <View style={styles.quoteCol}>
+                    <Text style={styles.quoteText}>{`“${quote.text}”`}</Text>
+                    <Text style={styles.quoteAttrName}>{attrName(quote.attr)}</Text>
+                    {attrTitle(quote.attr) ? <Text style={styles.quoteAttrTitle}>{attrTitle(quote.attr)}</Text> : null}
+                  </View>
+                ) : null}
+              </View>
             </View>
 
             {groups.length > 0 ? (
@@ -253,6 +259,10 @@ const styles = StyleSheet.create({
   navActions: { flexDirection: 'row', gap: spacing.sm },
   circle: { width: 38, height: 38, borderRadius: 19, backgroundColor: theme.color.surfaceFlat, alignItems: 'center', justifyContent: 'center' },
 
+  headerWrap: { position: 'relative' },
+  // Bleeds off the right edge so it reads as letterpress under the title
+  // rather than as a picture sitting in a box.
+  watermark: { position: 'absolute', right: -56, top: 12 },
   headerRow: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.lg, paddingBottom: spacing.sm },
   quoteCol: {
     flex: 1,
