@@ -5,9 +5,12 @@
  *
  * These are the big-game plates only: seven species carry most of the follows,
  * and a watermark is an accent, not a requirement. Anything without a plate
- * simply doesn't get one — the page reads the same, just quieter. The SVG
- * engravings in Engraving.tsx still do the badge-sized work in lists, where a
- * ringed plate would turn to mush.
+ * simply doesn't get one — the page reads the same, just quieter, and the SVG
+ * engravings in Engraving.tsx cover everything else.
+ *
+ * Two cuts of the same art: the full ringed plate for watermarks, and a
+ * badge cut (scripts/make_badges.py) with the ring thrown away and the animal
+ * filling the frame, because a ring turns to mush at 34pt.
  */
 import { Image, type ImageStyle, type StyleProp } from 'react-native';
 
@@ -19,6 +22,21 @@ const plates = {
   elk: require('../assets/medallions/elk.png'),
   turkey: require('../assets/medallions/turkey.png'),
   'wild-hog': require('../assets/medallions/wild-hog.png'),
+} as const;
+
+/**
+ * The badge cut. These are white-on-transparent MASKS, not finished art — the
+ * caller tints them, so a badge stays copper when it's followed and goes grey
+ * when it isn't, exactly as the SVG engravings did.
+ */
+const badges = {
+  bear: require('../assets/badges/bear.png'),
+  bobwhite: require('../assets/badges/bobwhite.png'),
+  deer: require('../assets/badges/deer.png'),
+  duck: require('../assets/badges/duck.png'),
+  elk: require('../assets/badges/elk.png'),
+  turkey: require('../assets/badges/turkey.png'),
+  'wild-hog': require('../assets/badges/wild-hog.png'),
 } as const;
 
 export type MedallionKey = keyof typeof plates;
@@ -46,6 +64,33 @@ export function medallionFor(name: string | null | undefined): MedallionKey | nu
     if (re.test(name)) return key;
   }
   return null;
+}
+
+/**
+ * The badge-sized cut, tinted. Renders nothing when the species has no plate,
+ * so the caller can fall straight through to the SVG engraving.
+ */
+export function MedallionBadge({
+  species,
+  size,
+  color,
+}: {
+  species: string | null | undefined;
+  size: number;
+  color: string;
+}) {
+  const key = medallionFor(species);
+  if (!key) return null;
+  return (
+    <Image
+      source={badges[key]}
+      style={{ width: size, height: size, tintColor: color }}
+      resizeMode="contain"
+      // Decorative: every badge sits beside the species name already.
+      accessibilityElementsHidden
+      importantForAccessibility="no"
+    />
+  );
 }
 
 export function Medallion({

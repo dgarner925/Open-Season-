@@ -1,11 +1,12 @@
 /**
  * Midnight design primitives — the reusable pieces every screen shares.
- * PageTitle (serif + one italic-copper accent word), SpeciesBadge (copper
- * monogram — TODO: swap for animal silhouettes), StatusPill, and Metric (the
- * italic-serif copper numeral used for countdowns and stats).
+ * PageTitle (serif + one italic-copper accent word), SpeciesBadge (engraved
+ * animal, tinted copper), StatusPill, and Metric (the italic-serif copper
+ * numeral used for countdowns and stats).
  */
 import { StyleSheet, Text, View, type StyleProp, type TextStyle, type ViewStyle } from 'react-native';
 import { Engraving, engravingFor } from '@/components/Engraving';
+import { MedallionBadge, medallionFor } from '@/components/Medallion';
 import { fontFamily, radius, spacing, theme, type } from '@/theme';
 
 export type SpeciesStatus = 'open' | 'soon' | 'closed';
@@ -30,7 +31,12 @@ export function PageTitle({
   );
 }
 
-/** Engraved species art when we have it; copper monogram fallback otherwise. */
+/**
+ * Species art, best cut first: the engraved plate for the seven big-game
+ * species, the SVG engraving for everything else, a copper monogram when we
+ * have neither. The plate is set larger because its art is cropped to the
+ * animal, where the SVGs carry their own margin inside the viewBox.
+ */
 export function SpeciesBadge({
   name,
   size = 44,
@@ -43,7 +49,9 @@ export function SpeciesBadge({
   round?: boolean;
 }) {
   const letter = (name ?? '?').trim().charAt(0).toUpperCase() || '?';
-  const art = engravingFor(name);
+  const plate = medallionFor(name);
+  const art = plate ? null : engravingFor(name);
+  const ink = muted ? theme.color.textMuted : theme.color.accent;
   return (
     <View
       style={[
@@ -58,14 +66,16 @@ export function SpeciesBadge({
         },
       ]}
     >
-      {art ? (
-        <Engraving data={art} size={size * 0.72} color={muted ? theme.color.textMuted : theme.color.accent} />
+      {plate ? (
+        <MedallionBadge species={name} size={size * 0.86} color={ink} />
+      ) : art ? (
+        <Engraving data={art} size={size * 0.72} color={ink} />
       ) : (
         <Text
           style={{
             fontFamily: fontFamily.sansBold,
             fontSize: size * 0.4,
-            color: muted ? theme.color.textMuted : theme.color.accent,
+            color: ink,
           }}
         >
           {letter}
