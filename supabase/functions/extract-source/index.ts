@@ -12,6 +12,8 @@
 //   POST {}                    -> process the single stalest source (cron round-robin)
 //   POST { "max": 20 }         -> process the 20 stalest sources this run
 //   POST { "sourceId": "..." } -> process exactly that source
+//   POST { "gaps": true }      -> process the sources coverage-watch blames for
+//                                 actual holes, worst first (see coverage-watch)
 //
 // deno-lint-ignore-file no-explicit-any
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
@@ -441,8 +443,9 @@ Deno.serve(async (req) => {
     }
 
     const body = req.method === 'POST' ? await req.json().catch(() => ({})) : {};
-    const { sourceId, max, accuracy, state_code, season_year } = body as {
+    const { sourceId, max, accuracy, state_code, season_year, gaps } = body as {
       sourceId?: string; max?: number; accuracy?: boolean; state_code?: string; season_year?: number;
+      gaps?: boolean;
     };
 
     // --- accuracy mode -----------------------------------------------------
@@ -523,6 +526,36 @@ Deno.serve(async (req) => {
     if (sourceId) {
       const { data } = await admin.from('sources').select('*').eq('id', sourceId).single();
       if (data) sources = [data];
+    } else if (gaps) {
+      // Gap mode: go where the holes are instead of round-robin.
+      //
+      // Round-robin reads every source every ~2.5 weeks whether or not anything
+      // is missing from it, which is why duck in WV could sit empty through the
+      // whole season — its turn simply hadn't come up. coverage-watch has
+      // already worked out which pairs are actually broken and which source
+      // answers each one; this follows that list, worst first.
+      const { data: rows } = await admin.from('coverage_gaps')
+        .select('source_id, priority')
+        .in('kind', ['stale_in_season', 'never_covered'])
+        .not('source_id', 'is', null)
+        .order('priority', { ascending: false });
+      // Several gaps usually point at one source; read it once.
+      const seen = new Set<string>();
+      const ids: string[] = [];
+      for (const r of rows ?? []) {
+        if (seen.has((r as any).source_id)) continue;
+        seen.add((r as any).source_id);
+        ids.push((r as any).source_id);
+        if (ids.length >= Math.min(Math.max(max ?? 3, 1), 25)) break;
+      }
+      if (ids.length) {
+        const { data } = await admin.from('sources').select('*').in('id', ids);
+        // Preserve the priority order the gap list gave us.
+        sources = ids.map((id) => (data ?? []).find((s: any) => s.id === id)).filter(Boolean);
+      }
+      if (sources.length === 0) {
+        return json({ ok: true, mode: 'gaps', sources: 0, results: [], note: 'no actionable gaps with a source' });
+      }
     } else {
       // Round-robin: the stalest sources first, so hourly cron cycles through all.
       const { data } = await admin.from('sources').select('*')
