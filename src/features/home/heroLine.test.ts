@@ -33,6 +33,14 @@ describe('rule 1 — an opener inside 48 hours', () => {
     expect(h.species).toBe('Deer');
   });
 
+  it('takes the plural verb for a species named in the plural', () => {
+    // Live rows really do come back as "Geese" and "Ducks" — SD, CO and PA all
+    // opened waterfowl on 2026-11-02. "Geese opens today." is not English.
+    expect(heroLine({ ...base, openers: [{ species: 'Geese', stateCode: 'SD', daysOut: 0 }] }).lead).toBe('Geese open');
+    expect(heroLine({ ...base, openers: [{ species: 'Ducks', stateCode: 'PA', daysOut: 0 }] }).lead).toBe('Ducks open');
+    expect(heroLine({ ...base, openers: [{ species: 'Deer', stateCode: 'ME', daysOut: 0 }] }).lead).toBe('Deer opens');
+  });
+
   it('says today when the season opens today', () => {
     const h = heroLine({ ...base, openers: [{ species: 'Turkey', stateCode: 'GA', daysOut: 0 }] });
     expect(h.accent).toBe('today.');

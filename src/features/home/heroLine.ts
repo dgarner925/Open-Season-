@@ -81,6 +81,15 @@ export type HeroInput = {
 /** Openers inside this window are news; beyond it they are just a calendar. */
 const OPENER_DAYS = 1;
 
+/**
+ * Species the database names in the plural, which take the plural verb:
+ * "Geese open", not "Geese opens". The Weekend Brief has carried the same
+ * list since 2026-09-11 — live rows really do come back as "Geese" and
+ * "Ducks", so the hero cannot assume a singular noun.
+ */
+const PLURAL_SPECIES = new Set(['Geese', 'Ducks']);
+const opensVerb = (name: string) => (PLURAL_SPECIES.has(name) ? 'open' : 'opens');
+
 function hoursMinutes(ms: number): string {
   const total = Math.max(0, Math.round(ms / 60000));
   const h = Math.floor(total / 60);
@@ -127,7 +136,7 @@ export function heroLine(input: HeroInput): Hero {
     return {
       voice: 'opener',
       overline: `OPENS ${when.toUpperCase()}${where}`,
-      lead: `${opener.species} opens`,
+      lead: `${opener.species} ${opensVerb(opener.species)}`,
       accent: `${when}.`,
       support: [opener.detail, lightSupport].filter(Boolean).join(' · '),
       species: opener.species,
