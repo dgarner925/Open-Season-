@@ -240,16 +240,22 @@ Deno.serve(async (req) => {
       [/grouse|pheasant|quail|partridge|chukar|ptarmigan|squirrel|rabbit/, /small-?game|upland/i],
     ];
 
+    // A proposed-seasons chart is not the regulation. Ohio publishes both, and
+    // the first gap run read "2026-27_Proposed_Hunting_Seasons_Chart.pdf" and
+    // queued 62 rows off it. Proposals get used only when nothing else exists.
+    const provisional = (s: any) => /proposed|draft|tentative/i.test(s.url ?? '');
+
     function pickSource(stateId: string, speciesKey: string): string | null {
       const list = byState[stateId];
       if (!list?.length) return null;
+      const ranked = [...list.filter((s) => !provisional(s)), ...list.filter(provisional)];
       for (const [sp, url] of HINTS) {
         if (!sp.test(speciesKey)) continue;
-        const hit = list.find((s) => url.test(s.url ?? ''));
+        const hit = ranked.find((s) => url.test(s.url ?? ''));
         if (hit) return hit.id;
       }
       // No topical page: fall back to the state's general listing.
-      return list[0].id;
+      return ranked[0].id;
     }
 
     const rows: any[] = [];
