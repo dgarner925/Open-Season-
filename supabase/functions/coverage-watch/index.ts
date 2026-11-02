@@ -220,12 +220,37 @@ Deno.serve(async (req) => {
     const PEER_SHARE = 0.5;   // most of the country is hunting it right now
     const PEER_FLOOR = 3;     // and it isn't just a couple of outliers
 
-    // One source per state to aim the extractor at. Freshest-stale first so a
-    // gap doesn't keep pointing at a source we just read.
-    const sources = await all('sources', 'id, state_id, last_extracted_at', (q) =>
+    // Aim each gap at the source most likely to answer IT, not just at the
+    // state's first source. States register a page per topic — Maryland has
+    // seven — so "first source for MD" is the black-bear page, and a goose gap
+    // pointed there reads a document that will never mention geese.
+    const sources = await all('sources', 'id, state_id, url, agency_name', (q) =>
       q.not('state_id', 'is', null));
-    const sourceByState: Record<string, string> = {};
-    for (const s of sources) if (!sourceByState[s.state_id]) sourceByState[s.state_id] = s.id;
+    const byState: Record<string, any[]> = {};
+    for (const s of sources) (byState[s.state_id] ??= []).push(s);
+
+    // Species -> words that appear in the URL of the page covering it.
+    const HINTS: [RegExp, RegExp][] = [
+      [/^(duck|goose|brant|tundra-swan|sandhill-crane|snipe|woodcock|dove|band-tailed-pigeon|rail|gallinule)$/,
+        /migratory|waterfowl|mig-bird|webless/i],
+      [/^turkey$/, /turkey/i],
+      [/^(deer)$/, /deer/i],
+      [/^(bear)$/, /bear/i],
+      [/^(elk|moose|pronghorn|bighorn-sheep|mountain-goat|bison|caribou|dall-sheep)$/, /big-?game|elk|moose|sheep|goat/i],
+      [/grouse|pheasant|quail|partridge|chukar|ptarmigan|squirrel|rabbit/, /small-?game|upland/i],
+    ];
+
+    function pickSource(stateId: string, speciesKey: string): string | null {
+      const list = byState[stateId];
+      if (!list?.length) return null;
+      for (const [sp, url] of HINTS) {
+        if (!sp.test(speciesKey)) continue;
+        const hit = list.find((s) => url.test(s.url ?? ''));
+        if (hit) return hit.id;
+      }
+      // No topical page: fall back to the state's general listing.
+      return list[0].id;
+    }
 
     const rows: any[] = [];
     const unknown: { state: string; species: string; state_id: string; species_id: string }[] = [];
@@ -275,7 +300,7 @@ Deno.serve(async (req) => {
         kind,
         projected_open: iso(w.open),
         detail,
-        source_id: sourceByState[p.state_id] ?? null,
+        source_id: pickSource(p.state_id, sp.key),
         priority,
         checked_at: new Date().toISOString(),
       });
@@ -292,7 +317,7 @@ Deno.serve(async (req) => {
         kind,
         projected_open: null,
         detail: v?.detail ?? 'Never covered; classifier returned no verdict.',
-        source_id: kind === 'never_covered' ? (sourceByState[u.state_id] ?? null) : null,
+        source_id: kind === 'never_covered' ? pickSource(u.state_id, u.species) : null,
         // Below any overdue season: a pair we've never had is a slower problem
         // than one that broke this week.
         priority: kind === 'never_covered' ? 1 : 0,
