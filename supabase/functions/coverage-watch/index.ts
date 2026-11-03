@@ -178,19 +178,26 @@ Deno.serve(async (req) => {
 
     const pairs = await all('state_species', 'state_id, species_id');
 
-    // Covered = any published season still to close, or any draw window still
-    // open. Mirrors scripts/audit_coverage.py exactly, so the two never disagree.
+    // Covered = any PUBLISHED season still to close, or any draw window still
+    // open. Mirrors scripts/audit_coverage.py — which reads with the anon key,
+    // so RLS shows it published rows only. This runs as service role and sees
+    // everything, so the status filter has to be written out: without it a row
+    // counts as coverage the moment an extraction PROPOSES it, and the watchdog
+    // goes quiet on a gap nobody has approved yet. (Ohio sat "covered" behind
+    // 49 pending rows on 2026-11-02 that were later rejected.) Archived rows
+    // must not count either, or retiring a bad row hides the hole it leaves.
     const current = await all('seasons', 'state_id, species_id', (q) =>
-      q.or(`close_date.gte.${todayISO},open_date.gte.${todayISO}`));
+      q.eq('status', 'published').or(`close_date.gte.${todayISO},open_date.gte.${todayISO}`));
     const windows = await all('application_windows', 'state_id, species_id', (q) =>
-      q.gte('closes_at', todayISO));
+      q.eq('status', 'published').gte('closes_at', todayISO));
     const covered = new Set<string>([
       ...current.map((r) => `${r.state_id}|${r.species_id}`),
       ...windows.map((r) => `${r.state_id}|${r.species_id}`),
     ]);
 
     // History, for projecting forward. Latest window per pair.
-    const history = await all('seasons', 'state_id, species_id, open_date, close_date');
+    const history = await all('seasons', 'state_id, species_id, open_date, close_date', (q) =>
+      q.eq('status', 'published'));
     const lastWindow: Record<string, { open: string; close: string | null }> = {};
     for (const r of history) {
       if (!r.open_date) continue;
