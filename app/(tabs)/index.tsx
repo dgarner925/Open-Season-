@@ -5,17 +5,15 @@ import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'r
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AppText } from '@/components/ui';
 import { AlmanacCol, almanacStyles } from '@/components/AlmanacRow';
-import { HomeHero } from '@/components/HomeHero';
 import { LightCountdown } from '@/components/LightCountdown';
 import { useDailyBrief } from '@/features/brief/queries';
-import { heroLine, type HeroOpener } from '@/features/home/heroLine';
-import { SpeciesBadge } from '@/components/midnight';
+import { PageTitle, SpeciesBadge } from '@/components/midnight';
 import { NotificationsOffBanner } from '@/components/NotificationsOffBanner';
 import { ProUpsellCard } from '@/components/ProUpsellCard';
 import { useAuth } from '@/providers/AuthProvider';
 import { nextPermitSegment, useFollows, usePermitFollows } from '@/features/follows/queries';
-import { useLegalLight, type LegalLightToday } from '@/features/legalLight/useLegalLight';
-import { useDawnConditions, type DawnConditions } from '@/features/weather/useDawnConditions';
+import { useLegalLight } from '@/features/legalLight/useLegalLight';
+import { useDawnConditions } from '@/features/weather/useDawnConditions';
 import { openExternalUrl } from '@/lib/openUrl';
 import { useActiveStates, useFollowedSeasons, useFollowedWindows, useSpecies, useUpcomingCountdown, useWeekendStateOpeners } from '@/features/reference/queries';
 import type { SeasonWithRefs } from '@/features/reference/types';
@@ -37,11 +35,6 @@ function diffDays(fromISO: string, toISO: string): number {
   const [ay, am, ad] = fromISO.split('-').map(Number);
   const [by, bm, bd] = toISO.split('-').map(Number);
   return Math.round((Date.UTC(by, bm - 1, bd) - Date.UTC(ay, am - 1, ad)) / 86400000);
-}
-
-/** "firearms" → "Firearms", for a season with no label of its own. */
-function methodLabel(method: string): string {
-  return method.charAt(0).toUpperCase() + method.slice(1);
 }
 
 type RosterItem = { speciesId: string; name: string; codes: string[]; state: 'open' | 'upcoming' | 'none'; days: number | null };
@@ -104,43 +97,6 @@ export default function Home() {
   const hasFollows = follows.length > 0;
   const locationLabel = !hasFollows ? 'Add your hunts' : trackedStates.length === 1 ? (states.find((s) => s.code === trackedStates[0])?.name ?? trackedStates[0]!) : `${trackedStates.length} states`;
 
-  // The masthead speaks for the home state, and the Daily Outlook below it
-  // reads the same two hooks — so they're called once, here, and passed down.
-  const light = useLegalLight(homeStateCode, 0);
-  const dawn = useDawnConditions(homeStateCode, 0);
-
-  // Openers inside 48 hours, any followed state — the hero's first rule.
-  const openers = useMemo<HeroOpener[]>(() => {
-    const seen = new Set<string>();
-    return seasons
-      .filter((s) => s.open_date && s.open_date >= iso && diffDays(iso, s.open_date) <= 1)
-      .map((s) => ({
-        species: s.species?.name ?? 'Season',
-        stateCode: s.state?.code ?? null,
-        daysOut: diffDays(iso, s.open_date!),
-        detail: [s.label ?? methodLabel(s.method), s.zone?.name].filter(Boolean).join(', '),
-      }))
-      // Archery and Extended Archery opening the same morning are one headline.
-      .filter((o) => {
-        const key = `${o.species}|${o.stateCode}|${o.daysOut}`;
-        if (seen.has(key)) return false;
-        seen.add(key);
-        return true;
-      });
-  }, [seasons, iso]);
-
-  const hero = heroLine({
-    nowMs: now.getTime(),
-    greeting: firstName ? `${partOfDay}, ${firstName}` : partOfDay,
-    dateLabel: `${WEEKDAYS[now.getDay()]}, ${MONTHS[now.getMonth()]} ${now.getDate()}`,
-    homeStateCode,
-    openers,
-    light,
-    weather: dawn,
-    rosterSpecies: roster.map((r) => r.name),
-    openCount,
-  });
-
   useEffect(() => {
     pushWidgetEvent(items[0]);
   }, [items[0]?.id, items[0]?.date, items[0]?.kind]);
@@ -180,16 +136,25 @@ export default function Home() {
           </Pressable>
         </View>
 
-        <HomeHero hero={hero} />
+        <View style={styles.heroBlock}>
+          <PageTitle lead={'Open\n'} accent="season." style={styles.hero} />
+          <AppText variant="overline" color={theme.color.textMuted} style={styles.dateLine}>
+            {WEEKDAYS[now.getDay()]}, {MONTHS[now.getMonth()]} {now.getDate()}
+          </AppText>
+          {firstName ? (
+            <Text style={styles.greeting}>
+              {partOfDay}, <Text style={styles.greetingName}>{firstName}</Text>
+            </Text>
+          ) : (
+            <Text style={styles.greeting}>{partOfDay}</Text>
+          )}
+        </View>
 
         {/* The Daily Outlook — the Weekend Brief's everyday sibling: today's
             legal light and today's dawn conditions (David, 2026-09-06). Opens
             the full outlook page. */}
         <DailyOutlookCard
           stateCode={homeStateCode}
-          light={light}
-          dawn={dawn}
-          spokenFor={hero.voice}
           onPress={homeStateCode ? () => router.push({ pathname: '/outlook', params: { state: homeStateCode } }) : undefined}
         />
 
@@ -290,24 +255,10 @@ export default function Home() {
  * The Daily Outlook — every day of the year: today's legal light and today's
  * dawn conditions, in the brief card's clothes. The moon renders even offline;
  * the weather columns appear as NWS answers.
- *
- * spokenFor is whichever rule the hero above took. The card keeps the numbers
- * either way — they're the reference — but drops the prose line the hero has
- * already said, so the screen never says the same sentence twice.
  */
-function DailyOutlookCard({
-  stateCode,
-  light,
-  dawn,
-  spokenFor,
-  onPress,
-}: {
-  stateCode: string | null;
-  light: LegalLightToday;
-  dawn: DawnConditions;
-  spokenFor: 'opener' | 'weather' | 'light';
-  onPress?: () => void;
-}) {
+function DailyOutlookCard({ stateCode, onPress }: { stateCode: string | null; onPress?: () => void }) {
+  const light = useLegalLight(stateCode, 0);
+  const dawn = useDawnConditions(stateCode, 0);
   // Your own day, in a sentence — sits under the light, never above it.
   const { data: dailyBrief } = useDailyBrief();
   const brief = dailyBrief?.brief ?? null;
@@ -337,7 +288,7 @@ function DailyOutlookCard({
             </Text>
             <Text style={styles.lightLabel}>legal light</Text>
           </View>
-          {spokenFor === 'light' ? null : <LightCountdown light={light} stateCode={stateCode} />}
+          <LightCountdown light={light} stateCode={stateCode} />
         </>
       ) : null}
       {brief ? <Text style={styles.briefLine2}>{brief}</Text> : null}
@@ -363,7 +314,7 @@ function DailyOutlookCard({
             ) : null}
             <AlmanacCol value={`${dawn.moonPct}%`} label={`MOON · ${dawn.moonWaxing ? 'WAXING' : 'WANING'}`} first={false} />
           </View>
-          {dawn.frontLine && spokenFor !== 'weather' ? <Text style={styles.briefLight}>{dawn.frontLine}</Text> : null}
+          {dawn.frontLine ? <Text style={styles.briefLight}>{dawn.frontLine}</Text> : null}
         </>
       ) : null}
     </Pressable>
@@ -570,6 +521,9 @@ const styles = StyleSheet.create({
   topRight: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
   bellBtn: { width: 32, height: 32, alignItems: 'center', justifyContent: 'center' },
   
+  heroBlock: { marginTop: spacing.xl },
+  hero: { fontSize: 62, lineHeight: 70, paddingTop: 4 },
+  dateLine: { marginTop: spacing.lg },
   outlookLight: { flexDirection: 'row', alignItems: 'baseline', gap: spacing.md, marginVertical: 2 },
   lightTimes: { fontFamily: fontFamily.serif, fontSize: 22, color: lang.color.bone },
   lightLabel: {
@@ -579,6 +533,8 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
     color: lang.color.copper,
   },
+  greeting: { fontFamily: fontFamily.sansMedium, fontSize: 15, color: theme.color.textSecondary, marginTop: spacing.xs },
+  greetingName: { fontFamily: fontFamily.sansSemiBold, color: lang.color.copper },
 
   // The 1.3.5 brief card — flat surface, copper spine as a left border so it
   // follows the corner radius (David asked for this layout back, 2026-08-29).

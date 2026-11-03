@@ -42,12 +42,6 @@ export type DawnConditions = {
   moonWaxing: boolean;
   /** One editorial line when the forecast has real news (a front), else null. */
   frontLine: string | null;
-  /**
-   * Which kind of news frontLine is, for callers that must phrase it
-   * themselves. The home hero needs two short lines ("The glass" / "is
-   * falling.") and must not get them by reading frontLine's prose.
-   */
-  frontKind: 'cold' | 'pressure' | null;
   approx: boolean;
 } | null;
 
@@ -144,7 +138,6 @@ export function useDawnConditions(stateCode: string | null | undefined, dayOffse
       let pressureInHg: number | null = null;
       let pressureTrend: 'falling' | 'rising' | 'steady' | null = null;
       let frontLine: string | null = null;
-      let frontKind: 'cold' | 'pressure' | null = null;
 
       const points = await fetchNwsPoints(at);
       const stationsUrl = points?.properties?.observationStations;
@@ -175,7 +168,6 @@ export function useDawnConditions(stateCode: string | null | undefined, dayOffse
           frontLine = `Sharply colder — ${tempF}° at first light, ${prevAt.temperature - tempF}° down from ${
             ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][new Date(day.getTime() - 86400_000).getDay()]
           }.`;
-          frontKind = 'cold';
         }
       }
 
@@ -200,7 +192,6 @@ export function useDawnConditions(stateCode: string | null | undefined, dayOffse
               pressureTrend = deltaInHg <= -0.03 ? 'falling' : deltaInHg >= 0.03 ? 'rising' : 'steady';
               if (deltaInHg <= -0.08 && !frontLine) {
                 frontLine = `The glass is falling — a front on its way into ${dayName}.`;
-                frontKind = 'pressure';
               }
             }
           }
@@ -218,7 +209,6 @@ export function useDawnConditions(stateCode: string | null | undefined, dayOffse
         moonPct,
         moonWaxing,
         frontLine,
-        frontKind,
         approx: !fix,
       };
       // A moon-only result means the network flaked — show it, but don't
