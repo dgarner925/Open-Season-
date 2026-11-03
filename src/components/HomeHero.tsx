@@ -68,9 +68,12 @@ export function HomeHero({ hero }: { hero: Hero }) {
 
 const styles = StyleSheet.create({
   block: { marginTop: spacing.xl, position: 'relative', overflow: 'hidden' },
-  // Cropped off the right edge on purpose — the medallion is a texture here,
-  // not an illustration, and a whole animal at 0.16 reads as a mistake.
-  watermark: { position: 'absolute', right: -54, top: -12, opacity: 0.16 },
+  // Fully in frame. The badge cut has no horizontal margin of its own — its
+  // alpha runs 0..128 of 128 — so ANY negative `right` cuts the animal itself
+  // rather than empty space, and on the bear that is the head. The vertical
+  // padding is real (10px of 128), which is the only reason `top` can go
+  // slightly negative without clipping anything.
+  watermark: { position: 'absolute', right: 0, top: -10, opacity: 0.16 },
   overline: {
     fontFamily: fontFamily.sansSemiBold,
     fontSize: 11,
