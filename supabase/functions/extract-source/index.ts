@@ -19,6 +19,7 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import {
   accuracyReport,
+  dropSummarySpans,
   LOW_CONFIDENCE,
   normalizeExtractedDate,
   normalizeLabel,
@@ -170,6 +171,10 @@ Rules:
   an early and a late portion, archery plus extended archery), emit ONE ROW PER
   WINDOW, each with its own label and its own dates. Never merge two windows into
   a single row spanning the gap between them.
+  Equally: if the document ALSO prints a headline row summarising those windows
+  ("Goose (3 splits)", "Two Segments", "Oct 17 - Feb 1" above the detail rows),
+  do NOT emit the headline as a season. Emit only the individual windows. The
+  headline's extra days are days the season is closed.
 - Dates are calendar days exactly as printed. Write them YYYY-MM-DD. Never add a
   time, never convert a timezone, never shift a date by a day.
 - confidence: 0 to 1, how certain you are this row is correct as printed. Be honest
@@ -313,8 +318,17 @@ async function processSource(source: any, runId: string, speciesByKey: Record<st
   // source gets re-picked forever, stalling the sweep.
   await admin.from('sources').update({ last_extracted_at: new Date().toISOString() }).eq('id', source.id);
   const doc = await fetchDocumentBlock(source.url);
-  const { seasons, application_windows, regulation_summaries } = await extract(doc, source.agency_name, catalog, schema);
+  const extracted = await extract(doc, source.agency_name, catalog, schema);
+  const { application_windows, regulation_summaries } = extracted;
+  // An agency that splits a season prints a headline window above the detail
+  // rows, and a faithful read transcribes both. The headline is not a season:
+  // the only days it adds are the days the season is SHUT, and a high-confidence
+  // one sails through the clean sweep and tells a hunter a closed season is
+  // open. Thirteen were live across five states on 2026-11-02. The prompt asks
+  // for one row per window; this is what guarantees it.
+  const { kept: seasons, dropped: summaries } = dropSummarySpans(extracted.seasons);
   const t = emptyTally();
+  t.skipped += summaries.length;
   // An existing row may be claimed by at most ONE proposal per run. Without
   // this, a season the document splits into four windows — all labelled
   // "Firearms" — produces four proposals that each try to update the same row
@@ -432,7 +446,13 @@ async function processSource(source: any, runId: string, speciesByKey: Record<st
     } else { t.unchanged++; }
   }
 
-  return { source: source.agency_name, url: source.url, extracted: seasons.length + application_windows.length + regulation_summaries.length, ...t };
+  return {
+    source: source.agency_name,
+    url: source.url,
+    extracted: extracted.seasons.length + application_windows.length + regulation_summaries.length,
+    summary_spans_dropped: summaries.length,
+    ...t,
+  };
 }
 
 Deno.serve(async (req) => {
@@ -473,7 +493,9 @@ Deno.serve(async (req) => {
         try {
           const doc = await fetchDocumentBlock(source.url);
           const out = await extract(doc, source.agency_name, catalog, schema);
-          for (const row of out.seasons) {
+          // Same guard as the live path, so a preview grades what would
+          // actually be written rather than the raw read.
+          for (const row of dropSummarySpans(out.seasons).kept) {
             const v = validateSeason(row);
             extracted.push({
               ...row,

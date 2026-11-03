@@ -110,6 +110,66 @@ export function seasonIdentity(r: {
   return [seasonGroup(r), normalizeLabel(r.label)].join('|');
 }
 
+/**
+ * Drop the agency's SUMMARY line when the batch also carries its splits.
+ *
+ * Agencies print a headline window above the detail rows -- "Goose (3 splits)",
+ * "Dove (three splits)", "Two Segments", "Split Season" -- and a model reading
+ * the page faithfully emits both. The headline is not a season. The only days
+ * it adds are the days the season is SHUT, so publishing it tells a hunter the
+ * season is open on a day it is closed. Thirteen of these were live across five
+ * states on 2026-11-02; four were lying that morning.
+ *
+ * The prompt already forbids MERGING two windows into one row. This is the
+ * other half, which a prompt alone cannot guarantee: the model merged nothing,
+ * it simply also transcribed the summary line. So the batch is checked here.
+ *
+ * The test: inside one season group (species, zone, method, year -- so same
+ * ZONE by construction), a row whose earliest child opens on its open date and
+ * whose latest child closes on its close date, with at least one uncovered day
+ * in between, is a summary of those children. Tiling BOTH ends is what keeps it
+ * safe. Virginia's falconry duck season spans the same gun segments but runs on
+ * past them to Feb 7, so it does not tile, and it survives -- correctly, since
+ * DWR publishes it as a season in its own right.
+ */
+export function dropSummarySpans<T extends ExtractedSeason>(rows: T[]): { kept: T[]; dropped: T[] } {
+  const day = (iso: string) => Date.parse(iso + 'T00:00:00Z') / 86_400_000;
+  const groups = new Map<string, T[]>();
+  for (const r of rows) {
+    if (!isLocalISODate(r.open_date) || !isLocalISODate(r.close_date)) continue;
+    const k = seasonGroup(r);
+    (groups.get(k) ?? groups.set(k, []).get(k)!).push(r);
+  }
+
+  const dropped = new Set<T>();
+  for (const g of groups.values()) {
+    for (const c of g) {
+      const co = day(c.open_date as string), cc = day(c.close_date as string);
+      const kids = g.filter((r) => {
+        if (r === c) return false;
+        const o = day(r.open_date as string), k = day(r.close_date as string);
+        return o >= co && k <= cc && k - o < cc - co;
+      });
+      if (kids.length < 2) continue;
+      const kidOpen = Math.min(...kids.map((r) => day(r.open_date as string)));
+      const kidClose = Math.max(...kids.map((r) => day(r.close_date as string)));
+      if (kidOpen !== co || kidClose !== cc) continue;
+      // Any day inside the container that no child covers is a closure the
+      // container would hide. Walk the children in date order and look for air.
+      const spans = kids
+        .map((r) => [day(r.open_date as string), day(r.close_date as string)] as const)
+        .sort((a, b) => a[0] - b[0]);
+      let reach = spans[0][1], hole = false;
+      for (const [o, k] of spans.slice(1)) {
+        if (o > reach + 1) { hole = true; break; }
+        reach = Math.max(reach, k);
+      }
+      if (hole) dropped.add(c);
+    }
+  }
+  return { kept: rows.filter((r) => !dropped.has(r)), dropped: rows.filter((r) => dropped.has(r)) };
+}
+
 export type Validation = { ok: boolean; errors: string[]; dates: { open: string | null; close: string | null } };
 
 /**

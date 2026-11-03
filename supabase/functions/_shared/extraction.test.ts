@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   accuracyReport,
+  dropSummarySpans,
   normalizeLabel,
   seasonGroup,
   isLocalISODate,
@@ -232,5 +233,69 @@ describe('accuracyReport — second pass on dates', () => {
     );
     expect(r.exact).toBe(1);
     expect(r.only_current).toHaveLength(1); // segment 2 genuinely missing
+  });
+});
+
+describe('dropSummarySpans', () => {
+  const row = (o: string | null, c: string | null, over: Partial<ExtractedSeason> = {}): ExtractedSeason => ({
+    species: 'goose', method: 'general', zone: 'Goose Zone A', label: null,
+    season_year: 2026, open_date: o, close_date: c, ...over,
+  });
+
+  it('drops the agency summary line when its splits are in the batch', () => {
+    // Ohio, 2026-27: the chart prints Oct 17 - Feb 1 above the two splits.
+    // The 12 days between them are days the season is SHUT.
+    const rows = [
+      row('2026-10-17', '2027-02-01', { label: 'Regular Season' }),
+      row('2026-10-17', '2026-11-01', { label: 'First Split' }),
+      row('2026-11-14', '2027-02-01', { label: 'Second Split' }),
+    ];
+    const { kept, dropped } = dropSummarySpans(rows);
+    expect(dropped.map((r) => r.label)).toEqual(['Regular Season']);
+    expect(kept.map((r) => r.label)).toEqual(['First Split', 'Second Split']);
+  });
+
+  it('keeps a season that runs on past its last split', () => {
+    // Virginia falconry: Nov 18 - Feb 7 over the gun segments, but it does not
+    // end where they end. DWR publishes it as its own season and so do we.
+    const rows = [
+      row('2026-11-18', '2027-02-07', { species: 'duck', label: 'Falconry Segment 2' }),
+      row('2026-11-18', '2026-11-29', { species: 'duck', label: 'Segment 2' }),
+      row('2026-12-19', '2027-01-31', { species: 'duck', label: 'Segment 3' }),
+    ];
+    expect(dropSummarySpans(rows).dropped).toEqual([]);
+  });
+
+  it('keeps a container whose splits leave no gap', () => {
+    // Back-to-back windows hide no closure, so the span tells no lie.
+    const rows = [
+      row('2026-10-01', '2026-10-31', { label: 'Season' }),
+      row('2026-10-01', '2026-10-15', { label: 'A' }),
+      row('2026-10-16', '2026-10-31', { label: 'B' }),
+    ];
+    expect(dropSummarySpans(rows).dropped).toEqual([]);
+  });
+
+  it('never compares across zones', () => {
+    // Missouri's North Zone really does run longer than its Middle Zone.
+    const rows = [
+      row('2026-10-31', '2026-12-29', { zone: 'North Zone' }),
+      row('2026-11-07', '2026-12-13', { zone: 'Middle Zone' }),
+      row('2026-11-26', '2026-11-29', { zone: 'South Zone' }),
+    ];
+    expect(dropSummarySpans(rows).dropped).toEqual([]);
+  });
+
+  it('needs two splits before it calls anything a summary', () => {
+    const rows = [
+      row('2026-10-17', '2027-02-01', { label: 'Regular Season' }),
+      row('2026-10-17', '2026-11-01', { label: 'First Split' }),
+    ];
+    expect(dropSummarySpans(rows).dropped).toEqual([]);
+  });
+
+  it('leaves rows with unusable dates alone', () => {
+    const rows = [row(null, null, { label: 'TBA' }), row('2026-10-17', '2026-11-01')];
+    expect(dropSummarySpans(rows).dropped).toEqual([]);
   });
 });
