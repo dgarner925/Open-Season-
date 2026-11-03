@@ -1,8 +1,14 @@
-"""Coverage audit: every followable (state, species) pair should have at least
-one current-or-upcoming season row — otherwise a follower sees "No dates yet".
+"""Coverage audit, both directions.
 
-This is the check that would have caught the FL/AL alligator hole: the state
-row-counts looked healthy while individual species sat empty.
+1. Every followable (state, species) pair should have at least one
+   current-or-upcoming season row — otherwise a follower sees "No dates yet".
+   This is the check that would have caught the FL/AL alligator hole: the state
+   row-counts looked healthy while individual species sat empty.
+
+2. Every season row and draw window should belong to a followable pair. A pair
+   missing from state_species hides every row behind it, and check 1 cannot see
+   that because it only walks pairs that already exist. Nine published Kentucky
+   bear seasons sat unreachable this way.
 
 Usage:
     python scripts/audit_coverage.py            # full report
@@ -70,8 +76,39 @@ def main():
         if key not in covered:
             gaps.append((states.get(p['state_id'], '??'), species.get(p['species_id'], '??')))
 
+    # The inverse question, which the gap count structurally cannot ask: dates
+    # we HOLD for a pair that is not followable. state_species decides whether a
+    # species appears for a state at all, so a missing pair hides every row
+    # behind it — and because this loop only walks pairs that already exist, a
+    # state that gains a species is invisible to the audit forever.
+    #
+    # Found 2026-11-02: Kentucky had nine published bear seasons, one of them
+    # opening Dec 12, that no user could reach. Florida had gained a bear hunt
+    # in Dec 2025 that the July matrix predated. Fifteen of the 26 orphaned
+    # rows were bear alone.
+    # Unfiltered on purpose: a hidden pair is hidden whether or not its dates
+    # have run out. SC's bear seasons closed on Oct 30 and still need the
+    # mapping, so next year's dates land somewhere a user can see them.
+    pair_set = {(p['state_id'], p['species_id']) for p in pairs}
+    all_rows = [(r, 'season') for r in get_all('/rest/v1/seasons?select=state_id,species_id')]
+    all_rows += [(r, 'window') for r in get_all('/rest/v1/application_windows?select=state_id,species_id')]
+    orphans = {}
+    for row, kind in all_rows:
+        key = (row['state_id'], row['species_id'])
+        if key not in pair_set:
+            label = (states.get(key[0], '??'), species.get(key[1], '??'))
+            orphans.setdefault(label, []).append(kind)
+
     total_pairs = len(pairs)
     print(f'followable pairs: {total_pairs} | covered: {total_pairs - len(gaps)} | GAPS: {len(gaps)}')
+    print(f'orphaned rows (dates we hold but hide): {sum(len(v) for v in orphans.values())} '
+          f'in {len(orphans)} pairs')
+
+    if orphans:
+        print('\nOrphaned - the pair is missing from state_species:')
+        for (st, sp), kinds in sorted(orphans.items()):
+            counts = f'{kinds.count("season")} seasons, {kinds.count("window")} windows'
+            print(f'  {st} {sp:20} {counts}')
 
     if gaps:
         by_species = {}
@@ -83,8 +120,10 @@ def main():
                 print(f'  {sp:20} {len(sts):3} states')
             else:
                 print(f'  {sp:20} {len(sts):3} states: {" ".join(sorted(sts))}')
+
+    if gaps or orphans:
         sys.exit(1)
-    print('all followable pairs have current or upcoming dates')
+    print('all followable pairs have current or upcoming dates, and nothing is hidden')
 
 
 if __name__ == '__main__':

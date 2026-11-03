@@ -16,7 +16,12 @@ SP = [
  ("dall-sheep","Dall sheep","big_game",("states",["AK"])),
  ("mountain-goat","Mountain goat","big_game",("states",["AK","CO","ID","MT","NV","OR","UT","WA","WY"])),
  ("muskox","Muskox","big_game",("states",["AK"])),
- ("bear","Black bear","big_game",("states",["AK","AZ","AR","CA","CO","GA","ID","ME","MD","MA","MI","MN","MT","NH","NJ","NM","NY","NC","OR","PA","TN","UT","VT","VA","WA","WV","WI","WY"])),
+ # FL added 2026-11-02: FWC resumed the hunt in Dec 2025 after a ten-year
+ # pause, so the original list was right when written and wrong by November.
+ # KY/NV/SC were always wrong — we held their seasons and draw deadlines while
+ # the matrix hid the species. Re-check this list against audit_coverage.py's
+ # orphan section rather than trusting it.
+ ("bear","Black bear","big_game",("states",["AK","AZ","AR","CA","CO","FL","GA","ID","KY","ME","MD","MA","MI","MN","MT","NH","NJ","NM","NV","NY","NC","OR","PA","SC","TN","UT","VT","VA","WA","WV","WI","WY"])),
  ("brown-bear","Brown/grizzly bear","big_game",("states",["AK"])),
  ("mountain-lion","Mountain lion","big_game",("states",["AZ","CO","ID","MT","NE","NV","NM","ND","OR","SD","TX","UT","WA","WY"])),
  ("javelina","Javelina","big_game",("states",["AZ","NM","TX"])),
