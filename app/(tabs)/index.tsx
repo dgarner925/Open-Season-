@@ -548,12 +548,14 @@ const styles = StyleSheet.create({
   bellBtn: { width: 32, height: 32, alignItems: 'center', justifyContent: 'center' },
   
   heroBlock: { marginTop: spacing.xl, position: 'relative' },
-  // Fully in frame, and no overflow:hidden on the block. The badge cut has no
-  // horizontal margin of its own — its alpha runs 0..128 of 128 — so any
-  // negative offset here would cut the animal rather than empty space, and on
-  // the bear that is the head. 170 rather than the 190 the masthead used: the
+  // No overflow:hidden on the block. The badge cut has no horizontal margin of
+  // its own — its alpha runs 0..128 of 128 — so a negative offset eats the
+  // animal rather than empty space, and on the bear that is the head. -12 is
+  // deliberate and bounded: it reaches into the page's own 24pt gutter, which
+  // leaves the art 12pt clear of the screen edge and still whole. Anything past
+  // -24 starts cutting again. 170 rather than the 190 the masthead used: this
   // title is 62pt, not 48, and needs the room.
-  heroArt: { position: 'absolute', right: 0, top: -6, opacity: 0.16 },
+  heroArt: { position: 'absolute', right: -12, top: -6, opacity: 0.16 },
   hero: { fontSize: 62, lineHeight: 70, paddingTop: 4 },
   dateLine: { marginTop: spacing.lg },
   outlookLight: { flexDirection: 'row', alignItems: 'baseline', gap: spacing.md, marginVertical: 2 },
