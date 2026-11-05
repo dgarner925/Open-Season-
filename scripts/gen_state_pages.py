@@ -31,6 +31,55 @@ def get(path):
         return json.load(r)
 
 
+def get_all(path):
+    """Page past PostgREST's row cap.
+
+    A bare limit=10000 does not raise it: the server caps a response at 1000
+    rows and says nothing. With seasons ordered by open_date that silently cut
+    the site off at 2026-09-15 for months - every autumn and winter opener,
+    on all fifty pages, missing with no error. Found 2026-11-05 when Florida's
+    December bear season would not appear.
+
+    Callers must order by something unique (id, as a tiebreaker is fine), or
+    paging by offset can repeat or skip rows across page boundaries.
+    """
+    out, offset, page = [], 0, 1000
+    while True:
+        sep = "&" if "?" in path else "?"
+        rows = get(f"{path}{sep}limit={page}&offset={offset}")
+        out.extend(rows)
+        if len(rows) < page:
+            return out
+        offset += page
+
+
+def detail(method, label, zone):
+    """Join method / label / zone, dropping the parts that only repeat another.
+
+    The three fields overlap constantly in the data, because each was written
+    to stand alone: Arkansas reads "Archery - Archery - Zone 2", Florida's bear
+    season "General - East Panhandle Zone - East Panhandle Bear Zone". Nothing
+    is wrong with the rows; the page is just saying the same thing twice.
+
+    So compare them as word sets and keep only the most specific: a part whose
+    words are all contained in another part is redundant and goes. That turns
+    "General - Antlerless - General Gun - Zone C" into "Antlerless - General
+    Gun - Zone C" and leaves genuinely different parts, like "Archery" and
+    "Zone 2", both standing.
+    """
+    parts = [x for x in (method, label, zone) if x]
+    words = [set(re.findall(r"[a-z0-9]+", x.lower())) for x in parts]
+    keep = []
+    for i, w in enumerate(words):
+        # Redundant if some other kept-eligible part says everything this one
+        # says. On a tie (identical word sets) the earlier part wins, so the
+        # method column keeps its position.
+        if any(w <= words[j] and (w != words[j] or j < i) for j in range(len(words)) if j != i):
+            continue
+        keep.append(parts[i])
+    return " · ".join(keep)
+
+
 def slugify(name):
     return re.sub(r"[^a-z0-9]+", "-", name.lower()).strip("-")
 
@@ -130,12 +179,13 @@ if _failures:
         print(f"  {_code}  {_url}  -> {_status}")
     raise SystemExit(1)
 
-seasons = get(
-    "seasons?status=eq.published&select=state_id,open_date,close_date,method,label,last_verified_at,"
-    "species:species(name),zone:zones(name)&order=open_date.asc.nullslast&limit=10000")
-windows = get(
-    "application_windows?status=eq.published&select=state_id,name,opens_at,closes_at,results_expected_at,"
-    "last_verified_at,species:species(name)&order=closes_at.asc.nullslast&limit=10000")
+seasons = get_all(
+    "seasons?status=eq.published&select=id,state_id,open_date,close_date,method,label,last_verified_at,"
+    "species:species(name),zone:zones(name)&order=open_date.asc.nullslast,id.asc")
+windows = get_all(
+    "application_windows?status=eq.published&select=id,state_id,name,opens_at,closes_at,"
+    "results_expected_at,last_verified_at,species:species(name)&order=closes_at.asc.nullslast,id.asc")
+print(f"{len(seasons)} published seasons, {len(windows)} published draw windows")
 
 by_state_seasons = {}
 for s in seasons:
@@ -164,10 +214,8 @@ for st in states:
     for s in ss:
         zone = s["zone"]["name"] if s.get("zone") else ""
         zone = "" if zone == "Statewide" else zone
-        label = s.get("label") or ""
-        method = (s.get("method") or "").capitalize()
-        detail = " · ".join(x for x in (method, label, zone) if x)
-        rows += (f"<tr><td class=sp>{s['species']['name']}</td><td>{detail}</td>"
+        rows += (f"<tr><td class=sp>{s['species']['name']}</td>"
+                 f"<td>{detail((s.get('method') or '').capitalize(), s.get('label') or '', zone)}</td>"
                  f"<td>{fmt(s['open_date'])} – {fmt(s['close_date'])}</td></tr>\n")
 
     wrows = ""
