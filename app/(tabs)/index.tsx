@@ -5,7 +5,9 @@ import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'r
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AppText } from '@/components/ui';
 import { AlmanacCol, almanacStyles } from '@/components/AlmanacRow';
+import { Engraving, engravingFor } from '@/components/Engraving';
 import { LightCountdown } from '@/components/LightCountdown';
+import { MedallionBadge, medallionFor } from '@/components/Medallion';
 import { useDailyBrief } from '@/features/brief/queries';
 import { PageTitle, SpeciesBadge } from '@/components/midnight';
 import { NotificationsOffBanner } from '@/components/NotificationsOffBanner';
@@ -86,6 +88,17 @@ export default function Home() {
   }, [follows, seasons, speciesName, stateCode]);
 
   const openCount = roster.filter((r) => r.state === 'open').length;
+
+  // Engraved plate first, the SVG engraving for anything without one — the
+  // same order SpeciesBadge uses, so a duck gets a watermark too. Null when a
+  // species has neither, and null before there are any follows at all.
+  const rosterArt = useMemo(() => {
+    const name = roster[0]?.name;
+    if (!name) return null;
+    if (medallionFor(name)) return { name, plate: true as const, art: null };
+    const art = engravingFor(name);
+    return art ? { name, plate: false as const, art } : null;
+  }, [roster]);
   const openerCount = seasons.filter((s) => s.open_date && s.open_date > iso).length;
   const deadlineCount = windows.filter((w) => w.closes_at && w.closes_at >= iso).length;
   const trackedStates = [...new Set(follows.map((f) => stateCode.get(f.state_id)).filter(Boolean))];
@@ -137,6 +150,19 @@ export default function Home() {
         </View>
 
         <View style={styles.heroBlock}>
+          {/* The species you are most likely to be thinking about, at a
+              whisper, behind the title. roster is already sorted open-first
+              then soonest, so roster[0] is the right animal without asking a
+              second question. Nothing renders before there are follows. */}
+          {rosterArt ? (
+            <View style={styles.heroArt} pointerEvents="none">
+              {rosterArt.plate ? (
+                <MedallionBadge species={rosterArt.name} size={170} color={lang.color.copper} />
+              ) : (
+                <Engraving data={rosterArt.art} size={156} color={lang.color.copper} />
+              )}
+            </View>
+          ) : null}
           <PageTitle lead={'Open\n'} accent="season." style={styles.hero} />
           <AppText variant="overline" color={theme.color.textMuted} style={styles.dateLine}>
             {WEEKDAYS[now.getDay()]}, {MONTHS[now.getMonth()]} {now.getDate()}
@@ -521,7 +547,13 @@ const styles = StyleSheet.create({
   topRight: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
   bellBtn: { width: 32, height: 32, alignItems: 'center', justifyContent: 'center' },
   
-  heroBlock: { marginTop: spacing.xl },
+  heroBlock: { marginTop: spacing.xl, position: 'relative' },
+  // Fully in frame, and no overflow:hidden on the block. The badge cut has no
+  // horizontal margin of its own — its alpha runs 0..128 of 128 — so any
+  // negative offset here would cut the animal rather than empty space, and on
+  // the bear that is the head. 170 rather than the 190 the masthead used: the
+  // title is 62pt, not 48, and needs the room.
+  heroArt: { position: 'absolute', right: 0, top: -6, opacity: 0.16 },
   hero: { fontSize: 62, lineHeight: 70, paddingTop: 4 },
   dateLine: { marginTop: spacing.lg },
   outlookLight: { flexDirection: 'row', alignItems: 'baseline', gap: spacing.md, marginVertical: 2 },
