@@ -47,3 +47,6 @@ credentials.json
 *.p8
 *.p8.txt
 ~$*
+
+# Never: this repo is public. EAS holds it as the GOOGLE_SERVICES_JSON file secret.
+google-services.json

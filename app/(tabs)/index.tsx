@@ -93,12 +93,22 @@ export default function Home() {
   // same order SpeciesBadge uses, so a duck gets a watermark too. Null when a
   // species has neither, and null before there are any follows at all.
   const rosterArt = useMemo(() => {
-    const name = roster[0]?.name;
-    if (!name) return null;
-    if (medallionFor(name)) return { name, plate: true as const, art: null };
-    const art = engravingFor(name);
-    return art ? { name, plate: false as const, art } : null;
-  }, [roster]);
+    const candidates = roster
+      .map((r) => {
+        if (medallionFor(r.name)) return { name: r.name, plate: true as const, art: null };
+        const art = engravingFor(r.name);
+        return art ? { name: r.name, plate: false as const, art } : null;
+      })
+      .filter((x): x is NonNullable<typeof x> => x !== null);
+    if (!candidates.length) return null;
+    // Rotate daily instead of always drawing roster[0]. Sorted open-first, that
+    // meant a hunter following eight species opened the app to the same bear
+    // every single morning until a season closed. Keyed to the date so it holds
+    // steady all day and turns over at midnight: no flicker between renders,
+    // and nothing random to explain to someone who noticed it changed.
+    const day = Math.floor(Date.parse(iso) / 86400000);
+    return candidates[((day % candidates.length) + candidates.length) % candidates.length];
+  }, [roster, iso]);
   const openerCount = seasons.filter((s) => s.open_date && s.open_date > iso).length;
   const deadlineCount = windows.filter((w) => w.closes_at && w.closes_at >= iso).length;
   const trackedStates = [...new Set(follows.map((f) => stateCode.get(f.state_id)).filter(Boolean))];
@@ -150,10 +160,9 @@ export default function Home() {
         </View>
 
         <View style={styles.heroBlock}>
-          {/* The species you are most likely to be thinking about, at a
-              whisper, behind the title. roster is already sorted open-first
-              then soonest, so roster[0] is the right animal without asking a
-              second question. Nothing renders before there are follows. */}
+          {/* One of the species you follow, at a whisper, behind the title —
+              a different one each day. Nothing renders before there are
+              follows. */}
           {rosterArt ? (
             <View style={styles.heroArt} pointerEvents="none">
               {rosterArt.plate ? (
@@ -548,14 +557,14 @@ const styles = StyleSheet.create({
   bellBtn: { width: 32, height: 32, alignItems: 'center', justifyContent: 'center' },
   
   heroBlock: { marginTop: spacing.xl, position: 'relative' },
-  // No overflow:hidden on the block. The badge cut has no horizontal margin of
-  // its own — its alpha runs 0..128 of 128 — so a negative offset eats the
-  // animal rather than empty space, and on the bear that is the head. -12 is
-  // deliberate and bounded: it reaches into the page's own 24pt gutter, which
-  // leaves the art 12pt clear of the screen edge and still whole. Anything past
-  // -24 starts cutting again. 170 rather than the 190 the masthead used: this
-  // title is 62pt, not 48, and needs the room.
-  heroArt: { position: 'absolute', right: -12, top: -6, opacity: 0.16 },
+  // right: 0, and it stays 0. The badge art has no horizontal margin of its own
+  // — its alpha runs 0..128 of 128 — so ANY negative offset eats the animal
+  // rather than empty space, and on the bear that is the head. -54 cut it, then
+  // -12 cut less of it, which is not the same as not cutting it. Flush with the
+  // content column is the only offset that cannot clip, whatever the animal or
+  // the screen width. 170 rather than the 190 the masthead used: this title is
+  // 62pt, not 48, and needs the room.
+  heroArt: { position: 'absolute', right: 0, top: -6, opacity: 0.16 },
   hero: { fontSize: 62, lineHeight: 70, paddingTop: 4 },
   dateLine: { marginTop: spacing.lg },
   outlookLight: { flexDirection: 'row', alignItems: 'baseline', gap: spacing.md, marginVertical: 2 },
