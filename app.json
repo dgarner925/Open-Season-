@@ -29,11 +29,11 @@
           "group.com.openseason.shared"
         ]
       },
-      "buildNumber": "92"
+      "buildNumber": "93"
     },
     "android": {
       "package": "com.osdatesanddraws.app",
-      "versionCode": 8,
+      "versionCode": 9,
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#100e0c"
