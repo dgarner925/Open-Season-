@@ -17,6 +17,11 @@ from datetime import date
 BASE = "https://soxglmgbhmpuxhngcsvx.supabase.co/rest/v1"
 KEY = "sb_publishable_5rIoEtCHn8PcWgHit5NgzQ_Qjpn2AHc"  # public anon key
 SITE = "https://osdatesanddraws.com"
+# The state pages are the whole point of the site: someone searching "ohio deer
+# season dates" lands here with exactly the intent we want. Until 2026-11-06 the
+# CTA on all fifty of them pointed at the marketing homepage, so a reader who
+# wanted the app had to go find the store link themselves. Point it at the store.
+APPSTORE = "https://apps.apple.com/us/app/id6791993537"
 
 HERE = os.path.dirname(__file__)
 OUT = os.path.join(HERE, "..", "docs", "site", "states")
@@ -161,7 +166,7 @@ CTA = f"""
 <div class="cta">
   <p><strong>Never miss one of these dates.</strong> Open Season sends a push notification before every
   opener and draw deadline you follow — and if an agency moves a date, you get an alert with the old
-  date and the new one. <a href="{SITE}">Get the app →</a></p>
+  date and the new one. <a href="{APPSTORE}">Get Open Season →</a></p>
 </div>
 """
 
