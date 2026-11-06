@@ -557,14 +557,14 @@ const styles = StyleSheet.create({
   bellBtn: { width: 32, height: 32, alignItems: 'center', justifyContent: 'center' },
   
   heroBlock: { marginTop: spacing.xl, position: 'relative' },
-  // right: 0, and it stays 0. The badge art has no horizontal margin of its own
-  // — its alpha runs 0..128 of 128 — so ANY negative offset eats the animal
-  // rather than empty space, and on the bear that is the head. -54 cut it, then
-  // -12 cut less of it, which is not the same as not cutting it. Flush with the
-  // content column is the only offset that cannot clip, whatever the animal or
-  // the screen width. 170 rather than the 190 the masthead used: this title is
-  // 62pt, not 48, and needs the room.
-  heroArt: { position: 'absolute', right: 0, top: -6, opacity: 0.16 },
+  // Positive only. The badge art has no horizontal margin of its own in the
+  // layout sense — a NEGATIVE offset pushes the animal past the content column
+  // and, far enough, off the screen: -54 cut the bear's head, -12 cut less of
+  // it, and less is not none. (The cropped look that survived both was the
+  // artwork itself drawn flush to its 128px frame, fixed in the plates.)
+  // 28 rather than 0 because flush right read as a sticker in the corner with
+  // a hole between it and the title, not as something behind the words.
+  heroArt: { position: 'absolute', right: 28, top: -6, opacity: 0.16 },
   hero: { fontSize: 62, lineHeight: 70, paddingTop: 4 },
   dateLine: { marginTop: spacing.lg },
   outlookLight: { flexDirection: 'row', alignItems: 'baseline', gap: spacing.md, marginVertical: 2 },
