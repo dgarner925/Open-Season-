@@ -5,9 +5,7 @@ import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'r
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AppText } from '@/components/ui';
 import { AlmanacCol, almanacStyles } from '@/components/AlmanacRow';
-import { Engraving, engravingFor } from '@/components/Engraving';
 import { LightCountdown } from '@/components/LightCountdown';
-import { MedallionBadge, medallionFor } from '@/components/Medallion';
 import { useDailyBrief } from '@/features/brief/queries';
 import { PageTitle, SpeciesBadge } from '@/components/midnight';
 import { NotificationsOffBanner } from '@/components/NotificationsOffBanner';
@@ -89,26 +87,6 @@ export default function Home() {
 
   const openCount = roster.filter((r) => r.state === 'open').length;
 
-  // Engraved plate first, the SVG engraving for anything without one — the
-  // same order SpeciesBadge uses, so a duck gets a watermark too. Null when a
-  // species has neither, and null before there are any follows at all.
-  const rosterArt = useMemo(() => {
-    const candidates = roster
-      .map((r) => {
-        if (medallionFor(r.name)) return { name: r.name, plate: true as const, art: null };
-        const art = engravingFor(r.name);
-        return art ? { name: r.name, plate: false as const, art } : null;
-      })
-      .filter((x): x is NonNullable<typeof x> => x !== null);
-    if (!candidates.length) return null;
-    // Rotate daily instead of always drawing roster[0]. Sorted open-first, that
-    // meant a hunter following eight species opened the app to the same bear
-    // every single morning until a season closed. Keyed to the date so it holds
-    // steady all day and turns over at midnight: no flicker between renders,
-    // and nothing random to explain to someone who noticed it changed.
-    const day = Math.floor(Date.parse(iso) / 86400000);
-    return candidates[((day % candidates.length) + candidates.length) % candidates.length];
-  }, [roster, iso]);
   const openerCount = seasons.filter((s) => s.open_date && s.open_date > iso).length;
   const deadlineCount = windows.filter((w) => w.closes_at && w.closes_at >= iso).length;
   const trackedStates = [...new Set(follows.map((f) => stateCode.get(f.state_id)).filter(Boolean))];
@@ -160,18 +138,6 @@ export default function Home() {
         </View>
 
         <View style={styles.heroBlock}>
-          {/* One of the species you follow, at a whisper, behind the title —
-              a different one each day. Nothing renders before there are
-              follows. */}
-          {rosterArt ? (
-            <View style={styles.heroArt} pointerEvents="none">
-              {rosterArt.plate ? (
-                <MedallionBadge species={rosterArt.name} size={170} color={lang.color.copper} />
-              ) : (
-                <Engraving data={rosterArt.art} size={156} color={lang.color.copper} />
-              )}
-            </View>
-          ) : null}
           <PageTitle lead={'Open\n'} accent="season." style={styles.hero} />
           <AppText variant="overline" color={theme.color.textMuted} style={styles.dateLine}>
             {WEEKDAYS[now.getDay()]}, {MONTHS[now.getMonth()]} {now.getDate()}
@@ -556,15 +522,7 @@ const styles = StyleSheet.create({
   topRight: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
   bellBtn: { width: 32, height: 32, alignItems: 'center', justifyContent: 'center' },
   
-  heroBlock: { marginTop: spacing.xl, position: 'relative' },
-  // Positive only. The badge art has no horizontal margin of its own in the
-  // layout sense — a NEGATIVE offset pushes the animal past the content column
-  // and, far enough, off the screen: -54 cut the bear's head, -12 cut less of
-  // it, and less is not none. (The cropped look that survived both was the
-  // artwork itself drawn flush to its 128px frame, fixed in the plates.)
-  // 28 rather than 0 because flush right read as a sticker in the corner with
-  // a hole between it and the title, not as something behind the words.
-  heroArt: { position: 'absolute', right: 28, top: -6, opacity: 0.16 },
+  heroBlock: { marginTop: spacing.xl },
   hero: { fontSize: 62, lineHeight: 70, paddingTop: 4 },
   dateLine: { marginTop: spacing.lg },
   outlookLight: { flexDirection: 'row', alignItems: 'baseline', gap: spacing.md, marginVertical: 2 },
