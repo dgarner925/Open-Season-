@@ -230,6 +230,7 @@ export default function Settings() {
           <Row title="Hunting parties" caption="Apply for draws with your buddies." onPress={() => router.push('/parties')} />
           <Row title="My applications" caption="What you've applied for, and results." onPress={() => router.push('/tracker')} />
           <Row title="Preference points" caption="The points you're banking, draw by draw." onPress={() => router.push('/points')} />
+          <Row title="Your season card" caption="Every opener ahead of you, on one plate." onPress={() => router.push('/season-card')} />
         </Group>
 
         <Group label="The watch">
