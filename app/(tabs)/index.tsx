@@ -6,6 +6,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { AlmanacCol, almanacStyles } from '@/components/AlmanacRow';
 import { LightRow, NextOpener, OpenerRow, type PromiseState } from '@/components/NextOpener';
 import { Micro, Monogram, Sentence, Serif } from '@/components/system';
+import { Watermark } from '@/components/Watermark';
 import { armedFor, openerOffsetsFor, useAlertPreferences } from '@/features/alerts/queries';
 import { firingsFor } from '@/features/alerts/promise';
 import { dayAndDate } from '@/lib/date';
@@ -207,6 +208,9 @@ export default function Home() {
             outlook page. */}
         {nextOpener ? (
           <View style={styles.heroBlock}>
+            {/* The plate of the animal you are waiting on, run faint behind
+                the headline. */}
+            <Watermark species={nextOpener.species?.name} />
             <NextOpener
               speciesName={nextOpener.species?.name ?? 'The next season'}
               detail={openerDetail(nextOpener, true)}

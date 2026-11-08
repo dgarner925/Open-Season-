@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Alert, FlatList, Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { LinkSentence, Micro, Pill, Screen, Sentence, Serif, SunArc } from '@/components/system';
 import { PromiseNote } from '@/components/NextOpener';
+import { Watermark } from '@/components/Watermark';
 import { openerOffsetsFor, useAlertPreferences } from '@/features/alerts/queries';
 import { firingsFor, promiseHead } from '@/features/alerts/promise';
 import { Disclaimer } from '@/components/Provenance';
@@ -253,10 +254,14 @@ function SeasonPageBody({ id }: { id: string | undefined }) {
 
   return (
     <Screen scroll>
-      {/* The cascade: species first, then the hunt, then its dates, then its light. */}
-      <Serif size={type.size.hero} style={{ marginTop: space.x16, lineHeight: type.size.hero + 6 }}>
-        {season.species?.name ?? cap(season.method)}
-      </Serif>
+      {/* The cascade: species first, then the hunt, then its dates, then its
+          light -- with the species' own engraved plate faint behind it. */}
+      <View>
+        <Watermark species={season.species?.name} size={230} style={{ top: -8, right: -space.gutter }} />
+        <Serif size={type.size.hero} style={{ marginTop: space.x16, lineHeight: type.size.hero + 6 }}>
+          {season.species?.name ?? cap(season.method)}
+        </Serif>
+      </View>
       <Sentence style={{ marginTop: space.x8 }}>{heroSentence}</Sentence>
 
       {/* THE SEASON — the facts of the hunt in one tile: dates, countdown,
