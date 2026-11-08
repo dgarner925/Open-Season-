@@ -19,7 +19,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import type { ReactNode } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { Headline, LinkSentence, Micro, Sentence, Serif } from '@/components/system';
+import { LinkSentence, Serif } from '@/components/system';
 import { firingWhen, promiseHead, type Firing } from '@/features/alerts/promise';
 import { lang } from '@/theme/tokens';
 
@@ -56,11 +56,18 @@ export type PromiseState =
    */
   | { kind: 'loading' };
 
+/** The countdown as a tail beside a date: "today", "tomorrow", "6 days out". */
+export function countdownTail(days: number): string {
+  if (days <= 0) return 'today';
+  if (days === 1) return 'tomorrow';
+  return `${days} days out`;
+}
+
 export function NextOpener({
   speciesName,
+  dateLabel,
   detail,
   days,
-  stateLabel,
   promise,
   onOpenSeason,
   onSeeNotices,
@@ -68,10 +75,11 @@ export function NextOpener({
   onChangeTiming,
 }: {
   speciesName: string;
-  /** "Youth, Military & Veterans Days · Sat 14 Nov · Statewide" */
+  /** "Sat 14 Nov" — the payload, so it gets the serif and the copper. */
+  dateLabel: string;
+  /** What and where, without the date: "Youth Days · Statewide" */
   detail: string;
   days: number;
-  stateLabel: string | null;
   promise: PromiseState;
   onOpenSeason: () => void;
   onSeeNotices: () => void;
@@ -80,14 +88,33 @@ export function NextOpener({
 }) {
   return (
     <View>
-      <Micro>{stateLabel ? `Next opener · ${stateLabel}` : 'Next opener'}</Micro>
-
-      <Pressable onPress={onOpenSeason} accessibilityRole="button" style={({ pressed }) => [pressed && { opacity: 0.8 }]}>
-        <Headline style={styles.headline}>
-          {speciesName} {openVerb(speciesName)} {whenPhrase(days)}.
-        </Headline>
-        <Sentence style={{ marginTop: space.x12, fontSize: 13.5 }}>{detail}</Sentence>
+      {/* No eyebrow. "NEXT OPENER · GEORGIA" was an uppercase label saying
+          what the plate already says, in a state the header already names —
+          and the language has no uppercase section headers (D-rules). The
+          species is the heading. */}
+      <Pressable
+        onPress={onOpenSeason}
+        accessibilityRole="button"
+        // The sentence this block used to print survives for a screen
+        // reader, which wants prose where the eye wants a plate.
+        accessibilityLabel={`${speciesName} ${openVerb(speciesName)} ${whenPhrase(days)}. ${detail}`}
+        style={({ pressed }) => [pressed && { opacity: 0.8 }]}
+      >
+        <Serif size={44} style={styles.species}>
+          {speciesName}
+        </Serif>
+        <View style={styles.dateRow}>
+          <Serif size={29} copper>
+            {dateLabel}
+          </Serif>
+          <Text style={styles.countdown}>{countdownTail(days)}</Text>
+        </View>
+        <Text style={styles.detail}>{detail}</Text>
       </Pressable>
+
+      {/* A rule, not a tile edge: it closes the plate and separates it from
+          the promise without wrapping the hero in another rounded box. */}
+      <View style={styles.heroRule} />
 
       <PromiseBlock
         promise={promise}
@@ -234,7 +261,11 @@ export function OpenerRow({
         </Text>
       </View>
       {armed ? (
-        <Text style={styles.rowDays}>{days <= 0 ? 'today' : `${days}d`}</Text>
+        /* A count, so it takes the serif. It also gives the row a right-hand
+           anchor, which is what stops a list of these reading as a wall. */
+        <Serif size={21} copper>
+          {days <= 0 ? 'today' : `${days}d`}
+        </Serif>
       ) : (
         <Text style={styles.rowArm}>Remind me</Text>
       )}
@@ -256,25 +287,43 @@ export function LightRow({
 }) {
   const h = Math.floor(durationMin / 60);
   const m = durationMin % 60;
+  const length = `${h}h ${String(m).padStart(2, '0')}m`;
   return (
-    <Pressable onPress={onPress} accessibilityRole="button" style={({ pressed }) => [styles.lightRow, pressed && { opacity: 0.8 }]}>
-      <View style={{ flex: 1 }}>
-        <Micro>Legal light today</Micro>
-        <Serif size={25} style={{ marginTop: space.x8 }}>
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={`Legal light today, ${approx ? 'about ' : ''}${window}, ${length}`}
+      style={({ pressed }) => [styles.row, pressed && { opacity: 0.75 }]}
+    >
+      {/* Shaped exactly like an opener row, because it now shares a panel with
+          them. The uppercase "LEGAL LIGHT TODAY" label is gone: a row whose
+          title is "Legal light" does not need a header announcing it. */}
+      <Ionicons name="sunny-outline" size={14} color={color.dim} style={{ width: 16 }} />
+      <View style={{ flex: 1, gap: 2 }}>
+        <Text style={styles.rowTitle}>Legal light</Text>
+        <Text style={styles.rowSub} numberOfLines={1}>
           {approx ? '≈ ' : ''}
           {window}
-        </Serif>
+        </Text>
       </View>
-      <Text style={styles.lightLen}>
-        {h}h {String(m).padStart(2, '0')}m
-      </Text>
+      {/* A span of time, so it takes the serif like the counts beside it. */}
+      <Serif size={21} copper>
+        {length}
+      </Serif>
       <Ionicons name="chevron-forward" size={14} color={color.copper} />
     </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
-  headline: { marginTop: space.x12 },
+  // The species is a species and the date is a date, so both take the display
+  // serif — the rule the old sans headline broke while the only serif on the
+  // screen was the sun times.
+  species: { lineHeight: 48, marginTop: space.x16 },
+  dateRow: { flexDirection: 'row', alignItems: 'baseline', gap: space.x12, marginTop: space.x12 },
+  countdown: { fontFamily: type.ui, fontSize: 13, color: color.dim },
+  detail: { fontFamily: type.ui, fontSize: 13, color: color.dim, marginTop: space.x4 },
+  heroRule: { height: StyleSheet.hairlineWidth, backgroundColor: color.rule, marginTop: space.x16 },
 
   // The one warm tile on Home. It used to be the only raised surface here;
   // now that every group gets a lift it keeps its standing by being copper
@@ -300,9 +349,5 @@ const styles = StyleSheet.create({
   row: { minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: space.x12, paddingVertical: 11 },
   rowTitle: { fontFamily: type.uiMedium, fontSize: 15.5, color: color.bone },
   rowSub: { fontFamily: type.ui, fontSize: 12.5, color: color.muted },
-  rowDays: { fontFamily: type.uiMedium, fontSize: 12.5, color: color.muted, fontVariant: ['tabular-nums'] },
   rowArm: { fontFamily: type.uiMedium, fontSize: 12.5, color: color.copper },
-  // Sits inside its own tile, so it carries no rule of its own.
-  lightRow: { flexDirection: 'row', alignItems: 'center', gap: space.x12 },
-  lightLen: { fontFamily: type.uiMedium, fontSize: 12.5, color: color.muted, fontVariant: ['tabular-nums'] },
 });

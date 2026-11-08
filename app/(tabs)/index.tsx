@@ -58,10 +58,13 @@ function methodLabel(method: string): string {
  * opener is, when it lands, and where. The season's own label wins when it has
  * one; otherwise the method names it.
  */
-function openerDetail(s: SeasonWithRefs, withZone: boolean): string {
+function openerDetail(s: SeasonWithRefs, withZone: boolean, withDate = true): string {
   const what = (s.label ?? '').trim() || methodLabel(s.method);
   const zone = withZone ? (s.zone?.name ?? null) : null;
-  return [what, dayAndDate(s.open_date), zone].filter(Boolean).join(' · ');
+  // The hero sets the date itself, large and in the serif, so it asks for the
+  // detail without one — repeating it underneath would read as a stutter.
+  const when = withDate ? dayAndDate(s.open_date) : null;
+  return [what, when, zone].filter(Boolean).join(' · ');
 }
 
 /** Reduce a species' followed seasons to a single roster status. */
@@ -236,12 +239,12 @@ export default function Home() {
           <View style={styles.heroBlock}>
             {/* The plate of the animal you are waiting on, run faint behind
                 the headline. */}
-            <Watermark species={nextOpener.species?.name} />
+            <Watermark species={nextOpener.species?.name} size={300} style={styles.heroPlate} />
             <NextOpener
               speciesName={nextOpener.species?.name ?? 'The next season'}
-              detail={openerDetail(nextOpener, true)}
+              dateLabel={dayAndDate(nextOpener.open_date)}
+              detail={openerDetail(nextOpener, true, false)}
               days={diffDays(iso, nextOpener.open_date!)}
-              stateLabel={nextOpener.state?.name ?? nextOpener.state?.code ?? null}
               promise={promise}
               onOpenSeason={() => router.push({ pathname: '/season/[id]', params: { id: nextOpener.id } })}
               onSeeNotices={() => router.push('/what-arrives')}
@@ -265,36 +268,47 @@ export default function Home() {
           <NotificationsOffBanner />
         </View>
 
-        {laterOpeners.length > 0 ? (
-          <Tile style={styles.tile}>
-            <View style={styles.openerHead}>
-              <Micro>
-                {laterOpeners.length === 1 ? '1 more opener ahead' : `${laterOpeners.length} more openers ahead`}
-              </Micro>
-              <Micro>Bell = armed</Micro>
-            </View>
-            {laterOpeners.slice(0, 4).map((s) => (
-              <OpenerRow
-                key={s.id}
-                speciesName={s.species?.name ?? 'Season'}
-                detail={openerDetail(s, false)}
-                days={diffDays(iso, s.open_date!)}
-                armed={armedFor(alertPrefs, s.state_id, s.species_id, s.method)}
-                onPress={() => router.push({ pathname: '/season/[id]', params: { id: s.id } })}
-              />
-            ))}
-          </Tile>
-        ) : null}
+        {/* One panel, not three.
 
-        {/* Legal light, demoted to a line — the outlook page tells the rest. */}
-        {light && homeStateCode ? (
+            "Translucent tiles group, rules do not" — but when every fact
+            wears its own tile the tile stops grouping anything, and the page
+            reads as a stack of identical boxes with nowhere for the eye to
+            go (David, 2026-11-08: "I don't like this layout. Its boring").
+            The later openers and today's light are the same kind of thing —
+            short facts about what is coming — so they share one surface and
+            take hairlines between them.
+
+            The labels are gone with the tiles. "1 MORE OPENER AHEAD" counted
+            rows the reader can see, "BELL = ARMED" was a legend for an icon
+            that explains itself (an unarmed row says "Remind me"), and
+            "LEGAL LIGHT TODAY" announced a row titled "Legal light". */}
+        {laterOpeners.length > 0 || (light && homeStateCode) ? (
           <Tile style={styles.tile}>
-            <LightRow
-              window={light.window}
-              durationMin={light.durationMin}
-              approx={light.approx}
-              onPress={() => router.push({ pathname: '/outlook', params: { state: homeStateCode } })}
-            />
+            {laterOpeners.slice(0, 4).map((s, i) => (
+              <View key={s.id}>
+                {i > 0 ? <View style={styles.groupHair} /> : null}
+                <OpenerRow
+                  speciesName={s.species?.name ?? 'Season'}
+                  detail={openerDetail(s, false)}
+                  days={diffDays(iso, s.open_date!)}
+                  armed={armedFor(alertPrefs, s.state_id, s.species_id, s.method)}
+                  onPress={() => router.push({ pathname: '/season/[id]', params: { id: s.id } })}
+                />
+              </View>
+            ))}
+
+            {laterOpeners.length > 0 && light && homeStateCode ? (
+              <View style={styles.groupHair} />
+            ) : null}
+
+            {light && homeStateCode ? (
+              <LightRow
+                window={light.window}
+                durationMin={light.durationMin}
+                approx={light.approx}
+                onPress={() => router.push({ pathname: '/outlook', params: { state: homeStateCode } })}
+              />
+            ) : null}
           </Tile>
         ) : null}
 
@@ -311,7 +325,7 @@ export default function Home() {
 
         {permitFollows.length > 0 ? (
           <Tile style={styles.tile}>
-            <Micro>Permit hunts</Micro>
+            <Text style={styles.groupNote}>Permit hunts</Text>
             {permitFollows
               .filter((f) => f.hunt)
               .sort((a, b) => (a.hunt!.name < b.hunt!.name ? -1 : 1))
@@ -392,7 +406,7 @@ export default function Home() {
           )
         ) : (
           <Tile style={styles.tile}>
-            <Micro>Your species</Micro>
+            <Text style={styles.groupNote}>Your species</Text>
             {roster.map((r) => (
               <RosterRow key={r.speciesId} item={r} onPress={() => router.push({ pathname: '/species/[id]', params: { id: r.speciesId } })} />
             ))}
@@ -604,6 +618,11 @@ const styles = StyleSheet.create({
   greetingName: { fontFamily: lang.type.uiSemiBold, color: lang.color.copper },
 
   heroBlock: { marginTop: lang.space.x16, marginBottom: lang.space.x4 },
+  // The plate bleeds hard off the right so the ring never closes into a
+  // circle: a visible ring reads as a sticker, a cropped one as letterpress.
+  // Opacity stays where David set it (5%, 2026-11-08) — this is composition,
+  // not tone.
+  heroPlate: { top: 4, right: -(lang.space.gutter + 56) },
   hero: { fontSize: 62, lineHeight: 70, paddingTop: 4 },
   dateLine: { marginTop: lang.space.x16 },
 
@@ -613,11 +632,15 @@ const styles = StyleSheet.create({
   // separated... it needs to be something else").
   tile: { marginTop: lang.space.x12 },
   tileFill: { gap: 2 },
-  openerHead: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-    justifyContent: 'space-between',
-    gap: lang.space.x12,
+  // Separates rows inside one panel. White hairline, not the copper rule:
+  // copper is scarce and the hero already spends it.
+  groupHair: { height: StyleSheet.hairlineWidth, backgroundColor: lang.color.hair },
+  // Names a group without shouting at it. Sentence case, no letterspacing —
+  // the uppercase Micro label is what made this screen read as scaffolding.
+  groupNote: {
+    fontFamily: lang.type.ui,
+    fontSize: 12.5,
+    color: lang.color.dim,
     marginBottom: lang.space.x4,
   },
 
