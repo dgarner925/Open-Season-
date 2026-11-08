@@ -1,32 +1,38 @@
 /**
- * What the app does, in five beats.
+ * What the app does.
  *
- * One source for two places: the first step of onboarding, where a new account
- * meets it, and Profile → How it works, where anyone can go back to it. They
- * used to be one screen nobody saw — onboarding was reachable only from
- * Profile, so a new account landed on an empty Home with no idea what the app
- * was for (David, 2026-11-08: "we need to introduce How it works as an
- * onboarding").
+ * Two lists, because the two places that show this want different things.
  *
- * Keep these in the order a season actually happens: pick, watch, be told,
- * log, apply. Each body says what the user does and what the app does back —
- * never a feature name on its own.
+ * `HOW_IT_WORKS` is the spine — pick, watch, be told — and it is what a new
+ * account meets during setup. Three beats in the order they actually happen,
+ * each one short enough to read on the way past. It used to be five dense
+ * paragraphs, which read as a wall rather than a sequence (David, 2026-11-08:
+ * "It needs to flow logically. Not just have a plate of information").
+ *
+ * `HOW_IT_WORKS_MORE` is the rest of what the app can do. It belongs on
+ * Profile → How it works, where somebody has gone looking for detail, and not
+ * in front of a person who has not picked a state yet.
  */
 export type HowItWorksStep = { title: string; body: string };
 
+/** The spine. Shown during setup, and first on the reference page. */
 export const HOW_IT_WORKS: HowItWorksStep[] = [
   {
-    title: 'Pick your hunts.',
-    body: 'Choose your states and the animals you hunt. Everything in the app flows from what you pick here — change it any time from Profile.',
+    title: 'You pick what you hunt.',
+    body: 'Your states, then the animals. Two taps from here.',
   },
   {
-    title: 'Watch the countdowns.',
-    body: 'Your soonest opener and your next tag deadline sit at the top of Home, counting down the days so nothing sneaks up on you.',
+    title: 'We watch the dates.',
+    body: 'Every opener, closer and draw deadline for those states, kept current as the agencies publish them.',
   },
   {
-    title: 'Get told before it opens.',
-    body: 'Choose how far ahead you want a heads-up — from a year out down to the day before. Your phone buzzes each of those mornings, and Home names the exact times it will.',
+    title: 'You hear about it first.',
+    body: "Your phone buzzes before a season opens and before a deadline closes — a year out, or the day before, however far ahead you want it.",
   },
+];
+
+/** The rest, for the reference page only. */
+export const HOW_IT_WORKS_MORE: HowItWorksStep[] = [
   {
     title: 'Track your applications.',
     body: 'Under Tags, log what you applied for: the portal link, your username, dates and results. We never store your passwords — keep those in your phone.',
@@ -36,7 +42,3 @@ export const HOW_IT_WORKS: HowItWorksStep[] = [
     body: 'Season and deadline screens link straight to the official state website, so you can enter a draw or buy a license in a tap.',
   },
 ];
-
-/** "Five steps to opening day." — the count stays true if a step is added. */
-const WORDS = ['No', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight'];
-export const HOW_IT_WORKS_LEDE = `${WORDS[HOW_IT_WORKS.length] ?? HOW_IT_WORKS.length} steps to opening day.`;

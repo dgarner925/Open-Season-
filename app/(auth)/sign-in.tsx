@@ -96,10 +96,69 @@ export default function SignIn() {
           </Sentence>
         </View>
 
-        {/* Providers first, and Apple's button exactly as the OS draws it --
-            official artwork and styling are required by App Review
-            (Guideline 4), so nothing here is themed. */}
-        <View style={{ gap: space.x12, marginTop: space.x8 }}>
+        {/* Email first, providers under it (David, 2026-11-08). Most people
+            still tap Apple or Google, but the form is what someone looks for
+            when they came here to sign in with the account they already have,
+            and it reads as absent when two white buttons own the top of the
+            screen. */}
+        <TextInput
+          placeholder="Email"
+          placeholderTextColor={color.dim}
+          autoCapitalize="none"
+          keyboardType="email-address"
+          autoComplete="email"
+          value={email}
+          onChangeText={setEmail}
+          style={styles.input}
+        />
+        <TextInput
+          placeholder="Password"
+          placeholderTextColor={color.dim}
+          secureTextEntry
+          value={password}
+          onChangeText={setPassword}
+          style={styles.input}
+        />
+
+        {notice ? (
+          <Sentence tone="bone" style={[{ marginTop: space.x16 }, notice.tone === 'error' && { color: '#c96f5a' }]}>
+            {notice.text}
+          </Sentence>
+        ) : null}
+
+        <Pill
+          label={busy === 'email' ? 'One moment…' : mode === 'sign-in' ? 'Sign in' : 'Create account'}
+          onPress={handleEmail}
+          disabled={busy !== null}
+          style={{ marginTop: space.section }}
+        />
+
+        <View style={styles.linkRow}>
+          <Pressable
+            onPress={() => {
+              setNotice(null);
+              setMode(mode === 'sign-in' ? 'sign-up' : 'sign-in');
+            }}
+            hitSlop={8}
+          >
+            <Sentence tone="muted">
+              {mode === 'sign-in' ? 'New here? Create an account.' : 'Have an account? Sign in.'}
+            </Sentence>
+          </Pressable>
+          {mode === 'sign-in' ? (
+            <Pressable onPress={handleForgotPassword} hitSlop={8}>
+              <Sentence tone="dim">Forgot password?</Sentence>
+            </Pressable>
+          ) : null}
+        </View>
+
+        <Rule />
+
+        {/* Apple's button is drawn exactly as the OS draws it — official
+            artwork and styling are required by App Review (Guideline 4), so
+            nothing here is themed. Google matches its geometry so the two
+            read as one block. */}
+        <View style={{ gap: space.x12 }}>
           {isAppleSignInSupported && (
             <AppleAuthentication.AppleAuthenticationButton
               buttonType={AppleAuthentication.AppleAuthenticationButtonType.CONTINUE}
@@ -112,7 +171,6 @@ export default function SignIn() {
               }}
             />
           )}
-          {/* Google matches Apple's geometry so the providers read as one OS block. */}
           <Pressable
             onPress={() => handleProvider('google')}
             disabled={busy !== null}
@@ -123,64 +181,6 @@ export default function SignIn() {
             <Text style={styles.googleLabel}>{busy === 'google' ? 'One moment…' : 'Continue with Google'}</Text>
           </Pressable>
         </View>
-
-        <Rule />
-
-        {/* Email is shown, not hidden behind a link. It used to collapse
-            behind "Use email instead", which read as grey text under a
-            divider and looked like there was no email option at all once
-            this screen became the first thing a new install sees
-            (David, 2026-11-08). */}
-        <TextInput
-            placeholder="Email"
-            placeholderTextColor={color.dim}
-            autoCapitalize="none"
-            keyboardType="email-address"
-            autoComplete="email"
-            value={email}
-            onChangeText={setEmail}
-            style={styles.input}
-          />
-          <TextInput
-            placeholder="Password"
-            placeholderTextColor={color.dim}
-            secureTextEntry
-            value={password}
-            onChangeText={setPassword}
-            style={styles.input}
-          />
-
-          {notice ? (
-            <Sentence tone="bone" style={[{ marginTop: space.x16 }, notice.tone === 'error' && { color: '#c96f5a' }]}>
-              {notice.text}
-            </Sentence>
-          ) : null}
-
-          <Pill
-            label={busy === 'email' ? 'One moment…' : mode === 'sign-in' ? 'Sign in' : 'Create account'}
-            onPress={handleEmail}
-            disabled={busy !== null}
-            style={{ marginTop: space.section }}
-          />
-
-          <View style={styles.linkRow}>
-            <Pressable
-              onPress={() => {
-                setNotice(null);
-                setMode(mode === 'sign-in' ? 'sign-up' : 'sign-in');
-              }}
-              hitSlop={8}
-            >
-              <Sentence tone="muted">
-                {mode === 'sign-in' ? 'New here? Create an account.' : 'Have an account? Sign in.'}
-              </Sentence>
-            </Pressable>
-            {mode === 'sign-in' ? (
-              <Pressable onPress={handleForgotPassword} hitSlop={8}>
-                <Sentence tone="dim">Forgot password?</Sentence>
-              </Pressable>
-            ) : null}
-          </View>
 
         {/* The escape hatch. This screen is the first thing a new install sees
             (David, 2026-11-08), but it is not a wall: every date in the app is

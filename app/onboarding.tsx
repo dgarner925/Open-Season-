@@ -3,9 +3,9 @@ import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Input, Pill, Sentence, Serif } from '@/components/system';
+import { Input, Monogram, Pill, Sentence, Serif } from '@/components/system';
 import { HowItWorksList } from '@/components/HowItWorksList';
-import { HOW_IT_WORKS_LEDE } from '@/content/howItWorks';
+
 import { SpeciesBadge } from '@/components/midnight';
 import { useActiveStates, useStateSpeciesMulti } from '@/features/reference/queries';
 import { useCompleteOnboarding } from '@/features/follows/queries';
@@ -33,18 +33,23 @@ export default function Onboarding() {
     if (isOnboarded) router.replace('/');
   }, [isOnboarded, router]);
 
-  // Showing it counts. Whatever happens next -- finished, skipped, or the app
-  // killed mid-way -- the tabs must not send this device back here.
+  // Showing it counts, and it counts for this account only. Whatever happens
+  // next -- finished, skipped, or the app killed mid-way -- the tabs must not
+  // send this user back here.
   useEffect(() => {
-    markOnboardingSeen();
-  }, []);
+    markOnboardingSeen(user?.id);
+  }, [user?.id]);
 
   const { data: states = [], isLoading: statesLoading } = useActiveStates();
   const completeOnboarding = useCompleteOnboarding();
 
-  // 0 how it works · 1 states · 2 species · 3 confirm. The explainer leads
-  // because a new account has no idea what it is setting up yet (David,
-  // 2026-11-08); it asks nothing, so it costs one tap to pass.
+  // 0 welcome · 1 how it works · 2 states · 3 species · 4 confirm.
+  //
+  // It is written as one sentence told across five screens, not a form with
+  // an explainer bolted to the front (David, 2026-11-08: "It needs to flow
+  // logically. Not just have a plate of information"). The welcome says what
+  // this is, the three beats say what it will do, and then — having earned
+  // it — the app asks its two questions and confirms what it heard.
   const [step, setStep] = useState(0);
   const [stateIds, setStateIds] = useState<Set<string>>(new Set());
   const [speciesIds, setSpeciesIds] = useState<Set<string>>(new Set());
@@ -124,49 +129,62 @@ export default function Onboarding() {
   // they hunt but not yet what they want to track could not finish setup at
   // all. States alone already give the app a usable picture -- the browse
   // feeds work off state, and species can be added any time from /follows.
-  const canAdvance = step === 1 ? stateIds.size > 0 : true;
+  const canAdvance = step === 2 ? stateIds.size > 0 : true;
+  // Each button says what the next screen does, so the flow reads forward.
   const primaryLabel =
     step === 0
-      ? 'Set it up'
+      ? 'Show me how it works'
       : step === 1
-        ? stateIds.size === 0
-          ? 'Continue'
-          : `Continue with ${stateIds.size} ${stateIds.size === 1 ? 'state' : 'states'}`
+        ? 'Set it up'
         : step === 2
-          ? speciesIds.size === 0
+          ? stateIds.size === 0
             ? 'Continue'
-            : `Continue with ${speciesIds.size} species`
-          : 'Start hunting';
+            : `Continue with ${stateIds.size} ${stateIds.size === 1 ? 'state' : 'states'}`
+          : step === 3
+            ? speciesIds.size === 0
+              ? 'Continue'
+              : `Continue with ${speciesIds.size} species`
+            : 'Start hunting';
 
   return (
     <SafeAreaView style={styles.screen} edges={['top', 'left', 'right', 'bottom']}>
       {/* The steps narrate themselves — no progress dots, no step counter. */}
       <View style={styles.head}>
-        <Serif size={40} style={{ lineHeight: 46 }}>
+        <Serif size={step === 0 ? 44 : 40} style={{ lineHeight: step === 0 ? 50 : 46 }}>
           {step === 0
-            ? 'How it works.'
+            ? 'Welcome to\nOpen Season.'
             : step === 1
-              ? 'Where do you hunt?'
+              ? 'How it works.'
               : step === 2
-                ? 'What do you hunt?'
-                : 'Stay ahead.'}
+                ? 'Where do you hunt?'
+                : step === 3
+                  ? 'What do you hunt?'
+                  : 'Stay ahead.'}
         </Serif>
-        <Sentence style={{ marginTop: space.x8, maxWidth: 310 }}>
+        <Sentence style={{ marginTop: space.x12, maxWidth: 320 }}>
           {step === 0
-            ? HOW_IT_WORKS_LEDE
+            ? 'Season dates and draw deadlines for every state you hunt, and a nudge before each one.'
             : step === 1
-              ? 'Pick the states you hunt.'
+              ? 'Three things, in this order.'
               : step === 2
-                ? "Only what's legal in your states. Pick what you follow."
-                : "We'll remind you before every opener and application deadline — so you never miss a season."}
+                ? 'Pick the states you hunt.'
+                : step === 3
+                  ? "Only what's legal in your states. Pick what you follow."
+                  : "We'll remind you before every opener and application deadline — so you never miss a season."}
         </Sentence>
       </View>
 
       {step === 0 ? (
+        /* The welcome asks nothing. Its whole job is to say where you are
+           before anything is wanted from you, so it holds only the mark. */
+        <View style={styles.welcome}>
+          <Monogram size={46} />
+        </View>
+      ) : step === 1 ? (
         <ScrollView contentContainerStyle={styles.list} showsVerticalScrollIndicator={false}>
           <HowItWorksList />
         </ScrollView>
-      ) : step === 3 ? (
+      ) : step === 4 ? (
         <ScrollView contentContainerStyle={styles.confirm} showsVerticalScrollIndicator={false}>
           <Serif size={44}>
             {stateIds.size} {stateIds.size === 1 ? 'state' : 'states'} · {speciesIds.size} species
@@ -213,7 +231,7 @@ export default function Onboarding() {
         </ScrollView>
       ) : (
         <ScrollView contentContainerStyle={styles.list} showsVerticalScrollIndicator={false}>
-          {step === 1 ? (
+          {step === 2 ? (
             statesLoading ? (
               <ActivityIndicator color={color.copper} />
             ) : (
@@ -263,7 +281,7 @@ export default function Onboarding() {
 
       {/* Nothing redirects anyone here any more, so there has to be a way
           back out of it that isn't the home button. */}
-      {step < 3 ? (
+      {step > 0 && step < 4 ? (
         <Pressable
           onPress={() => router.replace('/(tabs)')}
           hitSlop={10}
@@ -284,7 +302,7 @@ export default function Onboarding() {
         )}
         <Pill
           label={saving ? 'Saving…' : primaryLabel}
-          onPress={() => (step === 3 ? finish() : setStep((s) => s + 1))}
+          onPress={() => (step === 4 ? finish() : setStep((s) => s + 1))}
           disabled={!canAdvance || saving}
           style={{ flex: 1, maxWidth: 280 }}
         />
@@ -320,6 +338,7 @@ function SelectRow({
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: color.bg },
+  welcome: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   head: { paddingHorizontal: space.gutter, paddingTop: space.x32 },
   list: { paddingHorizontal: space.gutter, paddingVertical: space.section },
   row: { flexDirection: 'row', alignItems: 'center', gap: space.x12, paddingVertical: space.x12, minHeight: 44 },

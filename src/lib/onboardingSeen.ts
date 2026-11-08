@@ -1,48 +1,59 @@
 /**
- * Whether this device has already shown setup to this account.
+ * Which accounts have already been shown setup on this device.
  *
- * A brand-new account is sent to /onboarding once, so the how-it-works steps
- * are the first thing it meets (David, 2026-11-08). Without a record of having
- * shown it, "Skip for now" would land back on the tabs, the same check would
- * fire, and the user would be trapped in setup — which is exactly the forced
- * onboarding that was removed for costing installs.
+ * Keyed by user id, not by device. The first cut stored a single flag for the
+ * whole phone, so signing out and creating a second account found the flag
+ * already set and skipped setup entirely — which is exactly what David hit on
+ * build 101 ("I signed in with a new account and it went straight to the home
+ * page").
  *
  * Device-local on purpose. It is a note about what this phone has displayed,
  * not a fact about the account; `profiles.onboarded_at` is that, and it is
- * only written when someone actually finishes. Marking here is also how
- * "Skip for now" stays skipped without lying about having completed setup.
+ * only written when someone actually finishes. Marking here is also how "Skip
+ * for now" stays skipped without claiming setup was completed.
  *
  * Storage can throw. A failure here must never block the app: the in-memory
- * value carries the session, and at worst setup is offered once more on the
- * next launch.
+ * set carries the session, and at worst setup is offered once more next
+ * launch.
  */
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const KEY = 'os.onboardingSeen';
+const KEY = 'os.onboardingSeen.v2';
 
 /** undefined = not read from disk yet. */
-let cached: boolean | undefined;
+let cached: Set<string> | undefined;
 
-export async function hasSeenOnboarding(): Promise<boolean> {
-  if (cached !== undefined) return cached;
+async function load(): Promise<Set<string>> {
+  if (cached) return cached;
   try {
-    cached = (await AsyncStorage.getItem(KEY)) === '1';
+    const raw = await AsyncStorage.getItem(KEY);
+    const ids = raw ? (JSON.parse(raw) as unknown) : [];
+    cached = new Set(Array.isArray(ids) ? ids.filter((x): x is string => typeof x === 'string') : []);
   } catch {
-    cached = false;
+    cached = new Set();
   }
   return cached;
 }
 
-export async function markOnboardingSeen(): Promise<void> {
-  cached = true;
+export async function hasSeenOnboarding(userId: string | null | undefined): Promise<boolean> {
+  if (!userId) return false;
+  return (await load()).has(userId);
+}
+
+export async function markOnboardingSeen(userId: string | null | undefined): Promise<void> {
+  if (!userId) return;
+  const set = await load();
+  if (set.has(userId)) return;
+  set.add(userId);
   try {
-    await AsyncStorage.setItem(KEY, '1');
+    await AsyncStorage.setItem(KEY, JSON.stringify([...set]));
   } catch {
     /* session-only, by design */
   }
 }
 
 /** Synchronous read for a render pass; undefined until the first load lands. */
-export function seenOnboardingSync(): boolean | undefined {
-  return cached;
+export function seenOnboardingSync(userId: string | null | undefined): boolean | undefined {
+  if (!userId) return false;
+  return cached ? cached.has(userId) : undefined;
 }
