@@ -231,6 +231,7 @@ export default function Settings() {
           <Row title="My applications" caption="What you've applied for, and results." onPress={() => router.push('/tracker')} />
           <Row title="Preference points" caption="The points you're banking, draw by draw." onPress={() => router.push('/points')} />
           <Row title="Your season card" caption="Every opener ahead of you, on one plate." onPress={() => router.push('/season-card')} />
+          <Row title="Logbook" caption="Your hunting years, one at a time." onPress={() => router.push('/logbook')} />
         </Group>
 
         <Group label="The watch">
