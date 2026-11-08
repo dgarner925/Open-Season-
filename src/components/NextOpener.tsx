@@ -20,7 +20,7 @@ import { Ionicons } from '@expo/vector-icons';
 import type { ReactNode } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Headline, LinkSentence, Micro, Sentence, Serif } from '@/components/system';
-import { firingWhen, timesWord, type Firing } from '@/features/alerts/promise';
+import { firingWhen, promiseHead, type Firing } from '@/features/alerts/promise';
 import { lang } from '@/theme/tokens';
 
 const { color, space, radius, type } = lang;
@@ -121,7 +121,7 @@ function PromiseBlock({
   const armed = promise.kind === 'armed';
   const head =
     promise.kind === 'armed'
-      ? `You'll be told ${timesWord(promise.firings.length)}.`
+      ? promiseHead(promise.firings)
       : promise.kind === 'spent'
         ? 'Every reminder for this one has gone out.'
         : promise.kind === 'unarmed'
@@ -131,7 +131,7 @@ function PromiseBlock({
             : 'Reminders need an account.';
 
   return (
-    <PromiseNote head={head} armed={armed} firings={promise.kind === 'armed' ? promise.firings : []}>
+    <PromiseNote head={head} armed={armed} firings={promise.kind === 'armed' ? promise.firings.slice(1) : []}>
       <View style={{ marginTop: space.x12 }}>
         {promise.kind === 'armed' ? (
           <LinkSentence size={13} onPress={onSeeNotices}>

@@ -5,7 +5,7 @@ import { ActivityIndicator, Alert, FlatList, Pressable, StyleSheet, Text, useWin
 import { LinkSentence, Micro, Pill, Screen, Sentence, Serif, SunArc } from '@/components/system';
 import { PromiseNote } from '@/components/NextOpener';
 import { openerOffsetsFor, useAlertPreferences } from '@/features/alerts/queries';
-import { firingsFor, timesWord } from '@/features/alerts/promise';
+import { firingsFor, promiseHead } from '@/features/alerts/promise';
 import { Disclaimer } from '@/components/Provenance';
 import { ActionRow, LicenseRow } from '@/components/LicenseRow';
 import { useAuth } from '@/providers/AuthProvider';
@@ -384,7 +384,7 @@ function SeasonPageBody({ id }: { id: string | undefined }) {
           it is the reason the page exists (David, 2026-11-08). */}
       {armed ? (
         firings.length > 0 ? (
-          <PromiseNote head={`You'll be told ${timesWord(firings.length)}.`} armed firings={firings} />
+          <PromiseNote head={promiseHead(firings)} armed firings={firings.slice(1)} />
         ) : (
           <PromiseNote head="Every reminder for this one has gone out." armed={false} firings={[]}>
             <LinkSentence size={13} style={{ marginTop: space.x12 }} onPress={() => router.push('/alerts')}>

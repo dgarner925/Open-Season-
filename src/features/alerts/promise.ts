@@ -74,9 +74,17 @@ export function firingsFor(openISO: string, offsets: number[], now: Date = new D
     .map((f) => ({ at: f.at, offset: f.offset, label: offsetLabel(f.offset), today: f.iso === todayISO }));
 }
 
-/** "once", "twice", "3 times" — how many times the phone will speak. */
-export function timesWord(n: number): string {
-  return n === 1 ? 'once' : n === 2 ? 'twice' : `${n} times`;
+/**
+ * The promise, led by when it gets kept: "You'll hear from us Fri 13 Nov,
+ * 8:00 AM." A count ("you'll be told twice") was the first draft and it is a
+ * weaker thing to say — it tells you how often the app speaks, not when you
+ * will know (David, 2026-11-08). Any later reminders are listed beneath this
+ * line, so it only ever names the soonest.
+ */
+export function promiseHead(firings: Firing[]): string {
+  if (firings.length === 0) return 'No reminder left before this one.';
+  const when = firingWhen(firings[0]);
+  return `You'll hear from us ${when.charAt(0).toLowerCase()}${when.slice(1)}.`;
 }
 
 /** "Fri 13 Nov, 8:00 AM" — on the device's clock, not the server's. */
