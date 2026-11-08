@@ -1,4 +1,11 @@
 import { fileURLToPath } from 'node:url';
+
+// Pinned before anything reads a Date: src/lib/date.ts works in local midnight
+// on purpose (a season that opens Sept 13 must read "Sept 13" in every US
+// timezone), so its tests are only meaningful against a known zone. Eastern,
+// because that is where most of the app's users and all of its openers are.
+process.env.TZ = 'America/New_York';
+
 import { defineConfig } from 'vitest/config';
 
 // Pure logic: the Edge Functions' shared code, and the app's own logic modules

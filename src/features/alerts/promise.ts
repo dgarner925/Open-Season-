@@ -91,11 +91,24 @@ export function promiseHead(firings: Firing[]): string {
   return `You'll hear from us ${when}.`;
 }
 
-/** "Fri 13 Nov, 8:00 AM" — on the device's clock, not the server's. */
+const WEEKDAYS_SHORT = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+const MONTHS_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+/**
+ * "Sat 7 Nov, 8:00 AM" — on the device's clock, not the server's.
+ *
+ * The day is built by hand rather than by toLocaleDateString, which under the
+ * default en-US locale returns "Sat, Nov 7" — so the sentence came out as
+ * "You'll hear from us Sat, Nov 7, 8:00 AM", with two commas and a month
+ * order the rest of the app does not use. dayAndDate() in lib/date.ts is the
+ * house format and this now matches it. The clock time stays locale-formatted
+ * because 12- and 24-hour conventions genuinely differ and a hunter's phone
+ * is the authority on his own clock.
+ */
 export function firingWhen(f: Firing): string {
   const time = f.at.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
   if (f.today) return `Later today, ${time}`;
-  const day = f.at.toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' });
+  const day = `${WEEKDAYS_SHORT[f.at.getDay()]} ${f.at.getDate()} ${MONTHS_SHORT[f.at.getMonth()]}`;
   return `${day}, ${time}`;
 }
 
