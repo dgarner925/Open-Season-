@@ -20,8 +20,16 @@ export const lang = {
     /** Only where content is genuinely a separate actionable object. */
     surface: '#141110',
     bone: '#F2EFEC',
-    muted: '#8A8279',
-    dim: '#5C564F',
+    /**
+     * Both greys are bone stepped down, not a separate warm grey (David,
+     * 2026-11-08: "Use Bone maybe" — the old #8A8279 was hard to see). Read
+     * on #0A0A0A they are 11.3:1 and 6.5:1 against bone's 17.6:1, so the
+     * hierarchy still has three clear steps and the bottom one survives
+     * daylight. Supporting text sits at `muted`; `dim` is for labels and
+     * icons, never for a sentence the user has to read.
+     */
+    muted: '#C8C3BC',
+    dim: '#9A938A',
     copper: '#E0A480',
     copperDim: '#B87A5A',
     fill: '#3A241A',
