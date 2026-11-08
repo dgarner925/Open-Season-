@@ -244,6 +244,34 @@ export function Sentence({
 }
 
 /**
+ * The mark: a copper O, a dot, a copper S — the app icon (assets/icon.png),
+ * set as type so it takes the accent token and stays sharp at any size. It
+ * holds the top-left of Home, where the serif "Open season." masthead used to
+ * sit before the opener took that space (David, 2026-11-08).
+ */
+export function Monogram({ size = 24 }: { size?: number }) {
+  const dot = Math.max(3, Math.round(size * 0.15));
+  const letter = {
+    fontFamily: type.display,
+    fontSize: size,
+    lineHeight: Math.round(size * 1.16),
+    color: color.copper,
+  } as const;
+  return (
+    <View
+      style={{ flexDirection: 'row', alignItems: 'center', gap: Math.round(size * 0.14) }}
+      accessible
+      accessibilityRole="image"
+      accessibilityLabel="Open Season"
+    >
+      <Text style={letter}>O</Text>
+      <View style={{ width: dot, height: dot, borderRadius: dot / 2, backgroundColor: color.copper }} />
+      <Text style={letter}>S</Text>
+    </View>
+  );
+}
+
+/**
  * The headline: one tight sans sentence per screen, saying what the screen is
  * for ("Ducks open in 7 days."). Archivo at a weight and tracking the serif
  * can't hold — the serif stays on values. One per screen, never two.

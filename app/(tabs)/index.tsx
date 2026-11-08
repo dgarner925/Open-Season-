@@ -6,7 +6,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { AppText } from '@/components/ui';
 import { AlmanacCol, almanacStyles } from '@/components/AlmanacRow';
 import { LightRow, NextOpener, OpenerRow, type PromiseState } from '@/components/NextOpener';
-import { Micro } from '@/components/system';
+import { Micro, Monogram } from '@/components/system';
 import { armedFor, openerOffsetsFor, useAlertPreferences } from '@/features/alerts/queries';
 import { firingsFor } from '@/features/alerts/promise';
 import { dayAndDate } from '@/lib/date';
@@ -186,12 +186,17 @@ export default function Home() {
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.color.accent} />}
       >
+        {/* The mark holds the corner the "Open season." masthead used to hold.
+            The chip drops its own copper dot — two copper dots an inch apart
+            read as a stutter, and the monogram's is the one that means
+            something. */}
         <View style={styles.topRow}>
+          <Monogram size={23} />
           <Pressable style={styles.locChip} onPress={() => router.push(browsing ? '/pick-state' : '/follows')}>
-            <View style={styles.locDot} />
             <AppText variant="caption" color={theme.color.textSecondary} numberOfLines={1}>
               {locationLabel}
             </AppText>
+            <Ionicons name="chevron-down" size={11} color={lang.color.muted} />
           </Pressable>
           <Pressable onPress={() => router.push('/search')} hitSlop={10} style={styles.bellBtn} accessibilityRole="button" accessibilityLabel="Search">
             <Ionicons name="search" size={19} color={lang.color.muted} />
@@ -546,8 +551,7 @@ const styles = StyleSheet.create({
   },
 
   topRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  locChip: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, flexShrink: 1 },
-  locDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: lang.color.copper },
+  locChip: { flexDirection: 'row', alignItems: 'center', gap: 6, flexShrink: 1, minHeight: 44 },
   topRight: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
   bellBtn: { width: 32, height: 32, alignItems: 'center', justifyContent: 'center' },
   
