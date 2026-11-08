@@ -2,11 +2,11 @@ import { Ionicons } from '@expo/vector-icons';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { ActivityIndicator, Alert, Pressable, ScrollView, Share, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { AppText, Card } from '@/components/ui';
 import quotes from '@/assets/quotes.json';
 import { attrName, attrTitle } from '@/components/LaunchQuote';
 import { Medallion } from '@/components/Medallion';
 import { VerifiedStamp, SourceLink } from '@/components/Provenance';
+import { Sentence, Serif } from '@/components/system';
 import { useFollowedSeasons } from '@/features/reference/queries';
 import { useReportDate, promptReport } from '@/features/reports/queries';
 import { useAuth } from '@/providers/AuthProvider';
@@ -14,7 +14,9 @@ import type { SeasonWithRefs } from '@/features/reference/types';
 import { addToCalendar } from '@/lib/calendar';
 import { daysUntil, formatDate } from '@/lib/date';
 import { openExternalUrl } from '@/lib/openUrl';
-import { fontFamily, spacing, theme } from '@/theme';
+import { lang } from '@/theme/tokens';
+
+const { color, space, type, radius } = lang;
 
 const SITE_URL = 'https://osdatesanddraws.com';
 
@@ -34,10 +36,10 @@ function methodStatus(s: SeasonWithRefs): MethodRow {
   const iso = todayISO();
   const o = s.open_date;
   const c = s.close_date;
-  if (o && o <= iso && (!c || iso <= c)) return { season: s, rank: 0, open: true, right: 'Open' };
+  if (o && o <= iso && (!c || iso <= c)) return { season: s, rank: 0, open: true, right: 'Open now' };
   if (o && o > iso) {
     const d = daysUntil(o);
-    return { season: s, rank: 1, open: false, right: d !== null ? `in ${d}d` : 'Upcoming' };
+    return { season: s, rank: 1, open: false, right: d !== null ? `in ${d} days` : 'Upcoming' };
   }
   return { season: s, rank: 2, open: false, right: 'Closed' };
 }
@@ -128,165 +130,187 @@ export default function SpeciesDetail() {
     <SafeAreaView style={styles.screen} edges={['top', 'left', 'right']}>
       <Stack.Screen options={{ headerShown: false }} />
       {isLoading ? (
-        <ActivityIndicator color={theme.color.accent} style={{ marginTop: spacing.xxl }} />
+        <ActivityIndicator color={color.copper} style={{ marginTop: space.x38 }} />
       ) : (
-        <>
-          <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-            <View style={styles.navRow}>
-              <CircleButton onPress={() => router.back()}>
-                <Ionicons name="chevron-back" size={18} color={theme.color.textPrimary} />
+        <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+          <View style={styles.navRow}>
+            <CircleButton onPress={() => router.back()} label="Back">
+              <Ionicons name="chevron-back" size={18} color={color.bone} />
+            </CircleButton>
+            <View style={styles.navActions}>
+              <CircleButton onPress={onAddCalendar} label="Add the opener to your calendar">
+                <Ionicons name="calendar-outline" size={17} color={color.bone} />
               </CircleButton>
-              <View style={styles.navActions}>
-                <CircleButton onPress={onAddCalendar}>
-                  <Ionicons name="calendar-outline" size={17} color={theme.color.textPrimary} />
-                </CircleButton>
-                <CircleButton onPress={onShare}>
-                  <Ionicons name="share-outline" size={17} color={theme.color.textPrimary} />
-                </CircleButton>
-              </View>
+              <CircleButton onPress={onShare} label="Share">
+                <Ionicons name="share-outline" size={17} color={color.bone} />
+              </CircleButton>
             </View>
+          </View>
 
-            <View style={styles.headerWrap}>
-              {/* Rendered first so it paints behind the title — no zIndex,
-                  which Android honours unreliably inside a ScrollView. */}
-              <Medallion species={name} size={248} opacity={0.22} style={styles.watermark} />
-              <View style={styles.headerRow}>
-                <View style={{ flexShrink: 1 }}>
-                  <Text style={styles.title}>
-                    {lead ? `${lead}\n` : ''}
-                    <Text style={styles.titleAccent}>{accent}</Text>
-                  </Text>
+          <View style={styles.headerWrap}>
+            {/* Rendered first so it paints behind the title — no zIndex,
+                which Android honours unreliably inside a ScrollView. */}
+            <Medallion species={name} size={248} opacity={0.22} style={styles.watermark} />
+            <View style={styles.headerRow}>
+              <View style={{ flexShrink: 1 }}>
+                <Text style={styles.title}>
+                  {lead ? `${lead}\n` : ''}
+                  <Text style={styles.titleAccent}>{accent}</Text>
+                </Text>
+              </View>
+              {quote ? (
+                <View style={styles.quoteCol}>
+                  <Text style={styles.quoteText}>{`“${quote.text}”`}</Text>
+                  <Text style={styles.quoteAttrName}>{attrName(quote.attr)}</Text>
+                  {attrTitle(quote.attr) ? <Text style={styles.quoteAttrTitle}>{attrTitle(quote.attr)}</Text> : null}
                 </View>
-                {quote ? (
-                  <View style={styles.quoteCol}>
-                    <Text style={styles.quoteText}>{`“${quote.text}”`}</Text>
-                    <Text style={styles.quoteAttrName}>{attrName(quote.attr)}</Text>
-                    {attrTitle(quote.attr) ? <Text style={styles.quoteAttrTitle}>{attrTitle(quote.attr)}</Text> : null}
-                  </View>
-                ) : null}
-              </View>
+              ) : null}
             </View>
+          </View>
 
-            {groups.length > 0 ? (
-              groups.map((g) => (
-                <View key={g.code} style={styles.group}>
-                  <View style={styles.groupHead}>
-                    <View style={styles.groupHeadLeft}>
-                      <AppText variant="overline" color={theme.color.textSecondary}>
-                        {g.name.toUpperCase()}
-                      </AppText>
-                      {residentStateId ? (
-                        <Text style={styles.residencyTag}>
-                          {g.stateId === residentStateId ? 'RESIDENT' : 'NONRESIDENT'}
+          {groups.length > 0 ? (
+            groups.map((g) => (
+              <View key={g.code} style={styles.group}>
+                <View style={styles.groupHead}>
+                  <Serif size={22}>{g.name}</Serif>
+                  {residentStateId ? (
+                    <Text style={styles.residencyTag}>
+                      {g.stateId === residentStateId ? 'RESIDENT' : 'NONRESIDENT'}
+                    </Text>
+                  ) : null}
+                </View>
+
+                {/* One tile per state: the methods for that state belong
+                    together, and the lift is what groups them. */}
+                <View style={styles.tile}>
+                  {g.rows.map((r) => (
+                    <Pressable
+                      key={r.season.id}
+                      onPress={() => router.push(`/season/${r.season.id}`)}
+                      accessibilityRole="button"
+                      style={({ pressed }) => [styles.row, pressed && { opacity: 0.6 }]}
+                    >
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.method}>{r.season.label ?? cap(r.season.method)}</Text>
+                        <Text style={styles.dates}>
+                          {r.season.open_date ? formatDate(r.season.open_date) : 'TBD'}
+                          {r.season.close_date ? ` – ${formatDate(r.season.close_date)}` : ''}
                         </Text>
-                      ) : null}
-                    </View>
-                  </View>
-                  <View style={{ gap: spacing.sm }}>
-                    {g.rows.map((r) => (
-                      <Card
-                        key={r.season.id}
-                        variant={r.open ? 'gradient' : 'flat'}
-                        style={styles.methodCard}
-                        onPress={() => router.push(`/season/${r.season.id}`)}
+                      </View>
+                      {/* Copper is scarce: only what is open right now earns it. */}
+                      <Text
+                        style={[
+                          styles.right,
+                          r.open
+                            ? { color: color.copper, fontFamily: type.uiSemiBold }
+                            : r.rank === 1
+                              ? { color: color.muted }
+                              : { color: color.dim },
+                        ]}
                       >
-                        <View style={{ flex: 1 }}>
-                          <AppText variant="bodyStrong">{r.season.label ?? cap(r.season.method)}</AppText>
-                          <AppText variant="caption" color={theme.color.textMuted} style={{ marginTop: 2 }}>
-                            {r.season.open_date ? formatDate(r.season.open_date) : 'TBD'}
-                            {r.season.close_date ? ` – ${formatDate(r.season.close_date)}` : ''}
-                          </AppText>
-                        </View>
-                        <Text style={[styles.methodRight, { color: r.open ? theme.color.accent : r.rank === 1 ? theme.color.textSecondary : theme.color.textMuted }]}>
-                          {r.right}
-                        </Text>
-                        <Ionicons name="chevron-forward" size={14} color={theme.color.textMuted} />
-                      </Card>
-                    ))}
-                  </View>
+                        {r.right}
+                      </Text>
+                      <Ionicons name="chevron-forward" size={14} color={color.copper} style={{ marginLeft: space.x8 }} />
+                    </Pressable>
+                  ))}
                 </View>
-              ))
-            ) : (
-              <AppText variant="body" color={theme.color.textMuted} style={{ marginTop: spacing.xl }}>
-                No season dates published yet — they'll appear here as they're verified.
-              </AppText>
-            )}
-
-            {bagLimit ? (
-              <Card variant="flat" style={{ marginTop: spacing.xl }}>
-                <AppText variant="overline" color={theme.color.textMuted}>
-                  BAG LIMIT
-                </AppText>
-                <AppText variant="body" color={theme.color.textSecondary}>
-                  {bagLimit}
-                </AppText>
-              </Card>
-            ) : null}
-
-            {groups.length > 0 ? (
-              <View style={styles.provenance}>
-                <VerifiedStamp verifiedAt={provSeason?.last_verified_at ?? null} />
-                {provSeason?.source ? (
-                  <SourceLink agencyName={provSeason.source.agency_name} url={provSeason.source.url} />
-                ) : null}
-                <Pressable onPress={onReport} style={styles.reportBtn}>
-                  <AppText variant="caption" color={theme.color.textMuted}>
-                    Something look wrong? Report these dates
-                  </AppText>
-                </Pressable>
               </View>
-            ) : null}
-          </ScrollView>
-        </>
+            ))
+          ) : (
+            <Sentence style={{ marginTop: space.section }}>
+              No season dates published yet — they'll appear here as they're verified.
+            </Sentence>
+          )}
+
+          {bagLimit ? (
+            <View style={[styles.tile, styles.bag]}>
+              <Sentence tone="bone">What you may take</Sentence>
+              <Sentence style={{ marginTop: 2 }}>{bagLimit}</Sentence>
+            </View>
+          ) : null}
+
+          {groups.length > 0 ? (
+            /* Provenance stays bare — a footnote beneath the tiles, not
+               another object (same as the season screen). */
+            <View style={styles.provenance}>
+              <VerifiedStamp verifiedAt={provSeason?.last_verified_at ?? null} />
+              {provSeason?.source ? (
+                <SourceLink agencyName={provSeason.source.agency_name} url={provSeason.source.url} />
+              ) : null}
+              {licenseUrl ? (
+                <Pressable onPress={() => openExternalUrl(licenseUrl)} hitSlop={6} accessibilityRole="button">
+                  <Text style={styles.footLink}>
+                    Buy your {name.toLowerCase()} licence <Text style={{ color: color.copperDim }}>›</Text>
+                  </Text>
+                </Pressable>
+              ) : null}
+              <Pressable onPress={onReport} style={styles.reportBtn} accessibilityRole="button">
+                <Sentence tone="dim" style={{ fontSize: 13 }}>
+                  Something look wrong? Report these dates.
+                </Sentence>
+              </Pressable>
+            </View>
+          ) : null}
+        </ScrollView>
       )}
     </SafeAreaView>
   );
 }
 
-function CircleButton({ children, onPress }: { children: React.ReactNode; onPress: () => void }) {
+function CircleButton({ children, onPress, label }: { children: React.ReactNode; onPress: () => void; label: string }) {
   return (
-    <Pressable onPress={onPress} style={({ pressed }) => [styles.circle, pressed && { opacity: 0.7 }]}>
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      style={({ pressed }) => [styles.circle, pressed && { opacity: 0.7 }]}
+    >
       {children}
     </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: theme.color.background },
-  content: { paddingHorizontal: spacing.xl, paddingTop: spacing.lg, paddingBottom: 48 },
+  screen: { flex: 1, backgroundColor: color.bg },
+  content: { paddingHorizontal: space.gutter, paddingTop: space.x16, paddingBottom: 48 },
 
   navRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  navActions: { flexDirection: 'row', gap: spacing.sm },
-  circle: { width: 38, height: 38, borderRadius: 19, backgroundColor: theme.color.surfaceFlat, alignItems: 'center', justifyContent: 'center' },
+  navActions: { flexDirection: 'row', gap: space.x8 },
+  circle: { width: 38, height: 38, borderRadius: 19, backgroundColor: color.tile, alignItems: 'center', justifyContent: 'center' },
 
   headerWrap: { position: 'relative' },
   // Bleeds off the right edge so it reads as letterpress under the title
   // rather than as a picture sitting in a box.
   watermark: { position: 'absolute', right: -56, top: 12 },
-  headerRow: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.lg, paddingBottom: spacing.sm },
+  headerRow: { flexDirection: 'row', alignItems: 'flex-start', gap: space.x16, paddingBottom: space.x8 },
   quoteCol: {
     flex: 1,
     minWidth: 116,
     marginTop: 40,
     paddingTop: 12,
     borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: 'rgba(217, 169, 126, 0.4)',
+    borderTopColor: color.rule,
     alignItems: 'flex-end',
   },
-  quoteText: { fontFamily: fontFamily.serifItalic, fontSize: 14.5, lineHeight: 22, color: '#b8ac9a', textAlign: 'right', paddingLeft: 6 },
-  quoteAttrName: { fontFamily: fontFamily.sansSemiBold, fontSize: 10.5, letterSpacing: 1.8, color: '#d9a97e', marginTop: 8, textAlign: 'right' },
-  quoteAttrTitle: { fontFamily: fontFamily.sansSemiBold, fontSize: 9, letterSpacing: 1.4, color: '#8d8377', marginTop: 4, textAlign: 'right' },
-  title: { fontFamily: fontFamily.serif, fontSize: 50, lineHeight: 56, color: theme.color.textPrimary, marginTop: spacing.xl, paddingTop: 4 },
-  titleAccent: { fontFamily: fontFamily.serifItalic, color: theme.color.accent },
+  quoteText: { fontFamily: type.displayItalic, fontSize: 15.5, lineHeight: 23, color: color.muted, textAlign: 'right', paddingLeft: 6 },
+  quoteAttrName: { fontFamily: type.uiSemiBold, fontSize: 10.5, letterSpacing: 1.8, color: color.copper, marginTop: 8, textAlign: 'right' },
+  quoteAttrTitle: { fontFamily: type.uiSemiBold, fontSize: 9, letterSpacing: 1.4, color: color.dim, marginTop: 4, textAlign: 'right' },
+  title: { fontFamily: type.display, fontSize: 50, lineHeight: 56, color: color.bone, marginTop: space.section, paddingTop: 4 },
+  titleAccent: { fontFamily: type.displayItalic, color: color.copper },
 
-  group: { marginTop: spacing.xl, gap: spacing.md },
-  groupHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  groupHeadLeft: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
-  residencyTag: { fontFamily: fontFamily.sansSemiBold, fontSize: 9, letterSpacing: 0.8, color: theme.color.textMuted },
+  group: { marginTop: space.section },
+  groupHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: space.x8 },
+  residencyTag: { fontFamily: type.uiSemiBold, fontSize: 9, letterSpacing: 0.8, color: color.dim },
 
-  provenance: { marginTop: spacing.xxl, gap: spacing.md },
-  reportBtn: { alignItems: 'center', paddingVertical: spacing.sm },
-  methodCard: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, padding: spacing.lg },
-  methodRight: { fontFamily: fontFamily.sansSemiBold, fontSize: 11 },
+  tile: { paddingHorizontal: space.x16, borderRadius: radius.tile, backgroundColor: color.tile },
+  row: { flexDirection: 'row', alignItems: 'center', gap: space.x12, paddingVertical: space.x12, minHeight: 52 },
+  method: { fontFamily: type.uiSemiBold, fontSize: type.size.body, color: color.bone },
+  dates: { fontFamily: type.ui, fontSize: 13, color: color.muted, marginTop: 2 },
+  right: { fontFamily: type.ui, fontSize: 12.5 },
 
+  bag: { marginTop: space.section, paddingVertical: space.x16 },
+
+  provenance: { marginTop: space.x38, gap: space.x12 },
+  footLink: { fontFamily: type.uiMedium, fontSize: 13.5, color: color.copper },
+  reportBtn: { alignItems: 'center', paddingVertical: space.x8 },
 });

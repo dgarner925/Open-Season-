@@ -42,14 +42,15 @@ export function ProUpsellCard({ context = 'home' }: { context?: 'home' | 'alerts
 }
 
 const styles = StyleSheet.create({
+  // The warm tile: it is an offer, not another row of the page, and the lift
+  // is what says so. The bordered card it used to be was the last object on
+  // Home still drawing its own outline (David, 2026-11-08).
   tile: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: space.x12,
-    backgroundColor: color.surface,
-    borderRadius: radius.card,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: color.hair,
+    backgroundColor: color.tileWarm,
+    borderRadius: radius.tile,
     padding: space.x16,
     marginTop: space.x16,
   },
