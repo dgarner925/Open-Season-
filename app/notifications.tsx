@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Stack, useRouter } from 'expo-router';
 import { Alert, ActivityIndicator, Pressable, View } from 'react-native';
-import { Row, Rule, Screen, Sentence, Serif } from '@/components/system';
+import { Row, Screen, Sentence, Serif, Tile } from '@/components/system';
 import {
   useNotificationHistory,
   useHideNotification,
@@ -59,7 +59,7 @@ export default function Notifications() {
         </Sentence>
       ) : (
         <>
-          <Rule />
+          <Tile style={{ marginTop: space.section }}>
           {items.map((n, i) => (
             <Pressable key={n.id} onLongPress={() => onRemove(n)}>
               <Row
@@ -78,8 +78,8 @@ export default function Notifications() {
               />
             </Pressable>
           ))}
-          <Rule />
-          <Pressable onPress={onClearAll} accessibilityRole="button">
+          </Tile>
+          <Pressable onPress={onClearAll} accessibilityRole="button" style={{ marginTop: space.section }}>
             <Sentence tone="dim">Clear this history — every entry, for good.</Sentence>
           </Pressable>
         </>

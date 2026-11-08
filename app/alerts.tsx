@@ -1,6 +1,6 @@
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { ActivityIndicator, Platform, Pressable, StyleSheet, Switch, Text, View } from 'react-native';
-import { Rule, Screen, Sentence, Serif } from '@/components/system';
+import { Screen, Sentence, Serif, Tile } from '@/components/system';
 import { NotificationsOffBanner } from '@/components/NotificationsOffBanner';
 import { ProUpsellCard } from '@/components/ProUpsellCard';
 import { useAlertPreferences, useToggleOffset, type AlertPref } from '@/features/alerts/queries';
@@ -128,8 +128,7 @@ function WeekendBriefToggle({
   }
 
   return (
-    <>
-      <Rule />
+    <Tile style={styles.tile}>
       <View style={styles.briefRow}>
         <View style={{ flex: 1, gap: 2 }}>
           <Text style={styles.briefTitle}>The Weekend Brief</Text>
@@ -139,7 +138,7 @@ function WeekendBriefToggle({
         </View>
         <Switch value={on} onValueChange={setBrief} trackColor={{ true: color.copper, false: color.hair }} thumbColor={color.bone} />
       </View>
-    </>
+    </Tile>
   );
 }
 
@@ -157,8 +156,7 @@ function PrefSection({
   onToggle: (kind: 'opener' | 'deadline' | 'results', offset: number, current: number[]) => void;
 }) {
   return (
-    <View>
-      <Rule />
+    <Tile style={styles.tile}>
       <Serif size={22}>
         {pref.follow?.species?.name ?? '—'} in {pref.follow?.state?.name ?? '—'}
       </Serif>
@@ -182,7 +180,7 @@ function PrefSection({
           onToggle={(o) => onToggle('results', o, pref.results_offsets)}
         />
       ) : null}
-    </View>
+    </Tile>
   );
 }
 
@@ -220,6 +218,9 @@ function LadderLine({
 }
 
 const styles = StyleSheet.create({
+  // Each hunt's ladders sit on their own tile; the lift is what separates
+  // one species from the next (David, 2026-11-08).
+  tile: { marginTop: space.x12 },
   briefRow: { flexDirection: 'row', alignItems: 'center', gap: space.x16, minHeight: 44 },
   briefTitle: { fontFamily: type.uiSemiBold, fontSize: type.size.body, color: color.bone },
   ladder: { marginTop: space.x16 },

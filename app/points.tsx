@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Stack, useRouter } from 'expo-router';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
-import { Pill, Rule, Screen, Sentence, Serif } from '@/components/system';
+import { Pill, Screen, Sentence, Serif, Tile } from '@/components/system';
 import { usePointBalances, useAdjustPointBalance, type PointBalanceWithRefs } from '@/features/points/queries';
 import { useRequirePro } from '@/hooks/useRequirePro';
 import { useRequireAccount } from '@/hooks/useRequireAccount';
@@ -30,8 +30,7 @@ export default function Points() {
           No points tracked yet. Add a state and species below and set how many you've built up.
         </Sentence>
       ) : (
-        <>
-          <Rule />
+        <Tile style={{ marginTop: space.section }}>
           {balances.map((b, i) => (
             <BalanceRow
               key={b.id}
@@ -42,11 +41,15 @@ export default function Points() {
               onAdjust={(delta) => adjust.mutate({ id: b.id, current: b.points, delta })}
             />
           ))}
-        </>
+        </Tile>
       )}
 
-      <Rule />
-      <Pill label="Add points" variant="secondary" onPress={() => requireAccount() && requirePro() && router.push('/points-edit')} />
+      <Pill
+        label="Add points"
+        variant="secondary"
+        onPress={() => requireAccount() && requirePro() && router.push('/points-edit')}
+        style={{ marginTop: space.section }}
+      />
     </Screen>
   );
 }

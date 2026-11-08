@@ -2,7 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Stack } from 'expo-router';
 import { useState } from 'react';
 import { ActivityIndicator, View } from 'react-native';
-import { Row, Rule, Screen, Sentence } from '@/components/system';
+import { Row, Screen, Sentence, Tile } from '@/components/system';
 import { useActiveStates } from '@/features/reference/queries';
 import { useAuth } from '@/providers/AuthProvider';
 import { supabase } from '@/lib/supabase';
@@ -46,8 +46,7 @@ export default function Residency() {
         dates and fees often differ.
       </Sentence>
 
-      <Rule />
-
+      <Tile style={{ marginTop: space.section }}>
       <Row
         title="I'm not a resident of any state listed."
         onPress={() => choose(null)}
@@ -67,6 +66,7 @@ export default function Residency() {
           />
         ))
       )}
+      </Tile>
       <View style={{ height: space.x32 }} />
     </Screen>
   );

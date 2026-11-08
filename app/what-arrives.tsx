@@ -15,7 +15,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Stack, useRouter } from 'expo-router';
 import { useMemo } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import { Headline, LinkSentence, Micro, Row, Rule, Screen, Sentence } from '@/components/system';
+import { Headline, LinkSentence, Micro, Row, Screen, Sentence, Tile } from '@/components/system';
 import { NotificationsOffBanner } from '@/components/NotificationsOffBanner';
 import { useAlertPreferences, type AlertPref } from '@/features/alerts/queries';
 import { firingWhen, firingsFor, localISO, offsetLabel, type Firing } from '@/features/alerts/promise';
@@ -162,8 +162,7 @@ export default function WhatArrives() {
       ))}
 
       {!isGuest ? (
-        <>
-          <Rule />
+        <Tile style={{ marginTop: space.section }}>
           <Micro>What you get told</Micro>
           <Row
             title="Openers"
@@ -189,7 +188,7 @@ export default function WhatArrives() {
             Every notice goes out in one morning pass, so the app never speaks twice in a day about the
             same hunt. Times above are your phone's.
           </Sentence>
-        </>
+        </Tile>
       ) : null}
     </Screen>
   );

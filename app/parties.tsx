@@ -1,7 +1,7 @@
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, StyleSheet, TextInput, View } from 'react-native';
-import { Pill, Row, Rule, Screen, Sentence, Serif } from '@/components/system';
+import { Pill, Row, Screen, Sentence, Serif, Tile } from '@/components/system';
 import { useJoinParty, useMyParties } from '@/features/parties/queries';
 import { useRequirePro } from '@/hooks/useRequirePro';
 import { useRequireAccount } from '@/hooks/useRequireAccount';
@@ -70,8 +70,7 @@ export default function Parties() {
           join a buddy's with their code below.
         </Sentence>
       ) : (
-        <>
-          <Rule />
+        <Tile style={{ marginTop: space.section }}>
           {parties.map((p, i) => {
             const w = p.window;
             const s = p.season;
@@ -99,10 +98,10 @@ export default function Parties() {
               />
             );
           })}
-        </>
+        </Tile>
       )}
 
-      <Rule />
+      <View style={{ marginTop: space.section }} />
       {joining ? (
         <View style={{ gap: space.x16 }}>
           <Sentence>Enter the invite code your buddy sent you.</Sentence>
