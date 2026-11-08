@@ -3,23 +3,13 @@ import { useRouter } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { AppText } from '@/components/ui';
 import { AlmanacCol, almanacStyles } from '@/components/AlmanacRow';
-import {
-  LightLine,
-  OpenerRow,
-  PromiseBlock,
-  TodayHero,
-  nextOpenerSentence,
-  todaySentence,
-  type PromiseState,
-} from '@/components/NextOpener';
-import { Contours } from '@/components/Contours';
-import { Micro, Monogram, Sentence, Serif, tileSurface } from '@/components/system';
-import { Watermark } from '@/components/Watermark';
-import { armedFor, openerOffsetsFor, useAlertPreferences } from '@/features/alerts/queries';
-import { firingsFor } from '@/features/alerts/promise';
-import { dayAndDate } from '@/lib/date';
+import { LightCountdown } from '@/components/LightCountdown';
+import { useDailyBrief } from '@/features/brief/queries';
 import { PageTitle, SpeciesBadge } from '@/components/midnight';
+import { Headline } from '@/components/system';
+import { headlineSize, nextOpenerSentence } from '@/features/home/sentences';
 import { NotificationsOffBanner } from '@/components/NotificationsOffBanner';
 import { ProUpsellCard } from '@/components/ProUpsellCard';
 import { useAuth } from '@/providers/AuthProvider';
@@ -28,11 +18,12 @@ import { useLegalLight } from '@/features/legalLight/useLegalLight';
 import { useDawnConditions } from '@/features/weather/useDawnConditions';
 import { openExternalUrl } from '@/lib/openUrl';
 import { useActiveStates, useSeasonsFeed, useSpecies, useUpcomingCountdown, useWeekendStateOpeners, useWindowsFeed } from '@/features/reference/queries';
-import { coverageOf, coverageWord } from '@/features/coverage/gaps';
 import type { SeasonWithRefs } from '@/features/reference/types';
 import { queryClient } from '@/lib/queryClient';
 import { maybeRequestReview } from '@/lib/rateApp';
 import { pushWidgetEvent, pushWidgetLight } from '@/lib/widget';
+import { fontFamily, radius, spacing, theme } from '@/theme';
+import { Serif } from '@/components/system';
 import { lang } from '@/theme/tokens';
 
 const WEEKDAYS = ['SUNDAY', 'MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY'];
@@ -48,61 +39,16 @@ function diffDays(fromISO: string, toISO: string): number {
   return Math.round((Date.UTC(by, bm - 1, bd) - Date.UTC(ay, am - 1, ad)) / 86400000);
 }
 
-type RosterItem = {
-  speciesId: string;
-  name: string;
-  codes: string[];
-  state: 'open' | 'upcoming' | 'none';
-  days: number | null;
-  /** Set only when `state` is 'open': when the running season ends. For a
-   *  season already underway, when it *stops* is the live question. */
-  closeISO: string | null;
-  /** Set only when `state` is 'none': which kind of nothing this is. */
-  gap: string | null;
-};
-
-const MON_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-/** "11 Jan" — a date with no weekday, for a line that already has a verb. */
-function shortDate(dateISO: string): string {
-  const [, m, d] = dateISO.split('-').map(Number);
-  return `${d} ${MON_SHORT[m - 1]}`;
-}
-
-function methodLabel(method: string): string {
-  return method.charAt(0).toUpperCase() + method.slice(1);
-}
-
-/**
- * "Youth, Military & Veterans Days · Sat 14 Nov · Statewide" — what this
- * opener is, when it lands, and where. The season's own label wins when it has
- * one; otherwise the method names it.
- */
-function openerDetail(s: SeasonWithRefs, withZone: boolean, withDate = true): string {
-  const what = (s.label ?? '').trim() || methodLabel(s.method);
-  const zone = withZone ? (s.zone?.name ?? null) : null;
-  // The hero sets the date itself, large and in the serif, so it asks for the
-  // detail without one — repeating it underneath would read as a stutter.
-  const when = withDate ? dayAndDate(s.open_date) : null;
-  return [what, when, zone].filter(Boolean).join(' · ');
-}
+type RosterItem = { speciesId: string; name: string; codes: string[]; state: 'open' | 'upcoming' | 'none'; days: number | null };
 
 /** Reduce a species' followed seasons to a single roster status. */
-function rosterStatus(seasons: SeasonWithRefs[]): { state: 'open' | 'upcoming' | 'none'; days: number | null; closeISO: string | null; gap: string | null } {
+function rosterStatus(seasons: SeasonWithRefs[]): { state: 'open' | 'upcoming' | 'none'; days: number | null } {
   const iso = todayISO();
   const open = seasons.find((s) => s.open_date && s.close_date && s.open_date <= iso && iso <= s.close_date);
-  if (open) {
-    return {
-      state: 'open',
-      days: open.close_date ? Math.max(diffDays(iso, open.close_date), 0) : null,
-      closeISO: open.close_date ?? null,
-      gap: null,
-    };
-  }
+  if (open) return { state: 'open', days: open.close_date ? Math.max(diffDays(iso, open.close_date), 0) : null };
   const next = seasons.filter((s) => s.open_date && s.open_date > iso).sort((a, b) => (a.open_date! < b.open_date! ? -1 : 1))[0];
-  if (next) return { state: 'upcoming', days: diffDays(iso, next.open_date!), closeISO: null, gap: null };
-  // Nothing open and nothing coming is two different facts: the agency has not
-  // published next season, or we never had this pair at all. Say which.
-  return { state: 'none', days: null, closeISO: null, gap: coverageWord(coverageOf(seasons, iso)) };
+  if (next) return { state: 'upcoming', days: diffDays(iso, next.open_date!) };
+  return { state: 'none', days: null };
 }
 
 export default function Home() {
@@ -120,12 +66,13 @@ export default function Home() {
   const { items } = useUpcomingCountdown(); // widget only
   const [refreshing, setRefreshing] = useState(false);
   const now = new Date();
-  // The greeting comes before the information, not instead of it (David,
-  // 2026-11-08). It is set as a sentence, so it introduces the headline
-  // rather than competing with it; the name is the one copper word.
-  const firstName = (profile?.display_name ?? '').trim().split(' ')[0];
-  const partOfDay = now.getHours() < 12 ? 'Good morning' : now.getHours() < 17 ? 'Good afternoon' : 'Good evening';
   const iso = todayISO();
+
+  // Time-of-day greeting, personalized with the name set in Settings. Falls back
+  // to just the greeting (no dangling comma) when no name is set.
+  const firstName = (profile?.display_name ?? '').trim().split(' ')[0];
+  const hour = now.getHours();
+  const partOfDay = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
 
   const speciesName = useMemo(() => new Map(allSpecies.map((s) => [s.id, s.name])), [allSpecies]);
   const stateCode = useMemo(() => new Map(states.map((s) => [s.id, s.code])), [states]);
@@ -143,6 +90,23 @@ export default function Home() {
     return rows.sort((a, b) => rank[a.state] - rank[b.state] || (a.days ?? 9e9) - (b.days ?? 9e9) || a.name.localeCompare(b.name));
   }, [follows, seasons, speciesName, stateCode]);
 
+  const openCount = roster.filter((r) => r.state === 'open').length;
+
+  const openerCount = seasons.filter((s) => s.open_date && s.open_date > iso).length;
+
+  // The heading is the next opener among the seasons you follow (David,
+  // 2026-11-08: "the new headline 'Bobwhite Quail opens in six days' or
+  // whatever it is the user is following"). Today counts as an opener, so
+  // the morning a season starts the screen says "opens today" rather than
+  // skipping to the next one.
+  const nextOpener = useMemo(
+    () =>
+      seasons
+        .filter((s) => s.open_date && s.open_date >= iso)
+        .sort((a, b) => a.open_date!.localeCompare(b.open_date!))[0] ?? null,
+    [seasons, iso],
+  );
+  const deadlineCount = windows.filter((w) => w.closes_at && w.closes_at >= iso).length;
   const trackedStates = [...new Set(follows.map((f) => stateCode.get(f.state_id)).filter(Boolean))];
   // Which state's sky this screen is talking about: the one you said you live
   // in, else the first you follow, else the one you're browsing. The last of
@@ -168,65 +132,6 @@ export default function Home() {
         ? (states.find((s) => s.code === trackedStates[0])?.name ?? trackedStates[0]!)
         : `${trackedStates.length} states`);
 
-  // ---- The next opener, and whether we have promised to say so ------------
-  // The top of this screen answers one question now: what opens next, and
-  // will my phone tell me before it does? (David, 2026-11-08 — "amplify the
-  // main thing the app does".) Today counts as an opener: "Ducks open today."
-  const { data: alertPrefs = [], isLoading: prefsLoading } = useAlertPreferences();
-  const upcoming = useMemo(
-    () =>
-      seasons
-        .filter((s) => s.open_date && s.open_date >= iso)
-        .sort((a, b) => a.open_date!.localeCompare(b.open_date!)),
-    [seasons, iso],
-  );
-  const nextOpener = upcoming[0] ?? null;
-  // Every opener in one ledger, soonest first. The next one used to be
-  // lifted out as the hero with the rest listed under it as "more ahead";
-  // it is just the first row now, so the sort order carries the meaning.
-  const openerList = upcoming;
-  const light = useLegalLight(homeStateCode, 0);
-
-  // What is open right now, named. This leads the screen (David,
-  // 2026-11-08: "What is open, what opens next, what they follow"), because
-  // it is the only thing on the page a hunter can act on this morning. It
-  // used to be the last thing on it, as a row marked "Open", while an
-  // opener six days out took the hero.
-  const openNames = useMemo(() => {
-    const names = seasons
-      .filter((s) => s.open_date && s.close_date && s.open_date <= iso && iso <= s.close_date)
-      .map((s) => s.species?.name)
-      .filter((n): n is string => !!n);
-    return [...new Set(names)].sort((a, b) => a.localeCompare(b));
-  }, [seasons, iso]);
-
-  // One sentence at the top, never two. When nothing is open the next
-  // opener takes it, so the zone is never empty and the page never has two
-  // heroes competing at the same weight.
-  const heroSentence = openNames.length > 0
-    ? todaySentence(openNames)
-    : nextOpener
-      ? nextOpenerSentence(nextOpener.species?.name ?? 'The next season', diffDays(iso, nextOpener.open_date!))
-      : '';
-
-  const promise = useMemo<PromiseState>(() => {
-    if (!nextOpener) return { kind: 'loading' };
-    if (isGuest) return { kind: 'guest' };
-    if (prefsLoading) return { kind: 'loading' };
-    const followed = follows.some(
-      (f) => f.state_id === nextOpener.state_id && f.species_id === nextOpener.species_id,
-    );
-    if (!followed) return { kind: 'unfollowed' };
-    if (!armedFor(alertPrefs, nextOpener.state_id, nextOpener.species_id, nextOpener.method)) {
-      return { kind: 'unarmed' };
-    }
-    const firings = firingsFor(
-      nextOpener.open_date!,
-      openerOffsetsFor(alertPrefs, nextOpener.state_id, nextOpener.species_id),
-    );
-    return firings.length > 0 ? { kind: 'armed', firings } : { kind: 'spent' };
-  }, [nextOpener, isGuest, prefsLoading, follows, alertPrefs]);
-
   useEffect(() => {
     pushWidgetEvent(items[0]);
   }, [items[0]?.id, items[0]?.date, items[0]?.kind]);
@@ -249,128 +154,68 @@ export default function Home() {
 
   return (
     <SafeAreaView style={styles.screen} edges={['top', 'left', 'right']}>
-      {/* Land under the page. Without it every group has to earn its
-          separation with a box, which is how this screen became a stack of
-          identical tiles. Fixed, not scrolling: it is ground, not content. */}
-      <Contours />
       <ScrollView
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={lang.color.copper} />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.color.accent} />}
       >
-        {/* The mark holds the corner the "Open season." masthead used to hold.
-            The chip drops its own copper dot — two copper dots an inch apart
-            read as a stutter, and the monogram's is the one that means
-            something. */}
         <View style={styles.topRow}>
-          <Monogram size={23} />
-          <Pressable
-            style={styles.locChip}
-            onPress={() => router.push(browsing ? '/pick-state' : '/follows')}
-            accessibilityRole="button"
-            accessibilityLabel={browsing ? 'Choose a state' : 'Manage your hunts'}
-          >
-            <Text style={styles.chipText} numberOfLines={1}>
+          <Pressable style={styles.locChip} onPress={() => router.push(browsing ? '/pick-state' : '/follows')}>
+            <View style={styles.locDot} />
+            <AppText variant="caption" color={theme.color.textSecondary} numberOfLines={1}>
               {locationLabel}
-            </Text>
-            <Ionicons name="chevron-down" size={11} color={lang.color.muted} />
+            </AppText>
           </Pressable>
           <Pressable onPress={() => router.push('/search')} hitSlop={10} style={styles.bellBtn} accessibilityRole="button" accessibilityLabel="Search">
             <Ionicons name="search" size={19} color={lang.color.muted} />
           </Pressable>
         </View>
 
-        <Text style={styles.greeting}>
-          {partOfDay}
-          {firstName ? <Text style={styles.greetingName}>, {firstName}</Text> : null}.
-        </Text>
-
-        {/* ZONE 1 — what is open. One tight sans sentence, and legal light
-            hung off it by a rule rather than floating in a tile of its own:
-            the question after "deer is open" is "what hours". Light only
-            appears when something is open, because shooting hours for a day
-            with no season are a fact about nothing. */}
         <View style={styles.heroBlock}>
-          {/* The plate of the animal the sentence is about, run faint behind
-              it. */}
-          <Watermark species={openNames[0] ?? nextOpener?.species?.name} size={300} style={styles.heroPlate} />
-          {heroSentence ? (
-            <TodayHero sentence={heroSentence} />
+          {/* The wordmark used to hold this space. It said the app's name to
+              someone who had already opened the app, which is the one reader
+              who does not need telling; the countdown is the thing only this
+              screen knows (David, 2026-11-08). Nothing else on Home moved.
+
+              The wordmark stays as the fallback: with no season ahead there
+              is no countdown to print, and a blank hero is worse than a
+              masthead. */}
+          {nextOpener ? (
+            <Headline
+              size={headlineSize(
+                nextOpenerSentence(nextOpener.species?.name ?? 'The next season', diffDays(iso, nextOpener.open_date!)),
+              )}
+              style={styles.heroHeadline}
+            >
+              {nextOpenerSentence(nextOpener.species?.name ?? 'The next season', diffDays(iso, nextOpener.open_date!))}
+            </Headline>
           ) : (
-            /* Nothing open and nothing ahead — the masthead carries it. */
-            <>
-              <PageTitle lead={'Open\n'} accent="season." style={styles.hero} />
-              <Micro style={styles.dateLine}>
-                {`${WEEKDAYS[now.getDay()]}, ${MONTHS[now.getMonth()]} ${now.getDate()}`}
-              </Micro>
-            </>
+            <PageTitle lead={'Open\n'} accent="season." style={styles.hero} />
           )}
-          {openNames.length > 0 && light && homeStateCode ? (
-            <LightLine
-              window={light.window}
-              durationMin={light.durationMin}
-              before={light.before}
-              after={light.after}
-              approx={light.approx}
-              onPress={() => router.push({ pathname: '/outlook', params: { state: homeStateCode } })}
-            />
-          ) : null}
+          <AppText variant="overline" color={theme.color.textMuted} style={styles.dateLine}>
+            {WEEKDAYS[now.getDay()]}, {MONTHS[now.getMonth()]} {now.getDate()}
+          </AppText>
+          {firstName ? (
+            <Text style={styles.greeting}>
+              {partOfDay}, <Text style={styles.greetingName}>{firstName}</Text>
+            </Text>
+          ) : (
+            <Text style={styles.greeting}>{partOfDay}</Text>
+          )}
         </View>
 
-        {/* High on the page, because an unarmed phone makes a liar of every
-            promise below it. */}
-        <View style={{ marginTop: lang.space.gutter }}>
+        {/* The Daily Outlook — the Weekend Brief's everyday sibling: today's
+            legal light and today's dawn conditions (David, 2026-09-06). Opens
+            the full outlook page. */}
+        <DailyOutlookCard
+          stateCode={homeStateCode}
+          onPress={homeStateCode ? () => router.push({ pathname: '/outlook', params: { state: homeStateCode } }) : undefined}
+        />
+
+        <View style={{ marginTop: spacing.xl }}>
           <NotificationsOffBanner />
+          <ProUpsellCard />
         </View>
-
-        {/* ZONE 2 — what opens next. One ledger under one heading, with the
-            next opener as simply its first row (David, 2026-11-08: "the Next
-            Opener could be listed like the More ahead. Use the same titles").
-            The sort order does the work a lifted-out hero used to do.
-
-            Hairlines on the page, not a tile: a tile groups rows that would
-            otherwise look unrelated, and a list of openers already looks like
-            a list. When every group wore one, the tile stopped grouping
-            anything and the page read as a stack of identical boxes.
-
-            The bell legend stays — unlike the labels it replaced, it explains
-            a mark the row's own words don't. */}
-        {openerList.length > 0 ? (
-          <View style={styles.section}>
-            <View style={styles.sectionHead}>
-              <Micro>Opens next</Micro>
-              <Micro style={styles.legend}>Bell = armed</Micro>
-            </View>
-            {openerList.slice(0, 5).map((s, i) => (
-              <View key={s.id}>
-                {i > 0 ? <View style={styles.groupHair} /> : null}
-                <OpenerRow
-                  speciesName={s.species?.name ?? 'Season'}
-                  detail={openerDetail(s, false)}
-                  days={diffDays(iso, s.open_date!)}
-                  armed={armedFor(alertPrefs, s.state_id, s.species_id, s.method)}
-                  onPress={() => router.push({ pathname: '/season/[id]', params: { id: s.id } })}
-                />
-              </View>
-            ))}
-
-            {/* The promise sits under the ledger it is about. It names its own
-                species now: with no headline above it, "You'll hear from us
-                Friday" would otherwise be a promise about nothing in
-                particular. */}
-            {nextOpener ? (
-              <PromiseBlock
-                promise={promise}
-                speciesName={nextOpener.species?.name ?? 'The next season'}
-                openerLabel={openerDetail(nextOpener, true)}
-                onOpenSeason={() => router.push({ pathname: '/season/[id]', params: { id: nextOpener.id } })}
-                onSeeNotices={() => router.push('/what-arrives')}
-                onSignIn={() => router.push('/(auth)/sign-in')}
-                onChangeTiming={() => router.push('/alerts')}
-              />
-            ) : null}
-          </View>
-        ) : null}
 
         <WeekendBriefCard
           seasons={seasons}
@@ -381,46 +226,49 @@ export default function Home() {
           onPress={() => router.push('/calendar')}
         />
 
-        <ProUpsellCard />
+        <View style={styles.stats}>
+          <StatTile value={openCount} label="Open now" onPress={() => router.push('/calendar')} />
+          <StatTile value={openerCount} label="Openers" onPress={() => router.push('/calendar')} />
+          <StatTile value={deadlineCount} label="Deadlines" onPress={() => router.push('/applications')} />
+        </View>
 
         {permitFollows.length > 0 ? (
           <View style={styles.section}>
-            <Micro>Permit hunts</Micro>
+            <Serif size={22}>Permit hunts</Serif>
+            <View style={styles.tileGroup}>
             {permitFollows
               .filter((f) => f.hunt)
               .sort((a, b) => (a.hunt!.name < b.hunt!.name ? -1 : 1))
               .map((f, i) => (
-                <View key={f.id}>
-                {i > 0 ? <View style={styles.groupHair} /> : null}
                 <Pressable
+                  key={f.id}
                   onPress={() => openExternalUrl(f.hunt!.url)}
-                  accessibilityRole="link"
-                  style={({ pressed }) => [styles.row, pressed && styles.pressed]}
+                  style={({ pressed }) => [styles.row, i > 0 && styles.rowDivider, pressed && styles.pressed]}
                 >
                   <View style={styles.permitTile}>
-                    <Ionicons name="ribbon-outline" size={16} color={lang.color.dim} />
+                    <Ionicons name="ribbon-outline" size={17} color={theme.color.textMuted} />
                   </View>
                   <View style={{ flex: 1 }}>
-                    <Text style={styles.rowTitle} numberOfLines={1}>
+                    <AppText variant="bodyStrong" numberOfLines={1}>
                       {f.hunt!.name}
-                    </Text>
-                    <Text style={styles.rowSub} numberOfLines={1}>
+                    </AppText>
+                    <AppText variant="caption" color={theme.color.textMuted} numberOfLines={1}>
                       {[f.hunt!.agency, f.hunt!.state_code].filter(Boolean).join(' · ')}
-                    </Text>
+                    </AppText>
                   </View>
                   {(() => {
                     const seg = nextPermitSegment(f.hunt, iso);
                     if (!seg || seg.open_date <= iso) return null;
                     return (
-                      <Text style={[styles.rowMetric, { color: lang.color.copperDim }]}>
+                      <Text style={[styles.rowMetric, { color: theme.color.accentSoft }]}>
                         in {diffDays(iso, seg.open_date)}d
                       </Text>
                     );
                   })()}
-                  <Ionicons name="open-outline" size={12} color={lang.color.dim} />
+                  <Ionicons name="open-outline" size={13} color={theme.color.textMuted} />
                 </Pressable>
-                </View>
               ))}
+            </View>
           </View>
         ) : null}
 
@@ -429,58 +277,114 @@ export default function Home() {
         {isLoading ? null : followsError && !hasFollows ? (
           /* A failed fetch must never dress up as a fresh account — that
              looked like a wiped app on a Sunday morning (2026-09-06). */
-          <Pressable
-            onPress={() => queryClient.invalidateQueries()}
-            accessibilityRole="button"
-            accessibilityLabel="Try loading again"
-            style={[tileSurface, styles.tile, styles.emptyBlock]}
-          >
-            <Serif size={27}>Couldn't reach camp.</Serif>
-            <Sentence>Your hunts are safe — the connection hiccuped. Tap to try again.</Sentence>
+          <Pressable onPress={() => queryClient.invalidateQueries()} style={styles.emptyCard}>
+            <AppText variant="h3">Couldn't reach camp.</AppText>
+            <AppText variant="caption" color={theme.color.textSecondary}>
+              Your hunts are safe — the connection hiccuped. Tap to try again.
+            </AppText>
           </Pressable>
         ) : !hasFollows ? (
           isGuest ? (
             /* A guest has nothing to follow -- there is no account to hang a
                follow on yet. So ask for the account, and be honest about what
                it is for: the dates stay free either way. */
-            <Pressable
-              onPress={() => router.push('/(auth)/sign-in')}
-              accessibilityRole="button"
-              style={[tileSurface, styles.tile, styles.emptyBlock]}
-            >
-              <Serif size={27}>Make it yours</Serif>
-              <Sentence>
+            <Pressable onPress={() => router.push('/(auth)/sign-in')} style={styles.emptyCard}>
+              <AppText variant="h3">Make it yours</AppText>
+              <AppText variant="caption" color={theme.color.textSecondary}>
                 Reading dates is free, and stays free. Create an account to follow the species you
                 hunt and get told before each opener.
-              </Sentence>
+              </AppText>
             </Pressable>
           ) : (
-            <Pressable
-              onPress={() => router.push('/follows')}
-              accessibilityRole="button"
-              style={[tileSurface, styles.tile, styles.emptyBlock]}
-            >
-              <Serif size={27}>Choose your quarry</Serif>
-              <Sentence>
+            <Pressable onPress={() => router.push('/follows')} style={styles.emptyCard}>
+              <AppText variant="h3">Choose your quarry</AppText>
+              <AppText variant="caption" color={theme.color.textSecondary}>
                 Add states and the species you hunt to start tracking seasons and tag deadlines.
-              </Sentence>
+              </AppText>
             </Pressable>
           )
         ) : (
-          /* ZONE 3 — what you follow, in the same ledger idiom as the
-             openers above it. */
           <View style={styles.section}>
-            <Micro>You follow</Micro>
-            {roster.map((r, i) => (
-              <View key={r.speciesId}>
-                {i > 0 ? <View style={styles.groupHair} /> : null}
-                <RosterRow item={r} onPress={() => router.push({ pathname: '/species/[id]', params: { id: r.speciesId } })} />
-              </View>
-            ))}
+            <Serif size={22}>Your species</Serif>
+            <View style={styles.tileGroup}>
+              {roster.map((r, i) => (
+                <RosterRow key={r.speciesId} item={r} divider={i > 0} onPress={() => router.push({ pathname: '/species/[id]', params: { id: r.speciesId } })} />
+              ))}
+            </View>
           </View>
         )}
       </ScrollView>
     </SafeAreaView>
+  );
+}
+
+/**
+ * The Daily Outlook — every day of the year: today's legal light and today's
+ * dawn conditions, in the brief card's clothes. The moon renders even offline;
+ * the weather columns appear as NWS answers.
+ */
+function DailyOutlookCard({ stateCode, onPress }: { stateCode: string | null; onPress?: () => void }) {
+  const light = useLegalLight(stateCode, 0);
+  const dawn = useDawnConditions(stateCode, 0);
+  // Your own day, in a sentence — sits under the light, never above it.
+  const { data: dailyBrief } = useDailyBrief();
+  const brief = dailyBrief?.brief ?? null;
+  if (!light && !dawn) return null;
+  const now = new Date();
+  const head = `${['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'][now.getDay()]}, ${MONTHS[now.getMonth()]} ${now.getDate()}`;
+  return (
+    <Pressable onPress={onPress} disabled={!onPress} style={({ pressed }) => [styles.briefCard, pressed && !!onPress && styles.pressed]}>
+      <View style={styles.briefHead}>
+        <AppText variant="overline" color={theme.color.accentSoft}>
+          THE DAILY OUTLOOK
+        </AppText>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+          <AppText variant="overline" color={theme.color.textMuted}>
+            {head}
+          </AppText>
+          {onPress ? <Ionicons name="chevron-forward" size={12} color={lang.color.copper} /> : null}
+        </View>
+      </View>
+      <View style={styles.briefRule} />
+      {light ? (
+        <>
+          <View style={styles.outlookLight}>
+            <Text style={styles.lightTimes}>
+              {light.approx ? '≈ ' : ''}
+              {light.window}
+            </Text>
+            <Text style={styles.lightLabel}>legal light</Text>
+          </View>
+          <LightCountdown light={light} stateCode={stateCode} />
+        </>
+      ) : null}
+      {brief ? <Text style={styles.briefLine2}>{brief}</Text> : null}
+      {dawn ? (
+        <>
+          <Text style={almanacStyles.head}>
+            {dawn.dayName === ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][now.getDay()]
+              ? 'AT FIRST LIGHT'
+              : `${dawn.dayName.toUpperCase()} AT FIRST LIGHT`}
+          </Text>
+          <View style={almanacStyles.row}>
+            {dawn.tempF != null ? <AlmanacCol value={`${dawn.tempF}°`} label={(dawn.sky ?? 'temp').toUpperCase()} first /> : null}
+            {dawn.windDir && dawn.windMph != null ? (
+              <AlmanacCol value={`${dawn.windDir} ${dawn.windMph}`} label="WIND · MPH" first={dawn.tempF == null} />
+            ) : null}
+            {dawn.pressureInHg != null ? (
+              <AlmanacCol
+                value={dawn.pressureInHg.toFixed(1)}
+                label={dawn.pressureTrend ? `PRESSURE · ${dawn.pressureTrend.toUpperCase()}` : 'PRESSURE'}
+                trend={dawn.pressureTrend}
+                first={false}
+              />
+            ) : null}
+            <AlmanacCol value={`${dawn.moonPct}%`} label={`MOON · ${dawn.moonWaxing ? 'WAXING' : 'WANING'}`} first={false} />
+          </View>
+          {dawn.frontLine ? <Text style={styles.briefLight}>{dawn.frontLine}</Text> : null}
+        </>
+      ) : null}
+    </Pressable>
   );
 }
 
@@ -582,16 +486,16 @@ function WeekendBriefCard({
   const range = fm === sm ? `${MON[fm - 1]} ${fd}–${sd}` : `${MON[fm - 1]} ${fd} – ${MON[sm - 1]} ${sd}`;
 
   return (
-    <Pressable
-      onPress={onPress}
-      accessibilityRole="button"
-      accessibilityLabel="Read the weekend brief"
-      style={({ pressed }) => [tileSurface, styles.tile, styles.tileFill, pressed && styles.pressed]}
-    >
-      <View style={styles.sectionHead}>
-        <Micro style={{ color: lang.color.copperDim }}>The weekend brief</Micro>
-        <Micro>{range}</Micro>
+    <Pressable onPress={onPress} style={({ pressed }) => [styles.briefCard, pressed && styles.pressed]}>
+      <View style={styles.briefHead}>
+        <AppText variant="overline" color={theme.color.accentSoft}>
+          THE WEEKEND BRIEF
+        </AppText>
+        <AppText variant="overline" color={theme.color.textMuted}>
+          {range}
+        </AppText>
       </View>
+      <View style={styles.briefRule} />
       {shown.map((l, i) => (
         <Text key={i} style={styles.briefLine}>
           {l.text}
@@ -606,7 +510,7 @@ function WeekendBriefCard({
       ) : null}
       {dawn ? (
         <>
-          <View style={styles.hairRule} />
+          <View style={styles.briefRule} />
           <Text style={almanacStyles.head}>
             {dawn.dayName.toUpperCase()} DAWN{dawn.approx ? ' · ≈' : ''}
           </Text>
@@ -634,37 +538,34 @@ function WeekendBriefCard({
   );
 }
 
-function RosterRow({ item, onPress }: { item: RosterItem; onPress: () => void }) {
-  const right =
-    item.state === 'open'
-      ? 'Open'
-      : item.state === 'upcoming'
-        ? `in ${Math.max(item.days ?? 0, 0)}d`
-        : (item.gap ?? 'No dates yet');
-  const rightColor = item.state === 'open' ? lang.color.copper : item.state === 'upcoming' ? lang.color.copperDim : lang.color.dim;
-  const where =
-    item.codes.length === 0
-      ? 'Tracked'
-      : item.codes.length <= 3
-        ? item.codes.join(' · ')
-        : `${item.codes.length} states`;
+function StatTile({ value, label, onPress }: { value: number; label: string; onPress: () => void }) {
   return (
-    <Pressable
-      onPress={onPress}
-      accessibilityRole="button"
-      style={({ pressed }) => [styles.row, pressed && styles.pressed]}
-    >
-      <SpeciesBadge name={item.name} size={34} muted={item.state !== 'open'} />
+    <Pressable onPress={onPress} style={({ pressed }) => [styles.tile, pressed && styles.pressed]}>
+      <Text style={styles.tileValue}>{value}</Text>
+      <AppText variant="caption" color={theme.color.textMuted}>
+        {label}
+      </AppText>
+    </Pressable>
+  );
+}
+
+function RosterRow({ item, divider, onPress }: { item: RosterItem; divider: boolean; onPress: () => void }) {
+  const right = item.state === 'open' ? 'Open' : item.state === 'upcoming' ? `in ${Math.max(item.days ?? 0, 0)}d` : 'No dates yet';
+  const rightColor = item.state === 'open' ? theme.color.accent : item.state === 'upcoming' ? theme.color.accentSoft : theme.color.textMuted;
+  return (
+    <Pressable onPress={onPress} style={({ pressed }) => [styles.row, divider && styles.rowDivider, pressed && styles.pressed]}>
+      <SpeciesBadge name={item.name} size={40} muted={item.state !== 'open'} />
       <View style={{ flex: 1 }}>
-        <Text style={styles.rowTitle} numberOfLines={1}>
+        <AppText variant="bodyStrong" numberOfLines={1}>
           {item.name}
-        </Text>
-        <Text style={styles.rowSub} numberOfLines={1}>
-          {where}
-          {/* For a season already running, when it ends is the live
-              question — "Open" on its own never said for how long. */}
-          {item.closeISO ? ` · closes ${shortDate(item.closeISO)}` : ''}
-        </Text>
+        </AppText>
+        <AppText variant="caption" color={theme.color.textMuted} numberOfLines={1}>
+          {item.codes.length === 0
+            ? 'Tracked'
+            : item.codes.length <= 3
+              ? item.codes.join(' · ')
+              : `${item.codes.length} states`}
+        </AppText>
       </View>
       <Text style={[styles.rowMetric, { color: rightColor }]}>{right}</Text>
     </Pressable>
@@ -673,84 +574,94 @@ function RosterRow({ item, onPress }: { item: RosterItem; onPress: () => void })
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: lang.color.bg },
-  content: { paddingHorizontal: lang.space.gutter, paddingTop: lang.space.x16, paddingBottom: 56 },
-
-  topRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  locChip: { flexDirection: 'row', alignItems: 'center', gap: 6, flexShrink: 1, minHeight: 44 },
-  chipText: { fontFamily: lang.type.uiMedium, fontSize: 13, color: lang.color.muted },
-  bellBtn: { width: 32, height: 32, alignItems: 'center', justifyContent: 'center' },
-
-  greeting: {
-    fontFamily: lang.type.ui,
-    fontSize: 15.5,
-    lineHeight: 23,
-    color: lang.color.muted,
-    marginTop: lang.space.x16,
-  },
-  greetingName: { fontFamily: lang.type.uiSemiBold, color: lang.color.copper },
-
-  heroBlock: { marginTop: lang.space.x16, marginBottom: lang.space.x4 },
-  // The plate bleeds hard off the right so the ring never closes into a
-  // circle: a visible ring reads as a sticker, a cropped one as letterpress.
-  // Opacity stays where David set it (5%, 2026-11-08) — this is composition,
-  // not tone.
-  heroPlate: { top: 4, right: -(lang.space.gutter + 56) },
-  hero: { fontSize: 62, lineHeight: 70, paddingTop: 4 },
-  dateLine: { marginTop: lang.space.x16 },
-
-  // Every group below the hero is a translucent tile, set close together:
-  // the lift is what separates them, so they no longer need 24pt of air or a
-  // rule between them (David, 2026-11-08 -- "I don't like how everything is
-  // separated... it needs to be something else").
-  tile: { marginTop: lang.space.x12 },
-  // A zone of the page: a heading and a ledger of hairline rows, with no
-  // surface under it. Separated by air, which is what a rule or a tile was
-  // standing in for.
-  section: { marginTop: lang.space.section },
-  // The bell legend, stepped down so the heading still leads the row.
-  legend: { color: lang.color.dim, fontSize: 9.5 },
-  tileFill: { gap: 2 },
-  // Separates rows inside one panel. White hairline, not the copper rule:
-  // copper is scarce and the hero already spends it.
-  groupHair: { height: StyleSheet.hairlineWidth, backgroundColor: lang.color.hair },
-  sectionHead: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-    justifyContent: 'space-between',
-    gap: lang.space.x12,
-  },
-  // Inside a tile the rule stops at the tile's own edge.
-  hairRule: {
+  content: { paddingHorizontal: lang.space.gutter, paddingTop: spacing.lg, paddingBottom: spacing.xxl },
+  sectionRule: {
     height: StyleSheet.hairlineWidth,
     backgroundColor: lang.color.hair,
-    marginTop: lang.space.x16,
+    marginHorizontal: -lang.space.gutter,
+    marginBottom: lang.space.x16,
   },
 
-  // The brief's sentences are the one place the italic serif runs at length --
-  // it is the app's own voice, so it is set as prose, not as card copy.
-  briefLine: {
-    fontFamily: lang.type.displayItalic,
-    fontSize: 19.5,
-    lineHeight: 28,
-    color: lang.color.bone,
-    marginTop: lang.space.x12,
+  topRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  locChip: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, flexShrink: 1 },
+  locDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: lang.color.copper },
+  topRight: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
+  bellBtn: { width: 32, height: 32, alignItems: 'center', justifyContent: 'center' },
+  
+  heroBlock: { marginTop: spacing.xl },
+  hero: { fontSize: 62, lineHeight: 70, paddingTop: 4 },
+  // Sits where the wordmark sat, so the date line and greeting below it
+  // keep their spacing exactly as they were.
+  heroHeadline: { paddingTop: 4 },
+  dateLine: { marginTop: spacing.lg },
+  outlookLight: { flexDirection: 'row', alignItems: 'baseline', gap: spacing.md, marginVertical: 2 },
+  lightTimes: { fontFamily: fontFamily.serif, fontSize: 22, color: lang.color.bone },
+  lightLabel: {
+    fontFamily: fontFamily.sansSemiBold,
+    fontSize: 12,
+    letterSpacing: 1.8,
+    textTransform: 'uppercase',
+    color: lang.color.copper,
   },
-  briefLight: { fontFamily: lang.type.ui, fontSize: 13, lineHeight: 19, color: lang.color.muted, marginTop: lang.space.x12 },
+  greeting: { fontFamily: fontFamily.sansMedium, fontSize: 15, color: theme.color.textSecondary, marginTop: spacing.xs },
+  greetingName: { fontFamily: fontFamily.sansSemiBold, color: lang.color.copper },
 
-  emptyBlock: { gap: lang.space.x8 },
-
-  row: { flexDirection: 'row', alignItems: 'center', gap: lang.space.x12, paddingVertical: 11 },
-  rowTitle: { fontFamily: lang.type.uiMedium, fontSize: 15.5, color: lang.color.bone },
-  rowSub: { fontFamily: lang.type.ui, fontSize: 12.5, color: lang.color.muted, marginTop: 1 },
-  rowMetric: {
-    fontFamily: lang.type.uiMedium,
-    fontSize: 12.5,
-    marginLeft: lang.space.x12,
-    fontVariant: ['tabular-nums'],
+  // The 1.3.5 brief card — flat surface, copper spine as a left border so it
+  // follows the corner radius (David asked for this layout back, 2026-08-29).
+  briefCard: {
+    marginTop: spacing.lg,
+    padding: spacing.lg,
+    borderRadius: radius.lg,
+    backgroundColor: theme.color.surfaceFlat,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: theme.color.borderFlat,
+    borderLeftWidth: 2,
+    borderLeftColor: theme.color.accent,
+    gap: 6,
   },
-  // The ribbon sits in the text column's own margin -- a 40pt tile with its
-  // own border was a card inside a list.
-  permitTile: { width: 28, alignItems: 'center' },
+  briefHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  briefRule: { height: StyleSheet.hairlineWidth, backgroundColor: theme.color.borderFlat, marginVertical: 4 },
+  briefLine: { fontFamily: fontFamily.serifItalic, fontSize: 16.5, lineHeight: 24, color: lang.color.bone },
+  briefLight: { fontFamily: fontFamily.sansMedium, fontSize: 12.5, color: theme.color.textMuted, marginTop: 4 },
+  // The daily brief: quiet, under the light. Plain sans so it doesn't compete
+  // with the serif times or the italic countdown above it.
+  briefLine2: {
+    fontFamily: fontFamily.sansMedium,
+    fontSize: 13.5,
+    lineHeight: 20,
+    color: theme.color.textSecondary,
+    marginTop: 10,
+  },
 
-  pressed: { opacity: 0.6 },
+  stats: { flexDirection: 'row', gap: spacing.sm, marginTop: spacing.xl },
+  tile: { flex: 1, padding: spacing.lg, borderRadius: radius.md, backgroundColor: theme.color.surfaceFlat, borderWidth: StyleSheet.hairlineWidth, borderColor: theme.color.borderFlat, gap: 2 },
+  tileValue: { fontFamily: fontFamily.serif, fontSize: 30, color: lang.color.copper },
+
+  section: { marginTop: spacing.xl, gap: spacing.sm },
+  emptyCard: { marginTop: spacing.lg, padding: spacing.xl, borderRadius: radius.lg, backgroundColor: theme.color.surfaceFlat, borderWidth: StyleSheet.hairlineWidth, borderColor: theme.color.borderFlat, gap: spacing.xs },
+
+  tileGroup: {
+    marginTop: spacing.md,
+    backgroundColor: lang.color.surface,
+    borderRadius: lang.radius.card,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: lang.color.hair,
+    overflow: 'hidden',
+    paddingHorizontal: spacing.lg,
+  },
+  row: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, paddingVertical: spacing.md },
+  permitTile: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: theme.color.surfaceFlat,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: theme.color.borderFlat,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  rowDivider: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: lang.color.hair },
+  rowMetric: { fontFamily: fontFamily.sansSemiBold, fontSize: 13, marginLeft: spacing.md },
+
+  pressed: { opacity: 0.85 },
 });
