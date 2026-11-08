@@ -2,6 +2,7 @@ import { useRouter } from 'expo-router';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { usePremium } from '@/providers/PremiumProvider';
+import { useAuth } from '@/providers/AuthProvider';
 import { lang } from '@/theme/tokens';
 
 const { color, space, type, radius } = lang;
@@ -10,11 +11,16 @@ const { color, space, type, radius } = lang;
  * Quiet one-line upsell for free users — shown where the missing value is
  * felt (Home, Alerts). Renders nothing for Pro/grandfathered users.
  * Tile form, uniform with Home's other tiles (David, 2026-08-28).
+ *
+ * Nothing for guests either: selling a subscription to someone with no account
+ * to attach it to is the wrong ask in the wrong order. Home's own card asks
+ * them to sign in instead, which is the step that actually comes first.
  */
 export function ProUpsellCard({ context = 'home' }: { context?: 'home' | 'alerts' }) {
   const router = useRouter();
   const { isPro, loading } = usePremium();
-  if (isPro || loading) return null;
+  const { isGuest } = useAuth();
+  if (isPro || loading || isGuest) return null;
   const copy =
     context === 'alerts'
       ? 'These are set up but paused — Pro turns them on.'

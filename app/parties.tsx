@@ -4,6 +4,7 @@ import { ActivityIndicator, Alert, StyleSheet, TextInput, View } from 'react-nat
 import { Pill, Row, Rule, Screen, Sentence, Serif } from '@/components/system';
 import { useJoinParty, useMyParties } from '@/features/parties/queries';
 import { useRequirePro } from '@/hooks/useRequirePro';
+import { useRequireAccount } from '@/hooks/useRequireAccount';
 import { countdownLabel, daysUntil } from '@/lib/date';
 import { drawTitle } from '@/lib/titles';
 import { lang } from '@/theme/tokens';
@@ -16,6 +17,7 @@ export default function Parties() {
   const { data: parties = [], isLoading } = useMyParties();
   const join = useJoinParty();
   const requirePro = useRequirePro();
+  const requireAccount = useRequireAccount();
 
   // Inline code entry — works on both platforms (Alert.prompt was iOS-only,
   // which left Android's join button dead).
@@ -29,11 +31,12 @@ export default function Parties() {
     const c = typeof params.code === 'string' ? params.code.trim() : '';
     if (!c) return;
     setCode(c.toUpperCase());
-    if (requirePro()) setJoining(true);
+    if (requireAccount() && requirePro()) setJoining(true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [params.code]);
 
   function onJoinStart() {
+    if (!requireAccount()) return;
     if (!requirePro()) return;
     setJoining(true);
   }

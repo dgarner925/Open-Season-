@@ -7,6 +7,7 @@ import { AppText, Button, Card, Screen } from '@/components/ui';
 import { PageTitle, SectionRule } from '@/components/midnight';
 import { useAuth } from '@/providers/AuthProvider';
 import { useActiveStates } from '@/features/reference/queries';
+import { useBrowseStateCode } from '@/lib/browseState';
 import { supabase } from '@/lib/supabase';
 import { openExternalUrl } from '@/lib/openUrl';
 import { Engraving, engravingFor } from '@/components/Engraving';
@@ -46,10 +47,12 @@ function Row({
 
 export default function Settings() {
   const router = useRouter();
-  const { user, profile, isAdmin, signOut, refreshProfile } = useAuth();
+  const { user, profile, isAdmin, isGuest, isOnboarded, signOut, refreshProfile } = useAuth();
 
   const { data: states = [] } = useActiveStates();
   const residentStateName = states.find((s) => s.id === profile?.resident_state_id)?.name ?? null;
+  const { code: browseCode } = useBrowseStateCode();
+  const browseName = browseCode ? (states.find((s) => s.code === browseCode)?.name ?? browseCode) : null;
 
   const [name, setName] = useState(profile?.display_name ?? '');
   const [editingName, setEditingName] = useState(false);
@@ -92,6 +95,51 @@ export default function Settings() {
     }
     // Account is gone; clear the local session (redirects to sign-in).
     await signOut();
+  }
+
+  // A guest has no profile to show: no name, no email, no join year, and every
+  // row under THE PURSUIT and THE WATCH writes to a user row that doesn't
+  // exist. Rather than render a bookplate with a question mark in it and five
+  // rows that bounce to sign-in, this is the one thing worth offering plus the
+  // fine print, which is the same for everybody.
+  if (isGuest) {
+    return (
+      <Screen scroll contentStyle={{ paddingBottom: spacing.xxl }}>
+        <PageTitle lead="Your " accent="profile." />
+
+        <Card onPress={() => router.push('/(auth)/sign-in')} style={{ marginTop: spacing.xl }}>
+          <AppText variant="h3">Sign in</AppText>
+          <AppText variant="body" color={theme.color.textSecondary}>
+            Reading dates needs no account. One gets you follows, opener reminders, draw deadlines
+            you can't miss, parties and your application history — on every device you carry.
+          </AppText>
+        </Card>
+
+        <SectionRule label="WHAT YOU'RE READING" />
+        <Card style={styles.group}>
+          <Row
+            first
+            title="State"
+            caption={browseName ? `Browsing ${browseName}.` : 'Pick a state to browse.'}
+            onPress={() => router.push('/pick-state')}
+          />
+        </Card>
+
+        <SectionRule label="THE FINE PRINT" />
+        <Card style={styles.group}>
+          <Row first title="How it works" onPress={() => router.push('/how-to')} />
+          <Row title="Privacy policy" onPress={() => openExternalUrl(PRIVACY_POLICY_URL)} />
+          <Row title="Terms of service" onPress={() => openExternalUrl(TERMS_URL)} />
+        </Card>
+
+        <View style={styles.colophon}>
+          {colophonArt ? <Engraving data={colophonArt} size={34} color={theme.color.textMuted} opacity={0.55} /> : null}
+          <AppText variant="caption" color={theme.color.textMuted} style={{ letterSpacing: 1.2 }}>
+            OPEN SEASON · VOL. {Constants.expoConfig?.version ?? '?'} ({Constants.expoConfig?.ios?.buildNumber ?? '—'})
+          </AppText>
+        </View>
+      </Screen>
+    );
   }
 
   return (
@@ -151,6 +199,17 @@ export default function Settings() {
           </AppText>
         </Card>
       )}
+
+      {/* Onboarding is no longer forced on anyone, so it needs a door. This is
+          it, and it only appears until it has been walked through. */}
+      {!isOnboarded ? (
+        <Card onPress={() => router.push('/onboarding')}>
+          <AppText variant="h3">Set up your hunts</AppText>
+          <AppText variant="body" color={theme.color.textSecondary}>
+            Pick your states and species once, and the app will track their dates for you.
+          </AppText>
+        </Card>
+      ) : null}
 
       <SectionRule label="THE PURSUIT" />
       <Card style={styles.group}>

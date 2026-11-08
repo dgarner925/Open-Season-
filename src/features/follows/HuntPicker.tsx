@@ -5,6 +5,7 @@ import { Sentence, Serif } from '@/components/system';
 import { SpeciesBadge } from '@/components/midnight';
 import { useActiveStates, useSpecies, useStateSpecies } from '@/features/reference/queries';
 import { useFollows, usePermitFollows, useTogglePermitFollow, useToggleFollow } from '@/features/follows/queries';
+import { useRequireAccount } from '@/hooks/useRequireAccount';
 import { openExternalUrl } from '@/lib/openUrl';
 import { lang } from '@/theme/tokens';
 
@@ -31,6 +32,9 @@ export function HuntPicker() {
   const { data: permitFollows = [] } = usePermitFollows();
   const toggle = useToggleFollow();
   const togglePermit = useTogglePermitFollow();
+  // Follows are free -- unlimited, on every tier -- but they are rows with a
+  // user_id on them, so they do need an account. No Pro gate here by design.
+  const requireAccount = useRequireAccount();
 
   const [stateId, setStateId] = useState<string | null>(null);
   const [dropdownOpen, setDropdownOpen] = useState(false);
@@ -68,7 +72,10 @@ export function HuntPicker() {
                     <Pressable
                       hitSlop={10}
                       disabled={toggle.isPending}
-                      onPress={() => toggle.mutate({ stateId: f.state_id, speciesId: f.species_id, existingId: f.id })}
+                      onPress={() => {
+                        if (!requireAccount()) return;
+                        toggle.mutate({ stateId: f.state_id, speciesId: f.species_id, existingId: f.id });
+                      }}
                       style={({ pressed }) => pressed && { opacity: 0.5 }}
                       accessibilityLabel={`Unfollow ${nameOf(f.species_id, species)}`}
                     >
@@ -112,7 +119,10 @@ export function HuntPicker() {
                 <Pressable
                   hitSlop={10}
                   disabled={togglePermit.isPending}
-                  onPress={() => togglePermit.mutate({ permitId: f.permit_id, existingId: f.id })}
+                  onPress={() => {
+                    if (!requireAccount()) return;
+                    togglePermit.mutate({ permitId: f.permit_id, existingId: f.id });
+                  }}
                   style={({ pressed }) => pressed && { opacity: 0.5 }}
                   accessibilityLabel="Unfollow permit hunt"
                 >
@@ -177,7 +187,10 @@ export function HuntPicker() {
                       <Pressable
                         key={sp.id}
                         disabled={toggle.isPending}
-                        onPress={() => toggle.mutate({ stateId: selectedState.id, speciesId: sp.id, existingId })}
+                        onPress={() => {
+                          if (!requireAccount()) return;
+                          toggle.mutate({ stateId: selectedState.id, speciesId: sp.id, existingId });
+                        }}
                         style={({ pressed }) => [styles.row, pressed && { opacity: 0.65 }]}
                       >
                         <SpeciesBadge name={sp.name} size={34} muted={!on} />

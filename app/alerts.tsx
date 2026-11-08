@@ -5,6 +5,7 @@ import { NotificationsOffBanner } from '@/components/NotificationsOffBanner';
 import { ProUpsellCard } from '@/components/ProUpsellCard';
 import { useAlertPreferences, useToggleOffset, type AlertPref } from '@/features/alerts/queries';
 import { useRequirePro } from '@/hooks/useRequirePro';
+import { useRequireAccount } from '@/hooks/useRequireAccount';
 import { useAuth } from '@/providers/AuthProvider';
 import { useFollowedWindows } from '@/features/reference/queries';
 import { supabase } from '@/lib/supabase';
@@ -39,6 +40,7 @@ export default function Alerts() {
   const { data: windows = [] } = useFollowedWindows();
   const toggle = useToggleOffset();
   const requirePro = useRequirePro();
+  const requireAccount = useRequireAccount();
 
   // Which (state, species) pairs actually have a draw? Only those get a "Draw
   // results" cadence — no point offering it for over-the-counter species.
@@ -67,7 +69,7 @@ export default function Alerts() {
       <NotificationsOffBanner />
       <ProUpsellCard context="alerts" />
 
-      {!speciesFilter ? <WeekendBriefToggle requirePro={requirePro} /> : null}
+      {!speciesFilter ? <WeekendBriefToggle requireAccount={requireAccount} requirePro={requirePro} /> : null}
 
       {Platform.OS === 'web' ? (
         <Sentence tone="dim" style={{ marginTop: space.x16, fontSize: 13 }}>
@@ -91,6 +93,7 @@ export default function Alerts() {
             hasDraw={drawPairs.has(`${p.state_id}:${p.species_id}`)}
             onToggle={(kind, offset, current) => {
               // Free users can see the ladder; changing it is Pro.
+              if (!requireAccount()) return;
               if (!requirePro()) return;
               toggle.mutate({ followId: p.follow_id, kind, offset, current });
             }}
@@ -105,11 +108,20 @@ export default function Alerts() {
  * The Weekend Brief — one Friday-morning push composed from your follows.
  * On by default for Pro; silent on empty weekends.
  */
-function WeekendBriefToggle({ requirePro }: { requirePro: () => boolean }) {
+function WeekendBriefToggle({
+  requireAccount,
+  requirePro,
+}: {
+  requireAccount: () => boolean;
+  requirePro: () => boolean;
+}) {
   const { user, profile, refreshProfile } = useAuth();
   const on = profile?.weekend_brief !== false;
 
   async function setBrief(value: boolean) {
+    // Account before Pro, same order as everywhere else; `!user` after both
+    // is the belt-and-braces check, not the gate.
+    if (!requireAccount()) return;
     if (!requirePro() || !user) return;
     await supabase.from('profiles').update({ weekend_brief: value }).eq('id', user.id);
     await refreshProfile();

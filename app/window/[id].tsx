@@ -8,6 +8,7 @@ import { useCreateParty, useMyParties } from '@/features/parties/queries';
 import { useReportDate, promptReport } from '@/features/reports/queries';
 import { useAuth } from '@/providers/AuthProvider';
 import { useRequirePro } from '@/hooks/useRequirePro';
+import { useRequireAccount } from '@/hooks/useRequireAccount';
 import { addToCalendar } from '@/lib/calendar';
 import { daysUntil, formatDate } from '@/lib/date';
 import { openExternalUrl } from '@/lib/openUrl';
@@ -47,6 +48,7 @@ export default function WindowDetail() {
   const { data: myParties = [] } = useMyParties();
   const createParty = useCreateParty();
   const requirePro = useRequirePro();
+  const requireAccount = useRequireAccount();
   const myParty = myParties.find((p) => p.window_id === id);
 
   function onParty() {
@@ -55,6 +57,7 @@ export default function WindowDetail() {
       return;
     }
     if (createParty.isPending) return;
+    if (!requireAccount()) return;
     if (!requirePro()) return;
     createParty.mutate(
       { windowId: id! },

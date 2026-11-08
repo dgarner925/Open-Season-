@@ -15,7 +15,7 @@ import { nextPermitSegment, useFollows, usePermitFollows } from '@/features/foll
 import { useLegalLight } from '@/features/legalLight/useLegalLight';
 import { useDawnConditions } from '@/features/weather/useDawnConditions';
 import { openExternalUrl } from '@/lib/openUrl';
-import { useActiveStates, useFollowedSeasons, useFollowedWindows, useSpecies, useUpcomingCountdown, useWeekendStateOpeners } from '@/features/reference/queries';
+import { useActiveStates, useSeasonsFeed, useSpecies, useUpcomingCountdown, useWeekendStateOpeners, useWindowsFeed } from '@/features/reference/queries';
 import type { SeasonWithRefs } from '@/features/reference/types';
 import { queryClient } from '@/lib/queryClient';
 import { maybeRequestReview } from '@/lib/rateApp';
@@ -51,13 +51,16 @@ function rosterStatus(seasons: SeasonWithRefs[]): { state: 'open' | 'upcoming' |
 
 export default function Home() {
   const router = useRouter();
-  const { profile } = useAuth();
+  const { profile, isGuest } = useAuth();
   const { data: follows = [], isError: followsError } = useFollows();
   const { data: permitFollows = [] } = usePermitFollows();
-  const { data: seasons = [], isLoading } = useFollowedSeasons();
+  // Follows when there are any, otherwise the state being browsed -- so the
+  // stat tiles, the weekend brief and the daily outlook all have something to
+  // say to someone who hasn't made an account yet.
+  const { data: seasons, isLoading, browsing, stateCode: browseCode } = useSeasonsFeed();
   const { data: allSpecies = [] } = useSpecies();
   const { data: states = [] } = useActiveStates();
-  const { data: windows = [] } = useFollowedWindows();
+  const { data: windows } = useWindowsFeed();
   const { items } = useUpcomingCountdown(); // widget only
   const [refreshing, setRefreshing] = useState(false);
   const now = new Date();
@@ -90,13 +93,29 @@ export default function Home() {
   const openerCount = seasons.filter((s) => s.open_date && s.open_date > iso).length;
   const deadlineCount = windows.filter((w) => w.closes_at && w.closes_at >= iso).length;
   const trackedStates = [...new Set(follows.map((f) => stateCode.get(f.state_id)).filter(Boolean))];
-  const homeStateCode = states.find((s) => s.id === profile?.resident_state_id)?.code ?? trackedStates[0] ?? null;
+  // Which state's sky this screen is talking about: the one you said you live
+  // in, else the first you follow, else the one you're browsing. The last of
+  // those is what gives a guest a legal-light time on their first screen.
+  const homeStateCode =
+    states.find((s) => s.id === profile?.resident_state_id)?.code ?? trackedStates[0] ?? browseCode ?? null;
+  const browseStateId = browseCode ? states.find((s) => s.code === browseCode)?.id : undefined;
   const trackedStateIdList = [
-    ...new Set([...follows.map((f) => f.state_id), ...(profile?.resident_state_id ? [profile.resident_state_id] : [])]),
+    ...new Set([
+      ...follows.map((f) => f.state_id),
+      ...(profile?.resident_state_id ? [profile.resident_state_id] : []),
+      ...(browseStateId ? [browseStateId] : []),
+    ]),
   ];
   const followedPairs = new Set(follows.map((f) => `${f.state_id}|${f.species_id}`));
   const hasFollows = follows.length > 0;
-  const locationLabel = !hasFollows ? 'Add your hunts' : trackedStates.length === 1 ? (states.find((s) => s.code === trackedStates[0])?.name ?? trackedStates[0]!) : `${trackedStates.length} states`;
+  const browseName = browsing && browseCode ? (states.find((s) => s.code === browseCode)?.name ?? browseCode) : null;
+  const locationLabel =
+    browseName ??
+    (!hasFollows
+      ? 'Add your hunts'
+      : trackedStates.length === 1
+        ? (states.find((s) => s.code === trackedStates[0])?.name ?? trackedStates[0]!)
+        : `${trackedStates.length} states`);
 
   useEffect(() => {
     pushWidgetEvent(items[0]);
@@ -126,7 +145,7 @@ export default function Home() {
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.color.accent} />}
       >
         <View style={styles.topRow}>
-          <Pressable style={styles.locChip} onPress={() => router.push('/follows')}>
+          <Pressable style={styles.locChip} onPress={() => router.push(browsing ? '/pick-state' : '/follows')}>
             <View style={styles.locDot} />
             <AppText variant="caption" color={theme.color.textSecondary} numberOfLines={1}>
               {locationLabel}
@@ -231,12 +250,25 @@ export default function Home() {
             </AppText>
           </Pressable>
         ) : !hasFollows ? (
-          <Pressable onPress={() => router.push('/follows')} style={styles.emptyCard}>
-            <AppText variant="h3">Choose your quarry</AppText>
-            <AppText variant="caption" color={theme.color.textSecondary}>
-              Add states and the species you hunt to start tracking seasons and tag deadlines.
-            </AppText>
-          </Pressable>
+          isGuest ? (
+            /* A guest has nothing to follow -- there is no account to hang a
+               follow on yet. So ask for the account, and be honest about what
+               it is for: the dates stay free either way. */
+            <Pressable onPress={() => router.push('/(auth)/sign-in')} style={styles.emptyCard}>
+              <AppText variant="h3">Make it yours</AppText>
+              <AppText variant="caption" color={theme.color.textSecondary}>
+                Reading dates is free, and stays free. Create an account to follow the species you
+                hunt and get told before each opener.
+              </AppText>
+            </Pressable>
+          ) : (
+            <Pressable onPress={() => router.push('/follows')} style={styles.emptyCard}>
+              <AppText variant="h3">Choose your quarry</AppText>
+              <AppText variant="caption" color={theme.color.textSecondary}>
+                Add states and the species you hunt to start tracking seasons and tag deadlines.
+              </AppText>
+            </Pressable>
+          )
         ) : (
           <View style={styles.section}>
             <Serif size={22}>Your species</Serif>

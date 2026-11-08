@@ -3,6 +3,7 @@ import { ActivityIndicator, StyleSheet, View } from 'react-native';
 import { AppText, Button, Card, Pill, Screen } from '@/components/ui';
 import { useApplications, type ApplicationWithRefs } from '@/features/applications/queries';
 import { useRequirePro } from '@/hooks/useRequirePro';
+import { useRequireAccount } from '@/hooks/useRequireAccount';
 import { formatDate } from '@/lib/date';
 import { openExternalUrl } from '@/lib/openUrl';
 import { spacing, theme } from '@/theme';
@@ -26,6 +27,7 @@ export default function Applications() {
   const router = useRouter();
   const { data: apps = [], isLoading } = useApplications();
   const requirePro = useRequirePro();
+  const requireAccount = useRequireAccount();
 
   return (
     <Screen scroll>
@@ -37,7 +39,7 @@ export default function Applications() {
         </AppText>
       </View>
 
-      <Button title="+ Add an application" onPress={() => requirePro() && router.push('/application-edit')} />
+      <Button title="+ Add an application" onPress={() => requireAccount() && requirePro() && router.push('/application-edit')} />
 
       {isLoading ? (
         <ActivityIndicator color={theme.color.accent} style={{ marginTop: spacing.lg }} />

@@ -71,7 +71,12 @@ export default function Onboarding() {
   }
 
   async function finish() {
-    if (!user) return;
+    // finish() writes follows and a profile patch, both of which need a user.
+    // Previously a guest here hit `return` and the button simply did nothing.
+    if (!user) {
+      router.replace('/(auth)/sign-in');
+      return;
+    }
     setSaving(true);
     setNotice(null);
     try {
@@ -103,7 +108,11 @@ export default function Onboarding() {
     }
   }
 
-  const canAdvance = step === 0 ? stateIds.size > 0 : step === 1 ? speciesIds.size > 0 : true;
+  // Species used to be mandatory to advance, which meant a user who knew where
+  // they hunt but not yet what they want to track could not finish setup at
+  // all. States alone already give the app a usable picture -- the browse
+  // feeds work off state, and species can be added any time from /follows.
+  const canAdvance = step === 0 ? stateIds.size > 0 : true;
   const primaryLabel =
     step === 0
       ? stateIds.size === 0
@@ -226,6 +235,19 @@ export default function Onboarding() {
         </Sentence>
       ) : null}
 
+      {/* Nothing redirects anyone here any more, so there has to be a way
+          back out of it that isn't the home button. */}
+      {step < 2 ? (
+        <Pressable
+          onPress={() => router.replace('/(tabs)')}
+          hitSlop={10}
+          accessibilityRole="button"
+          style={styles.skip}
+        >
+          <Sentence tone="dim">Skip for now</Sentence>
+        </Pressable>
+      ) : null}
+
       <View style={styles.actions}>
         {step > 0 ? (
           <Pressable onPress={() => setStep((s) => s - 1)} hitSlop={10} accessibilityRole="button">
@@ -285,6 +307,7 @@ const styles = StyleSheet.create({
   },
   rowLabel: { flex: 1, fontFamily: type.ui, fontSize: type.size.body + 0.5 },
   confirm: { paddingHorizontal: space.gutter, paddingTop: space.x38, paddingBottom: space.x32 },
+  skip: { alignItems: 'center', paddingVertical: space.x8 },
   actions: {
     flexDirection: 'row',
     alignItems: 'center',

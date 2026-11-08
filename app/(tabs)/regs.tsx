@@ -3,14 +3,15 @@ import { ActivityIndicator, FlatList, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AppText, Card, Pill } from '@/components/ui';
 import { Disclaimer } from '@/components/Provenance';
-import { useFollowedRegs } from '@/features/reference/queries';
+import { useRegsFeed } from '@/features/reference/queries';
+import { BrowseStateChip, BrowseStatePrompt } from '@/components/BrowseStateChip';
 import { useRegulationChanges, type RegulationChange } from '@/features/changes/queries';
 import { verifiedAgo } from '@/lib/date';
 import { spacing, speciesColors, theme, type SpeciesKey } from '@/theme';
 
 export default function Regs() {
   const router = useRouter();
-  const { data: regs = [], isLoading } = useFollowedRegs();
+  const { data: regs, isLoading, browsing, stateCode, needsState } = useRegsFeed();
 
   if (isLoading) {
     return (
@@ -34,6 +35,7 @@ export default function Regs() {
               <AppText variant="body" color={theme.color.textSecondary}>
                 Plain-English summaries. Always confirm against the official source.
               </AppText>
+              {browsing ? <BrowseStateChip stateCode={stateCode} /> : null}
             </View>
             <WhatChanged />
             {regs.length > 0 ? (
@@ -58,9 +60,15 @@ export default function Regs() {
         }}
         ItemSeparatorComponent={() => <View style={{ height: spacing.md }} />}
         ListEmptyComponent={
-          <AppText color={theme.color.textMuted} style={{ marginTop: spacing.xl }}>
-            No published summaries for your follows yet.
-          </AppText>
+          needsState ? (
+            <BrowseStatePrompt line="Regulation summaries are free to read. Choose where you hunt." />
+          ) : (
+            <AppText color={theme.color.textMuted} style={{ marginTop: spacing.xl }}>
+              {browsing
+                ? 'No published summaries for this state yet.'
+                : 'No published summaries for your follows yet.'}
+            </AppText>
+          )
         }
         ListFooterComponent={regs.length ? <View style={{ marginTop: spacing.lg }}><Disclaimer /></View> : null}
       />

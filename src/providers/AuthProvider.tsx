@@ -10,6 +10,8 @@ type AuthState = {
   profile: ProfileRow | null;
   isAdmin: boolean;
   isOnboarded: boolean;
+  /** No session at all -- browsing without an account. Derived, not stored. */
+  isGuest: boolean;
   refreshProfile: () => Promise<void>;
   signOut: () => Promise<void>;
 };
@@ -75,6 +77,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       profile,
       isAdmin: profile?.is_admin ?? false,
       isOnboarded: Boolean(profile?.onboarded_at),
+      isGuest: !session,
       refreshProfile: () => loadProfile(session?.user.id),
       signOut: async () => {
         await supabase.auth.signOut();

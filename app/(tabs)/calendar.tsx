@@ -5,7 +5,8 @@ import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AppText, Card } from '@/components/ui';
 import { PageTitle, SpeciesBadge, StatusPill } from '@/components/midnight';
-import { useFollowedSeasons } from '@/features/reference/queries';
+import { useSeasonsFeed } from '@/features/reference/queries';
+import { BrowseStateChip, BrowseStatePrompt } from '@/components/BrowseStateChip';
 import type { SeasonWithRefs } from '@/features/reference/types';
 import { daysUntil, formatDate } from '@/lib/date';
 import { fontFamily, spacing, theme } from '@/theme';
@@ -27,7 +28,7 @@ type Item = {
 /** Seasons — a clear, dated list of what's open now and what's opening next. */
 export default function Seasons() {
   const router = useRouter();
-  const { data: seasons = [], isLoading } = useFollowedSeasons();
+  const { data: seasons, isLoading, browsing, stateCode, needsState } = useSeasonsFeed();
   const iso = todayISO();
 
   // Species filter — chips over the list. null = all.
@@ -86,10 +87,21 @@ export default function Seasons() {
               <Ionicons name="search" size={17} color={theme.color.textPrimary} />
             </Pressable>
           </View>
-          <PageTitle lead="Your " accent="seasons." style={{ fontSize: 44, lineHeight: 50, marginTop: spacing.xs, paddingTop: 3 }} />
+          <PageTitle
+            lead={browsing ? 'The ' : 'Your '}
+            accent="seasons."
+            style={{ fontSize: 44, lineHeight: 50, marginTop: spacing.xs, paddingTop: 3 }}
+          />
           <AppText variant="body" color={theme.color.textSecondary} style={{ marginTop: spacing.sm }}>
-            When each species opens and closes, for everything you track.
+            {browsing
+              ? 'Every published season in one state. Follow what you hunt to narrow it down.'
+              : 'When each species opens and closes, for everything you track.'}
           </AppText>
+          {browsing ? (
+            <View style={{ marginTop: spacing.md }}>
+              <BrowseStateChip stateCode={stateCode} />
+            </View>
+          ) : null}
         </View>
 
         {chipSpecies.length > 1 ? (
@@ -101,11 +113,17 @@ export default function Seasons() {
           </ScrollView>
         ) : null}
 
-        {isLoading ? (
+        {needsState ? (
+          <BrowseStatePrompt line="Season dates for every state are free to read. Choose where you hunt." />
+        ) : isLoading ? (
           <ActivityIndicator color={theme.color.accent} style={{ marginTop: spacing.xl }} />
         ) : open.length === 0 && upcomingMonths.length === 0 ? (
           <AppText variant="body" color={theme.color.textMuted} style={{ marginTop: spacing.xl }}>
-            {speciesFilter ? 'No current or upcoming dates for this species.' : 'No upcoming seasons for your follows yet — add species from Home.'}
+            {speciesFilter
+              ? 'No current or upcoming dates for this species.'
+              : browsing
+                ? 'Nothing open or upcoming in this state right now. Try another.'
+                : 'No upcoming seasons for your follows yet — add species from Home.'}
           </AppText>
         ) : (
           <>

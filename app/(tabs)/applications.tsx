@@ -3,7 +3,8 @@ import { ActivityIndicator, FlatList, Pressable, StyleSheet, View } from 'react-
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AppText, Card, GlassChip } from '@/components/ui';
 import { PageTitle } from '@/components/midnight';
-import { useFollowedWindows } from '@/features/reference/queries';
+import { useWindowsFeed } from '@/features/reference/queries';
+import { BrowseStateChip, BrowseStatePrompt } from '@/components/BrowseStateChip';
 import type { ApplicationWindowWithRefs } from '@/features/reference/types';
 import { countdownLabel, daysUntil, formatDate } from '@/lib/date';
 import { drawTitle } from '@/lib/titles';
@@ -11,7 +12,7 @@ import { spacing, speciesColors, theme, urgencyColor, type SpeciesKey } from '@/
 
 export default function Applications() {
   const router = useRouter();
-  const { data: windows = [], isLoading } = useFollowedWindows();
+  const { data: windows, isLoading, browsing, stateCode, needsState } = useWindowsFeed();
 
   if (isLoading) {
     return (
@@ -40,14 +41,21 @@ export default function Applications() {
             <AppText variant="body" color={theme.color.textSecondary}>
               Draw and application windows. Miss a deadline, miss the season.
             </AppText>
+            {browsing ? <BrowseStateChip stateCode={stateCode} /> : null}
           </View>
         }
         renderItem={({ item }) => <WindowRow window={item} onPress={() => router.push(`/window/${item.id}`)} />}
         ItemSeparatorComponent={() => <View style={{ height: spacing.md }} />}
         ListEmptyComponent={
-          <AppText color={theme.color.textMuted} style={{ marginTop: spacing.xl }}>
-            No upcoming tag deadlines for your follows right now.
-          </AppText>
+          needsState ? (
+            <BrowseStatePrompt line="Draw deadlines are free to read too. Choose where you hunt." />
+          ) : (
+            <AppText color={theme.color.textMuted} style={{ marginTop: spacing.xl }}>
+              {browsing
+                ? 'No upcoming draw deadlines in this state right now.'
+                : 'No upcoming tag deadlines for your follows right now.'}
+            </AppText>
+          )
         }
         ListFooterComponent={
           <Pressable onPress={() => router.push({ pathname: '/ledger' })} accessibilityRole="button" style={styles.ledgerLink}>

@@ -13,6 +13,7 @@ import { useSeasonChange } from '@/features/changes/queries';
 import { useCreateParty, useMyParties } from '@/features/parties/queries';
 import { useLegalLight } from '@/features/legalLight/useLegalLight';
 import { useRequirePro } from '@/hooks/useRequirePro';
+import { useRequireAccount } from '@/hooks/useRequireAccount';
 import { addToCalendar } from '@/lib/calendar';
 import { daysUntil, formatDateRange, isOpenNow } from '@/lib/date';
 import { openExternalUrl } from '@/lib/openUrl';
@@ -126,6 +127,7 @@ function SeasonPageBody({ id }: { id: string | undefined }) {
   const { data: seasonChange } = useSeasonChange(id);
   const { profile } = useAuth();
   const requirePro = useRequirePro();
+  const requireAccount = useRequireAccount();
   const { width } = useWindowDimensions();
 
   const stateId = season?.state?.id ?? season?.state_id;
@@ -140,6 +142,7 @@ function SeasonPageBody({ id }: { id: string | undefined }) {
       router.push({ pathname: '/party/[id]', params: { id: myParty.id } });
       return;
     }
+    if (!requireAccount()) return;
     if (!requirePro()) return;
     createParty.mutate(
       { seasonId: id! },
@@ -219,6 +222,7 @@ function SeasonPageBody({ id }: { id: string | undefined }) {
     : '';
 
   function onNotify() {
+    if (!requireAccount()) return;
     if (!requirePro()) return;
     reminder.toggle.mutate({ method: season!.method, allMethods });
   }

@@ -4,6 +4,7 @@ import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-nati
 import { Pill, Rule, Screen, Sentence, Serif } from '@/components/system';
 import { usePointBalances, useAdjustPointBalance, type PointBalanceWithRefs } from '@/features/points/queries';
 import { useRequirePro } from '@/hooks/useRequirePro';
+import { useRequireAccount } from '@/hooks/useRequireAccount';
 import { lang } from '@/theme/tokens';
 
 const { color, space, type } = lang;
@@ -13,6 +14,7 @@ export default function Points() {
   const { data: balances = [], isLoading } = usePointBalances();
   const adjust = useAdjustPointBalance();
   const requirePro = useRequirePro();
+  const requireAccount = useRequireAccount();
 
   return (
     <Screen scroll>
@@ -44,7 +46,7 @@ export default function Points() {
       )}
 
       <Rule />
-      <Pill label="Add points" variant="secondary" onPress={() => requirePro() && router.push('/points-edit')} />
+      <Pill label="Add points" variant="secondary" onPress={() => requireAccount() && requirePro() && router.push('/points-edit')} />
     </Screen>
   );
 }

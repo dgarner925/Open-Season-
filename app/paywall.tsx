@@ -4,6 +4,7 @@ import { Alert, Platform, Pressable, StyleSheet, Text, View } from 'react-native
 import Purchases, { type PurchasesPackage } from 'react-native-purchases';
 import { Micro, Pill, Rule, Screen, Sentence, Serif } from '@/components/system';
 import { RC_API_KEY, usePremium } from '@/providers/PremiumProvider';
+import { useAuth } from '@/providers/AuthProvider';
 import { openExternalUrl } from '@/lib/openUrl';
 import { lang } from '@/theme/tokens';
 
@@ -28,6 +29,7 @@ const PITCH: { title: string; body: string }[] = [
 export default function Paywall() {
   const router = useRouter();
   const { isPro, refresh } = usePremium();
+  const { isGuest } = useAuth();
   const [pkg, setPkg] = useState<PurchasesPackage | null>(null);
   const [busy, setBusy] = useState<null | 'buy' | 'restore'>(null);
 
@@ -43,6 +45,16 @@ export default function Paywall() {
     if (isPro) router.back();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isPro]);
+
+  // A guest has no account for an entitlement to land on: PremiumProvider only
+  // logs in to RevenueCat with a user id, so a purchase made here would attach
+  // to an anonymous RC customer and go looking for an owner. Account first,
+  // same order as every gate. Every path in should already have asked, so this
+  // is the backstop, not the gate.
+  useEffect(() => {
+    if (isGuest) router.replace('/(auth)/sign-in');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isGuest]);
 
   // No hardcoded fallback: a wrong price in confident serif is worse than a dash.
   const price = pkg?.product.priceString ?? null;

@@ -3,6 +3,7 @@ import { Redirect, Tabs } from 'expo-router';
 import { useEffect } from 'react';
 import { ActivityIndicator, StyleSheet, View, type ColorValue } from 'react-native';
 import { useAuth } from '@/providers/AuthProvider';
+import { useBrowseStateCode } from '@/lib/browseState';
 import { registerForPushNotifications } from '@/lib/push';
 import { fontFamily, theme } from '@/theme';
 
@@ -13,22 +14,35 @@ function icon(base: keyof typeof Ionicons.glyphMap) {
 }
 
 export default function TabsLayout() {
-  const { loading, session, isOnboarded } = useAuth();
+  const { loading, session } = useAuth();
+  const { code: browseCode, loading: browseLoading } = useBrowseStateCode();
 
   const userId = session?.user.id;
   useEffect(() => {
+    // Guests have no id to register, so this no-ops for them.
     if (userId) registerForPushNotifications(userId);
   }, [userId]);
 
-  if (loading) {
+  if (loading || browseLoading) {
     return (
       <View style={styles.gate}>
         <ActivityIndicator color={theme.color.accent} size="large" />
       </View>
     );
   }
-  if (!session) return <Redirect href="/(auth)/sign-in" />;
-  if (!isOnboarded) return <Redirect href="/onboarding" />;
+
+  // The tabs used to redirect to sign-in with no session, and to onboarding
+  // with no `onboarded_at`. Both are gone: RLS already lets `anon` read every
+  // published season, window and regulation summary, so the gate was purely
+  // client-side and cost us every install that wasn't ready to make an account
+  // first. Onboarding is now entered on purpose (Profile -> Set up your hunts),
+  // not by redirect.
+  //
+  // The one thing a guest cannot do without is a state to browse, so a fresh
+  // install goes to the picker -- one tap, no account -- and comes straight
+  // back. Signed-in users are never sent there: they have follows, or the
+  // tabs offer them the picker inline.
+  if (!session && !browseCode) return <Redirect href="/pick-state" />;
 
   return (
     <Tabs
