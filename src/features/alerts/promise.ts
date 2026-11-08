@@ -83,8 +83,12 @@ export function firingsFor(openISO: string, offsets: number[], now: Date = new D
  */
 export function promiseHead(firings: Firing[]): string {
   if (firings.length === 0) return 'No reminder left before this one.';
-  const when = firingWhen(firings[0]);
-  return `You'll hear from us ${when.charAt(0).toLowerCase()}${when.slice(1)}.`;
+  const f = firings[0];
+  // "Later today" is a phrase and drops its capital mid-sentence. A weekday
+  // is a name and never does: lowercasing the whole string blindly shipped
+  // "You'll hear from us fri, Nov 13" in build 101 (David's screenshot).
+  const when = f.today ? firingWhen(f).replace(/^Later/, 'later') : firingWhen(f);
+  return `You'll hear from us ${when}.`;
 }
 
 /** "Fri 13 Nov, 8:00 AM" — on the device's clock, not the server's. */
