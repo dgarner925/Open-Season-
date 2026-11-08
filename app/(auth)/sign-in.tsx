@@ -23,7 +23,6 @@ export default function SignIn() {
   // The email form starts closed. Most people sign in with Apple or Google;
   // two text fields and a password were the first thing a brand-new user met,
   // and the overwhelming majority of them never needed to type anything.
-  const [showEmail, setShowEmail] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState<null | 'email' | 'apple' | 'google'>(null);
@@ -125,72 +124,63 @@ export default function SignIn() {
           </Pressable>
         </View>
 
-        {notice && !showEmail ? (
-          <Sentence tone="bone" style={[{ marginTop: space.x16 }, notice.tone === 'error' && { color: '#c96f5a' }]}>
-            {notice.text}
-          </Sentence>
-        ) : null}
-
         <Rule />
 
-        {showEmail ? (
-          <>
-            <TextInput
-              placeholder="Email"
-              placeholderTextColor={color.dim}
-              autoCapitalize="none"
-              keyboardType="email-address"
-              autoComplete="email"
-              value={email}
-              onChangeText={setEmail}
-              style={styles.input}
-            />
-            <TextInput
-              placeholder="Password"
-              placeholderTextColor={color.dim}
-              secureTextEntry
-              value={password}
-              onChangeText={setPassword}
-              style={styles.input}
-            />
+        {/* Email is shown, not hidden behind a link. It used to collapse
+            behind "Use email instead", which read as grey text under a
+            divider and looked like there was no email option at all once
+            this screen became the first thing a new install sees
+            (David, 2026-11-08). */}
+        <TextInput
+            placeholder="Email"
+            placeholderTextColor={color.dim}
+            autoCapitalize="none"
+            keyboardType="email-address"
+            autoComplete="email"
+            value={email}
+            onChangeText={setEmail}
+            style={styles.input}
+          />
+          <TextInput
+            placeholder="Password"
+            placeholderTextColor={color.dim}
+            secureTextEntry
+            value={password}
+            onChangeText={setPassword}
+            style={styles.input}
+          />
 
-            {notice ? (
-              <Sentence tone="bone" style={[{ marginTop: space.x16 }, notice.tone === 'error' && { color: '#c96f5a' }]}>
-                {notice.text}
+          {notice ? (
+            <Sentence tone="bone" style={[{ marginTop: space.x16 }, notice.tone === 'error' && { color: '#c96f5a' }]}>
+              {notice.text}
+            </Sentence>
+          ) : null}
+
+          <Pill
+            label={busy === 'email' ? 'One moment…' : mode === 'sign-in' ? 'Sign in' : 'Create account'}
+            onPress={handleEmail}
+            disabled={busy !== null}
+            style={{ marginTop: space.section }}
+          />
+
+          <View style={styles.linkRow}>
+            <Pressable
+              onPress={() => {
+                setNotice(null);
+                setMode(mode === 'sign-in' ? 'sign-up' : 'sign-in');
+              }}
+              hitSlop={8}
+            >
+              <Sentence tone="muted">
+                {mode === 'sign-in' ? 'New here? Create an account.' : 'Have an account? Sign in.'}
               </Sentence>
-            ) : null}
-
-            <Pill
-              label={busy === 'email' ? 'One moment…' : mode === 'sign-in' ? 'Sign in' : 'Create account'}
-              onPress={handleEmail}
-              disabled={busy !== null}
-              style={{ marginTop: space.section }}
-            />
-
-            <View style={styles.linkRow}>
-              <Pressable
-                onPress={() => {
-                  setNotice(null);
-                  setMode(mode === 'sign-in' ? 'sign-up' : 'sign-in');
-                }}
-                hitSlop={8}
-              >
-                <Sentence tone="muted">
-                  {mode === 'sign-in' ? 'New here? Create an account.' : 'Have an account? Sign in.'}
-                </Sentence>
+            </Pressable>
+            {mode === 'sign-in' ? (
+              <Pressable onPress={handleForgotPassword} hitSlop={8}>
+                <Sentence tone="dim">Forgot password?</Sentence>
               </Pressable>
-              {mode === 'sign-in' ? (
-                <Pressable onPress={handleForgotPassword} hitSlop={8}>
-                  <Sentence tone="dim">Forgot password?</Sentence>
-                </Pressable>
-              ) : null}
-            </View>
-          </>
-        ) : (
-          <Pressable onPress={() => setShowEmail(true)} hitSlop={8} accessibilityRole="button">
-            <Sentence tone="muted">Use email instead</Sentence>
-          </Pressable>
-        )}
+            ) : null}
+          </View>
 
         {/* The escape hatch. This screen is the first thing a new install sees
             (David, 2026-11-08), but it is not a wall: every date in the app is
