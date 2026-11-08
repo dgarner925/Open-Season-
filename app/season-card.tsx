@@ -1,9 +1,18 @@
 import { Stack, useRouter } from 'expo-router';
-import { useMemo } from 'react';
-import { ActivityIndicator, Share, StyleSheet, View, useWindowDimensions } from 'react-native';
+import { useMemo, useRef, useState } from 'react';
+import {
+  ActivityIndicator,
+  Alert,
+  Share,
+  StyleSheet,
+  View,
+  useWindowDimensions,
+} from 'react-native';
+import * as Sharing from 'expo-sharing';
+import { captureRef } from 'react-native-view-shot';
 import { Unreachable } from '@/components/GapNote';
-import { Headline, Pill, Screen, Sentence } from '@/components/system';
-import { CARD_H, CARD_W, SeasonCard } from '@/components/SeasonCard';
+import { Headline, LinkSentence, Pill, Screen, Sentence } from '@/components/system';
+import { CARD_RATIO, CARD_W, SeasonCard } from '@/components/SeasonCard';
 import { buildSeasonCard } from '@/features/card/season';
 import { useSeasonsFeed } from '@/features/reference/queries';
 import { lang } from '@/theme/tokens';
@@ -11,6 +20,9 @@ import { lang } from '@/theme/tokens';
 const { color, space } = lang;
 
 const SITE_URL = 'https://osdatesanddraws.com';
+
+/** The captured image, in pixels. 1080 wide is the share-sheet standard. */
+const EXPORT_W = 1080;
 
 function todayISO(): string {
   const d = new Date();
@@ -20,31 +32,80 @@ function todayISO(): string {
 /**
  * Your season, as a plate you can send to somebody.
  *
- * The card is laid out at a fixed 540 × 675 (see SeasonCard) and scaled to fit
- * whatever phone is holding it, so the composition never reflows — this is an
- * image, and an image that reflows is one whose typography you cannot trust.
+ * The card is laid out at its true on-screen size (no transform — see
+ * SeasonCard) so what gets captured is exactly what the reader is looking at.
  */
 export default function SeasonCardScreen() {
   const router = useRouter();
   const { width } = useWindowDimensions();
   const { data: seasons, isLoading, isError } = useSeasonsFeed();
+  const cardRef = useRef<View>(null);
+  const [busy, setBusy] = useState(false);
   const iso = todayISO();
 
   const card = useMemo(() => buildSeasonCard(seasons, iso), [seasons, iso]);
 
-  // The card's own gutters plus the screen's, so it never touches the edge.
-  const scale = Math.min(1, (width - space.gutter * 2) / CARD_W);
+  // Never wider than the reference: upscaling the layout would thin the
+  // hairlines and leave the type looking stretched on a tablet.
+  const cardWidth = Math.min(CARD_W, width - space.gutter * 2);
 
-  async function onShare() {
-    const first = card.openers[0];
-    const opener = first ? ` ${first.speciesName} opens ${first.date}.` : '';
-    await Share.share({
-      message:
-        `My ${card.year}–${String((card.year + 1) % 100).padStart(2, '0')} season: ` +
-        `${card.openers.length} opener${card.openers.length === 1 ? '' : 's'} across ` +
-        `${card.states.length} state${card.states.length === 1 ? '' : 's'}.${opener} ` +
-        `Tracking them with Open Season. ${SITE_URL}`,
-    }).catch(() => {});
+  const blurb =
+    `My ${card.year}–${String((card.year + 1) % 100).padStart(2, '0')} season: ` +
+    `${card.openers.length} opener${card.openers.length === 1 ? '' : 's'} across ` +
+    `${card.states.length} state${card.states.length === 1 ? '' : 's'}.` +
+    (card.openers[0] ? ` ${card.openers[0].speciesName} opens ${card.openers[0].date}.` : '') +
+    ` Tracking them with Open Season. ${SITE_URL}`;
+
+  /**
+   * Capture the card and hand it to the share sheet.
+   *
+   * Falls back to the text blurb rather than failing: on a device with no
+   * share targets, or if the snapshot cannot be taken, the reader still gets
+   * to send something. A share button that does nothing is worse than a
+   * plainer share.
+   */
+  async function onShareImage() {
+    if (busy) return;
+    setBusy(true);
+    try {
+      const uri = await captureRef(cardRef, {
+        format: 'png',
+        quality: 1,
+        result: 'tmpfile',
+        width: EXPORT_W,
+        height: Math.round(EXPORT_W * CARD_RATIO),
+      });
+
+      if (await Sharing.isAvailableAsync()) {
+        await Sharing.shareAsync(uri, {
+          mimeType: 'image/png',
+          // iOS needs the UTI to offer Messages, Mail and Photos.
+          UTI: 'public.png',
+          dialogTitle: 'Your season',
+        });
+      } else {
+        await Share.share({ message: blurb });
+      }
+    } catch (e) {
+      // A cancelled share sheet throws on some platforms; that is not an
+      // error worth a dialog. Anything else falls back to text.
+      const msg = e instanceof Error ? e.message : '';
+      if (!/cancel/i.test(msg)) {
+        await Share.share({ message: blurb }).catch(() =>
+          Alert.alert('Could not share', 'Try again in a moment.'),
+        );
+      }
+    } finally {
+      // Deliberately not releaseCapture()-ing the snapshot. Some share
+      // targets read the file after the sheet has already resolved, and a
+      // deleted temp file means a broken share; the file dies with the app
+      // either way, so holding it costs nothing worth having.
+      setBusy(false);
+    }
+  }
+
+  async function onShareText() {
+    await Share.share({ message: blurb }).catch(() => {});
   }
 
   return (
@@ -75,15 +136,20 @@ export default function SeasonCardScreen() {
             Every opener still ahead of you, on one plate. Send it to whoever you hunt with.
           </Sentence>
 
-          {/* A fixed-size card scaled down: the wrapper takes the scaled
-              height so the layout below it does not sit under the card. */}
-          <View style={[styles.stage, { height: CARD_H * scale + space.section }]}>
-            <View style={{ transform: [{ scale }], transformOrigin: 'top center' }}>
-              <SeasonCard card={card} />
-            </View>
+          <View style={styles.stage}>
+            <SeasonCard ref={cardRef} card={card} width={cardWidth} />
           </View>
 
-          <Pill label="Share your season" onPress={onShare} />
+          <Pill
+            label={busy ? 'Making the image…' : 'Share your season'}
+            onPress={onShareImage}
+            disabled={busy}
+            style={{ marginTop: space.section }}
+          />
+
+          <LinkSentence size={13.5} onPress={onShareText} style={{ marginTop: space.x16 }}>
+            Send it as text instead
+          </LinkSentence>
         </>
       )}
     </Screen>
