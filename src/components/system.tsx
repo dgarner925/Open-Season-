@@ -125,6 +125,39 @@ export function LinkSentence({
   );
 }
 
+/**
+ * The tile surface itself, for the places the tile has to be a Pressable (or
+ * anything else) rather than a <Tile>. One definition, so a tappable group
+ * and a static one can never drift apart.
+ */
+export const tileSurface = {
+  backgroundColor: color.tile,
+  borderRadius: radius.tile,
+  paddingVertical: space.x16,
+  paddingHorizontal: 18,
+} as const;
+
+/**
+ * A translucent tile: the thing that groups a handful of related lines now
+ * that rules no longer do (David, 2026-11-08). No border and no shadow — the
+ * fill alone is the boundary, so a screen of these reads as one surface with
+ * soft patches rather than a stack of cards.
+ *
+ * `warm` is for the one block on a screen that outranks the others. Use it
+ * once per screen or it stops meaning anything.
+ */
+export function Tile({
+  children,
+  warm,
+  style,
+}: {
+  children: ReactNode;
+  warm?: boolean;
+  style?: StyleProp<ViewStyle>;
+}) {
+  return <View style={[styles.tile, warm && styles.tileWarm, style]}>{children}</View>;
+}
+
 /** Uppercase micro label — a value's unit or role, never a section header. */
 export function Micro({ children, style, center }: { children: ReactNode; style?: StyleProp<TextStyle>; center?: boolean }) {
   return <Text style={[styles.micro, center && { textAlign: 'center' }, style]}>{String(children).toUpperCase()}</Text>;
@@ -412,6 +445,8 @@ const styles = StyleSheet.create({
   pillPrimary: { backgroundColor: color.fill, borderWidth: 1, borderColor: color.copper },
   pillSecondary: { backgroundColor: 'transparent', borderWidth: 1, borderColor: color.hair },
   pillLabel: { fontFamily: type.uiSemiBold, fontSize: 14.5 },
+  tile: tileSurface,
+  tileWarm: { backgroundColor: color.tileWarm },
   micro: { fontFamily: type.uiSemiBold, fontSize: type.size.micro, letterSpacing: type.microTracking, color: color.dim },
   thread: { position: 'absolute', left: 0, top: 0, width: 3 },
   sentence: { fontFamily: type.ui, fontSize: type.size.body, lineHeight: 23 },

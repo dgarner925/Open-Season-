@@ -204,14 +204,12 @@ export function OpenerRow({
   detail,
   days,
   armed,
-  last,
   onPress,
 }: {
   speciesName: string;
   detail: string;
   days: number;
   armed: boolean;
-  last?: boolean;
   onPress: () => void;
 }) {
   return (
@@ -240,7 +238,6 @@ export function OpenerRow({
       ) : (
         <Text style={styles.rowArm}>Remind me</Text>
       )}
-      {!last ? <View style={styles.rowRule} /> : null}
     </Pressable>
   );
 }
@@ -279,13 +276,14 @@ export function LightRow({
 const styles = StyleSheet.create({
   headline: { marginTop: space.x12 },
 
+  // The one warm tile on Home. It used to be the only raised surface here;
+  // now that every group gets a lift it keeps its standing by being copper
+  // rather than white (David, 2026-11-08).
   promise: {
-    marginTop: space.gutter,
-    padding: space.x16,
-    borderRadius: radius.card,
-    backgroundColor: color.surface,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: color.hair,
+    marginTop: space.x16,
+    padding: space.x16 + 2,
+    borderRadius: radius.tile,
+    backgroundColor: color.tileWarm,
   },
   promiseHead: { flexDirection: 'row', alignItems: 'center', gap: space.x8 },
   promiseTitle: { flex: 1, fontFamily: type.uiSemiBold, fontSize: 13.5, color: color.bone },
@@ -299,27 +297,12 @@ const styles = StyleSheet.create({
   firingWhen: { fontFamily: type.uiMedium, fontSize: 13.5, color: color.bone, fontVariant: ['tabular-nums'] },
   firingLabel: { fontFamily: type.ui, fontSize: 12.5, color: color.muted },
 
-  row: { minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: space.x12, paddingVertical: space.x12 },
+  row: { minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: space.x12, paddingVertical: 11 },
   rowTitle: { fontFamily: type.uiMedium, fontSize: 15.5, color: color.bone },
   rowSub: { fontFamily: type.ui, fontSize: 12.5, color: color.muted },
   rowDays: { fontFamily: type.uiMedium, fontSize: 12.5, color: color.muted, fontVariant: ['tabular-nums'] },
   rowArm: { fontFamily: type.uiMedium, fontSize: 12.5, color: color.copper },
-  rowRule: {
-    position: 'absolute',
-    left: 0,
-    right: -space.gutter,
-    bottom: 0,
-    height: StyleSheet.hairlineWidth,
-    backgroundColor: color.hair,
-  },
-
-  lightRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: space.x12,
-    paddingVertical: space.x16,
-    borderTopWidth: 1,
-    borderTopColor: color.rule,
-  },
+  // Sits inside its own tile, so it carries no rule of its own.
+  lightRow: { flexDirection: 'row', alignItems: 'center', gap: space.x12 },
   lightLen: { fontFamily: type.uiMedium, fontSize: 12.5, color: color.muted, fontVariant: ['tabular-nums'] },
 });

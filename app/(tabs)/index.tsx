@@ -5,7 +5,7 @@ import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'r
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AlmanacCol, almanacStyles } from '@/components/AlmanacRow';
 import { LightRow, NextOpener, OpenerRow, type PromiseState } from '@/components/NextOpener';
-import { Micro, Monogram, Sentence, Serif } from '@/components/system';
+import { Micro, Monogram, Sentence, Serif, Tile, tileSurface } from '@/components/system';
 import { Watermark } from '@/components/Watermark';
 import { armedFor, openerOffsetsFor, useAlertPreferences } from '@/features/alerts/queries';
 import { firingsFor } from '@/features/alerts/promise';
@@ -250,35 +250,36 @@ export default function Home() {
         </View>
 
         {laterOpeners.length > 0 ? (
-          <View style={styles.openerSection}>
+          <Tile style={styles.tile}>
             <View style={styles.openerHead}>
               <Micro>
                 {laterOpeners.length === 1 ? '1 more opener ahead' : `${laterOpeners.length} more openers ahead`}
               </Micro>
               <Micro>Bell = armed</Micro>
             </View>
-            {laterOpeners.slice(0, 4).map((s, i, shown) => (
+            {laterOpeners.slice(0, 4).map((s) => (
               <OpenerRow
                 key={s.id}
                 speciesName={s.species?.name ?? 'Season'}
                 detail={openerDetail(s, false)}
                 days={diffDays(iso, s.open_date!)}
                 armed={armedFor(alertPrefs, s.state_id, s.species_id, s.method)}
-                last={i === shown.length - 1}
                 onPress={() => router.push({ pathname: '/season/[id]', params: { id: s.id } })}
               />
             ))}
-          </View>
+          </Tile>
         ) : null}
 
         {/* Legal light, demoted to a line — the outlook page tells the rest. */}
         {light && homeStateCode ? (
-          <LightRow
-            window={light.window}
-            durationMin={light.durationMin}
-            approx={light.approx}
-            onPress={() => router.push({ pathname: '/outlook', params: { state: homeStateCode } })}
-          />
+          <Tile style={styles.tile}>
+            <LightRow
+              window={light.window}
+              durationMin={light.durationMin}
+              approx={light.approx}
+              onPress={() => router.push({ pathname: '/outlook', params: { state: homeStateCode } })}
+            />
+          </Tile>
         ) : null}
 
         <WeekendBriefCard
@@ -293,8 +294,7 @@ export default function Home() {
         <ProUpsellCard />
 
         {permitFollows.length > 0 ? (
-          <View style={styles.section}>
-            <View style={styles.sectionRule} />
+          <Tile style={styles.tile}>
             <Micro>Permit hunts</Micro>
             {permitFollows
               .filter((f) => f.hunt)
@@ -303,7 +303,7 @@ export default function Home() {
                 <Pressable
                   key={f.id}
                   onPress={() => openExternalUrl(f.hunt!.url)}
-                  style={({ pressed }) => [styles.row, i > 0 && styles.rowDivider, pressed && styles.pressed]}
+                  style={({ pressed }) => [styles.row, pressed && styles.pressed]}
                 >
                   <View style={styles.permitTile}>
                     <Ionicons name="ribbon-outline" size={16} color={lang.color.dim} />
@@ -328,7 +328,7 @@ export default function Home() {
                   <Ionicons name="open-outline" size={12} color={lang.color.dim} />
                 </Pressable>
               ))}
-          </View>
+          </Tile>
         ) : null}
 
         {/* What you follow ends the page (David, 2026-09-07) — managing it
@@ -336,8 +336,7 @@ export default function Home() {
         {isLoading ? null : followsError && !hasFollows ? (
           /* A failed fetch must never dress up as a fresh account — that
              looked like a wiped app on a Sunday morning (2026-09-06). */
-          <Pressable onPress={() => queryClient.invalidateQueries()} style={styles.emptyBlock}>
-            <View style={styles.sectionRule} />
+          <Pressable onPress={() => queryClient.invalidateQueries()} style={[tileSurface, styles.tile, styles.emptyBlock]}>
             <Serif size={27}>Couldn't reach camp.</Serif>
             <Sentence>Your hunts are safe — the connection hiccuped. Tap to try again.</Sentence>
           </Pressable>
@@ -346,8 +345,7 @@ export default function Home() {
             /* A guest has nothing to follow -- there is no account to hang a
                follow on yet. So ask for the account, and be honest about what
                it is for: the dates stay free either way. */
-            <Pressable onPress={() => router.push('/(auth)/sign-in')} style={styles.emptyBlock}>
-              <View style={styles.sectionRule} />
+            <Pressable onPress={() => router.push('/(auth)/sign-in')} style={[tileSurface, styles.tile, styles.emptyBlock]}>
               <Serif size={27}>Make it yours</Serif>
               <Sentence>
                 Reading dates is free, and stays free. Create an account to follow the species you
@@ -355,8 +353,7 @@ export default function Home() {
               </Sentence>
             </Pressable>
           ) : (
-            <Pressable onPress={() => router.push('/follows')} style={styles.emptyBlock}>
-              <View style={styles.sectionRule} />
+            <Pressable onPress={() => router.push('/follows')} style={[tileSurface, styles.tile, styles.emptyBlock]}>
               <Serif size={27}>Choose your quarry</Serif>
               <Sentence>
                 Add states and the species you hunt to start tracking seasons and tag deadlines.
@@ -364,13 +361,12 @@ export default function Home() {
             </Pressable>
           )
         ) : (
-          <View style={styles.section}>
-            <View style={styles.sectionRule} />
+          <Tile style={styles.tile}>
             <Micro>Your species</Micro>
-            {roster.map((r, i) => (
-              <RosterRow key={r.speciesId} item={r} divider={i > 0} onPress={() => router.push({ pathname: '/species/[id]', params: { id: r.speciesId } })} />
+            {roster.map((r) => (
+              <RosterRow key={r.speciesId} item={r} onPress={() => router.push({ pathname: '/species/[id]', params: { id: r.speciesId } })} />
             ))}
-          </View>
+          </Tile>
         )}
       </ScrollView>
     </SafeAreaView>
@@ -475,8 +471,7 @@ function WeekendBriefCard({
   const range = fm === sm ? `${MON[fm - 1]} ${fd}–${sd}` : `${MON[fm - 1]} ${fd} – ${MON[sm - 1]} ${sd}`;
 
   return (
-    <Pressable onPress={onPress} style={({ pressed }) => [styles.section, pressed && styles.pressed]}>
-      <View style={styles.sectionRule} />
+    <Pressable onPress={onPress} style={({ pressed }) => [tileSurface, styles.tile, styles.tileFill, pressed && styles.pressed]}>
       <View style={styles.sectionHead}>
         <Micro style={{ color: lang.color.copperDim }}>The weekend brief</Micro>
         <Micro>{range}</Micro>
@@ -523,11 +518,11 @@ function WeekendBriefCard({
   );
 }
 
-function RosterRow({ item, divider, onPress }: { item: RosterItem; divider: boolean; onPress: () => void }) {
+function RosterRow({ item, onPress }: { item: RosterItem; onPress: () => void }) {
   const right = item.state === 'open' ? 'Open' : item.state === 'upcoming' ? `in ${Math.max(item.days ?? 0, 0)}d` : 'No dates yet';
   const rightColor = item.state === 'open' ? lang.color.copper : item.state === 'upcoming' ? lang.color.copperDim : lang.color.dim;
   return (
-    <Pressable onPress={onPress} style={({ pressed }) => [styles.row, divider && styles.rowDivider, pressed && styles.pressed]}>
+    <Pressable onPress={onPress} style={({ pressed }) => [styles.row, pressed && styles.pressed]}>
       <SpeciesBadge name={item.name} size={34} muted={item.state !== 'open'} />
       <View style={{ flex: 1 }}>
         <Text style={styles.rowTitle} numberOfLines={1}>
@@ -564,13 +559,16 @@ const styles = StyleSheet.create({
   },
   greetingName: { fontFamily: lang.type.uiSemiBold, color: lang.color.copper },
 
-  heroBlock: { marginTop: lang.space.x16 },
+  heroBlock: { marginTop: lang.space.x16, marginBottom: lang.space.x4 },
   hero: { fontSize: 62, lineHeight: 70, paddingTop: 4 },
   dateLine: { marginTop: lang.space.x16 },
 
-  // The openers beneath the hero: a plain hairline list, no card. The bell is
-  // the only ornament it needs.
-  openerSection: { marginTop: lang.space.section },
+  // Every group below the hero is a translucent tile, set close together:
+  // the lift is what separates them, so they no longer need 24pt of air or a
+  // rule between them (David, 2026-11-08 -- "I don't like how everything is
+  // separated... it needs to be something else").
+  tile: { marginTop: lang.space.x12 },
+  tileFill: { gap: 2 },
   openerHead: {
     flexDirection: 'row',
     alignItems: 'baseline',
@@ -579,29 +577,17 @@ const styles = StyleSheet.create({
     marginBottom: lang.space.x4,
   },
 
-  // Every section below the hero is the same object: a copper rule that bleeds
-  // to both edges, a micro label naming what follows, then entries separated
-  // by hairlines. No surfaces, no radii, no borders -- the flat cards with the
-  // copper spine were the last of the Midnight language on this screen
-  // (David, 2026-11-08: "I thought the color was going to change, the layout").
-  section: { marginTop: lang.space.section },
-  sectionRule: {
-    height: 1,
-    backgroundColor: lang.color.rule,
-    marginHorizontal: -lang.space.gutter,
-    marginBottom: lang.space.x12,
-  },
   sectionHead: {
     flexDirection: 'row',
     alignItems: 'baseline',
     justifyContent: 'space-between',
     gap: lang.space.x12,
   },
+  // Inside a tile the rule stops at the tile's own edge.
   hairRule: {
     height: StyleSheet.hairlineWidth,
     backgroundColor: lang.color.hair,
     marginTop: lang.space.x16,
-    marginRight: -lang.space.gutter,
   },
 
   // The brief's sentences are the one place the italic serif runs at length --
@@ -615,12 +601,11 @@ const styles = StyleSheet.create({
   },
   briefLight: { fontFamily: lang.type.ui, fontSize: 13, lineHeight: 19, color: lang.color.muted, marginTop: lang.space.x12 },
 
-  emptyBlock: { marginTop: lang.space.section, gap: lang.space.x8 },
+  emptyBlock: { gap: lang.space.x8 },
 
-  row: { flexDirection: 'row', alignItems: 'center', gap: lang.space.x12, paddingVertical: lang.space.x16 },
+  row: { flexDirection: 'row', alignItems: 'center', gap: lang.space.x12, paddingVertical: 11 },
   rowTitle: { fontFamily: lang.type.uiMedium, fontSize: 15.5, color: lang.color.bone },
   rowSub: { fontFamily: lang.type.ui, fontSize: 12.5, color: lang.color.muted, marginTop: 1 },
-  rowDivider: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: lang.color.hair },
   rowMetric: {
     fontFamily: lang.type.uiMedium,
     fontSize: 12.5,

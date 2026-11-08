@@ -3,7 +3,8 @@
  * 2026-08-27 from the season-detail rendering, set in Instrument Serif.
  *
  * Rules that travel with these tokens:
- *   one 20pt gutter · hairlines not cards · pills are for actions only ·
+ *   one 20pt gutter · translucent tiles group, rules do not · pills are
+ *   for actions only ·
  *   one 24pt rhythm · display serif reserved for species/dates/times/counts ·
  *   one tight sans headline per screen, saying what the screen is for
  *   (David, 2026-11-08 — "amplify the main thing the app does") ·
@@ -34,13 +35,29 @@ export const lang = {
     copperDim: '#B87A5A',
     fill: '#3A241A',
     hair: 'rgba(255,255,255,0.09)',
-    /** Section rules — copper-tinted and a full pixel, so the page's structure
-     * is legible at a glance (hair was too faint for the big dividers). */
+    /** Section rules — copper-tinted and a full pixel. Kept for the few
+     * places a real divider is still right; it is no longer how the page
+     * groups itself. */
     rule: 'rgba(217,158,127,0.22)',
+    /**
+     * Tiles. A group of related lines sits on one of these instead of being
+     * ruled off from the next (David, 2026-11-08: "I don't like how
+     * everything is separated... right now its lines, but it needs to be
+     * something else"). Low enough to read as a lift rather than a card, with
+     * no border at all — the edge is the boundary, and it is barely there.
+     */
+    tile: 'rgba(255,255,255,0.042)',
+    /**
+     * The warm tile, for the one block on a screen that outranks the rest —
+     * the promise on Home. When every group gets a lift, the block that
+     * always had its own surface loses its standing unless it keeps a
+     * different one.
+     */
+    tileWarm: 'rgba(224,164,128,0.10)',
   },
   /** The single spacing scale. Sections are separated by `section` (24). */
   space: { x4: 4, x8: 8, x12: 12, x16: 16, gutter: 20, section: 24, x32: 32, x38: 38 },
-  radius: { pill: 100, card: 20, none: 0 },
+  radius: { pill: 100, card: 20, tile: 22, none: 0 },
   type: {
     display: 'InstrumentSerif_400Regular',
     displayItalic: 'InstrumentSerif_400Regular_Italic',
