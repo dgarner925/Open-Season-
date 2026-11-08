@@ -108,7 +108,12 @@ export function LaunchQuote({ onDone }: { onDone: () => void }) {
   }, [q]);
 
   return (
-    <Pressable style={styles.fill} onPress={finish}>
+    <Pressable
+      style={styles.fill}
+      onPress={finish}
+      accessibilityRole="button"
+      accessibilityLabel="Skip to the app"
+    >
       {q ? (
         <Animated.View style={[styles.center, { opacity: quoteOpacity }]}>
           <Text style={styles.quote}>{`“${q.text}”`}</Text>

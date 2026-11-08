@@ -164,6 +164,8 @@ function FilterChip({ label, active, onPress }: { label: string; active: boolean
   return (
     <Pressable
       onPress={onPress}
+      accessibilityRole="button"
+      accessibilityState={{ selected: active }}
       style={({ pressed }) => [styles.chip, active ? styles.chipOn : styles.chipOff, pressed && styles.pressed]}
     >
       <Text style={[styles.chipLabel, { color: active ? color.bg : color.muted }]}>{label}</Text>
@@ -186,7 +188,11 @@ function SeasonRow({ item, onPress }: { item: Item; onPress: () => void }) {
   const openNow = item.status === 'open';
   const days = Math.max(item.days ?? 0, 0);
   return (
-    <Pressable onPress={onPress} style={({ pressed }) => [styles.row, pressed && styles.pressed]}>
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="button"
+      style={({ pressed }) => [styles.row, pressed && styles.pressed]}
+    >
       <SpeciesBadge name={s.species?.name} size={34} muted={!openNow} />
       <View style={{ flex: 1 }}>
         <Text style={styles.rowTitle} numberOfLines={1}>

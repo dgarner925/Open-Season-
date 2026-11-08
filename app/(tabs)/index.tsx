@@ -206,7 +206,12 @@ export default function Home() {
             something. */}
         <View style={styles.topRow}>
           <Monogram size={23} />
-          <Pressable style={styles.locChip} onPress={() => router.push(browsing ? '/pick-state' : '/follows')}>
+          <Pressable
+            style={styles.locChip}
+            onPress={() => router.push(browsing ? '/pick-state' : '/follows')}
+            accessibilityRole="button"
+            accessibilityLabel={browsing ? 'Choose a state' : 'Manage your hunts'}
+          >
             <Text style={styles.chipText} numberOfLines={1}>
               {locationLabel}
             </Text>
@@ -314,6 +319,7 @@ export default function Home() {
                 <Pressable
                   key={f.id}
                   onPress={() => openExternalUrl(f.hunt!.url)}
+                  accessibilityRole="link"
                   style={({ pressed }) => [styles.row, pressed && styles.pressed]}
                 >
                   <View style={styles.permitTile}>
@@ -347,7 +353,12 @@ export default function Home() {
         {isLoading ? null : followsError && !hasFollows ? (
           /* A failed fetch must never dress up as a fresh account — that
              looked like a wiped app on a Sunday morning (2026-09-06). */
-          <Pressable onPress={() => queryClient.invalidateQueries()} style={[tileSurface, styles.tile, styles.emptyBlock]}>
+          <Pressable
+            onPress={() => queryClient.invalidateQueries()}
+            accessibilityRole="button"
+            accessibilityLabel="Try loading again"
+            style={[tileSurface, styles.tile, styles.emptyBlock]}
+          >
             <Serif size={27}>Couldn't reach camp.</Serif>
             <Sentence>Your hunts are safe — the connection hiccuped. Tap to try again.</Sentence>
           </Pressable>
@@ -356,7 +367,11 @@ export default function Home() {
             /* A guest has nothing to follow -- there is no account to hang a
                follow on yet. So ask for the account, and be honest about what
                it is for: the dates stay free either way. */
-            <Pressable onPress={() => router.push('/(auth)/sign-in')} style={[tileSurface, styles.tile, styles.emptyBlock]}>
+            <Pressable
+              onPress={() => router.push('/(auth)/sign-in')}
+              accessibilityRole="button"
+              style={[tileSurface, styles.tile, styles.emptyBlock]}
+            >
               <Serif size={27}>Make it yours</Serif>
               <Sentence>
                 Reading dates is free, and stays free. Create an account to follow the species you
@@ -364,7 +379,11 @@ export default function Home() {
               </Sentence>
             </Pressable>
           ) : (
-            <Pressable onPress={() => router.push('/follows')} style={[tileSurface, styles.tile, styles.emptyBlock]}>
+            <Pressable
+              onPress={() => router.push('/follows')}
+              accessibilityRole="button"
+              style={[tileSurface, styles.tile, styles.emptyBlock]}
+            >
               <Serif size={27}>Choose your quarry</Serif>
               <Sentence>
                 Add states and the species you hunt to start tracking seasons and tag deadlines.
@@ -482,7 +501,12 @@ function WeekendBriefCard({
   const range = fm === sm ? `${MON[fm - 1]} ${fd}–${sd}` : `${MON[fm - 1]} ${fd} – ${MON[sm - 1]} ${sd}`;
 
   return (
-    <Pressable onPress={onPress} style={({ pressed }) => [tileSurface, styles.tile, styles.tileFill, pressed && styles.pressed]}>
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel="Read the weekend brief"
+      style={({ pressed }) => [tileSurface, styles.tile, styles.tileFill, pressed && styles.pressed]}
+    >
       <View style={styles.sectionHead}>
         <Micro style={{ color: lang.color.copperDim }}>The weekend brief</Micro>
         <Micro>{range}</Micro>
@@ -538,7 +562,11 @@ function RosterRow({ item, onPress }: { item: RosterItem; onPress: () => void })
         : (item.gap ?? 'No dates yet');
   const rightColor = item.state === 'open' ? lang.color.copper : item.state === 'upcoming' ? lang.color.copperDim : lang.color.dim;
   return (
-    <Pressable onPress={onPress} style={({ pressed }) => [styles.row, pressed && styles.pressed]}>
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="button"
+      style={({ pressed }) => [styles.row, pressed && styles.pressed]}
+    >
       <SpeciesBadge name={item.name} size={34} muted={item.state !== 'open'} />
       <View style={{ flex: 1 }}>
         <Text style={styles.rowTitle} numberOfLines={1}>

@@ -31,7 +31,11 @@ function Row({
   onPress: () => void;
 }) {
   return (
-    <Pressable onPress={onPress} style={({ pressed }) => [styles.row, pressed && styles.pressed]}>
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="button"
+      style={({ pressed }) => [styles.row, pressed && styles.pressed]}
+    >
       <View style={{ flex: 1 }}>
         <Text style={styles.rowTitle}>{title}</Text>
         {caption ? <Text style={styles.rowSub}>{caption}</Text> : null}
@@ -54,7 +58,11 @@ function Group({ label, children }: { label: string; children: React.ReactNode }
 /** An offer, not a row: a title in the serif and a sentence under it. */
 function Offer({ title, line, onPress }: { title: string; line: string; onPress: () => void }) {
   return (
-    <Pressable onPress={onPress} style={({ pressed }) => [tileSurface, styles.tile, pressed && styles.pressed]}>
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="button"
+      style={({ pressed }) => [tileSurface, styles.tile, pressed && styles.pressed]}
+    >
       <Serif size={27}>{title}</Serif>
       <Sentence style={{ marginTop: space.x8 }}>{line}</Sentence>
     </Pressable>
@@ -182,7 +190,13 @@ export default function Settings() {
             ) : null}
             {fieldSince ? <Micro style={{ marginTop: 6 }}>{`In the field since ${fieldSince}`}</Micro> : null}
           </View>
-          <Pressable onPress={() => setEditingName((v) => !v)} hitSlop={10} style={({ pressed }) => pressed && styles.pressed}>
+          <Pressable
+            onPress={() => setEditingName((v) => !v)}
+            hitSlop={10}
+            accessibilityRole="button"
+            accessibilityLabel={editingName ? 'Stop editing your name' : 'Edit your name'}
+            style={({ pressed }) => pressed && styles.pressed}
+          >
             <Ionicons name={editingName ? 'close' : 'pencil'} size={17} color={color.muted} />
           </Pressable>
         </View>
@@ -252,6 +266,8 @@ export default function Settings() {
           <Pressable
             onPress={confirmDeleteAccount}
             disabled={deleting}
+            accessibilityRole="button"
+            accessibilityLabel="Delete your account"
             style={({ pressed }) => [styles.deleteBtn, pressed && styles.pressed]}
           >
             <Text style={styles.deleteLabel}>{deleting ? 'Deleting…' : 'Delete account'}</Text>

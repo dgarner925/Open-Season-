@@ -18,6 +18,8 @@ export function HeaderBack() {
     <Pressable
       onPress={() => router.back()}
       hitSlop={12}
+      accessibilityRole="button"
+      accessibilityLabel="Back"
       style={{ flexDirection: 'row', alignItems: 'center', paddingRight: spacing.md }}
     >
       <Ionicons name="chevron-back" size={24} color={theme.color.accent} />

@@ -140,13 +140,14 @@ export default function SignIn() {
               setMode(mode === 'sign-in' ? 'sign-up' : 'sign-in');
             }}
             hitSlop={8}
+            accessibilityRole="button"
           >
             <Sentence tone="muted">
               {mode === 'sign-in' ? 'New here? Create an account.' : 'Have an account? Sign in.'}
             </Sentence>
           </Pressable>
           {mode === 'sign-in' ? (
-            <Pressable onPress={handleForgotPassword} hitSlop={8}>
+            <Pressable onPress={handleForgotPassword} hitSlop={8} accessibilityRole="button">
               <Sentence tone="dim">Forgot password?</Sentence>
             </Pressable>
           ) : null}

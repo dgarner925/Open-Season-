@@ -50,3 +50,6 @@ credentials.json
 
 # Never: this repo is public. EAS holds it as the GOOGLE_SERVICES_JSON file secret.
 google-services.json
+
+# Design proofs and other local renders (scripts/compose_*.py)
+scratch/

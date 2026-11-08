@@ -50,6 +50,7 @@ export default function Regs() {
               <Pressable
                 key={item.id}
                 onPress={() => router.push(`/regs/${item.id}`)}
+                accessibilityRole="button"
                 style={({ pressed }) => [styles.row, pressed && styles.pressed]}
               >
                 <View style={{ flex: 1 }}>

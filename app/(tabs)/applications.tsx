@@ -93,7 +93,11 @@ function WindowRow({
   const d = daysUntil(w.closes_at);
   const near = d !== null && d <= 14;
   return (
-    <Pressable onPress={onPress} style={({ pressed }) => [styles.row, pressed && styles.pressed]}>
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="button"
+      style={({ pressed }) => [styles.row, pressed && styles.pressed]}
+    >
       <SpeciesBadge name={w.species?.name} size={34} muted={!near} />
       <View style={{ flex: 1 }}>
         <Text style={styles.rowTitle} numberOfLines={1}>
