@@ -6,7 +6,9 @@ import quotes from '@/assets/quotes.json';
 import { attrName, attrTitle } from '@/components/LaunchQuote';
 import { Medallion } from '@/components/Medallion';
 import { VerifiedStamp, SourceLink } from '@/components/Provenance';
+import { GapNote } from '@/components/GapNote';
 import { Sentence, Serif } from '@/components/system';
+import { coverageOf } from '@/features/coverage/gaps';
 import { useFollowedSeasons } from '@/features/reference/queries';
 import { useReportDate, promptReport } from '@/features/reports/queries';
 import { useAuth } from '@/providers/AuthProvider';
@@ -214,11 +216,28 @@ export default function SpeciesDetail() {
                     </Pressable>
                   ))}
                 </View>
+
+                {/* Every row in this state is in the past, so the dates above
+                    are last season's. Say which year they are rather than
+                    letting them read as current. */}
+                <GapNote
+                  coverage={coverageOf(g.rows.map((r) => r.season), iso)}
+                  species={name}
+                  state={g.name}
+                  agency={g.rows.find((r) => r.season.source)?.season.source?.agency_name ?? null}
+                  sourceUrl={g.rows.find((r) => r.season.source)?.season.source?.url ?? null}
+                  followed
+                  style={{ marginTop: space.x12 }}
+                />
               </View>
             ))
           ) : (
+            /* No rows at all for this species in any state the reader
+               follows. "No dates published yet" was the old line, and it put
+               the blame on the agencies for what is usually our own hole. */
             <Sentence style={{ marginTop: space.section }}>
-              No season dates published yet — they'll appear here as they're verified.
+              We don't have {name.toLowerCase()} dates for the states you follow yet — that's our gap,
+              not the states'. You'll hear from us the day they land.
             </Sentence>
           )}
 

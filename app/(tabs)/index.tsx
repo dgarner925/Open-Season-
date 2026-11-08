@@ -19,6 +19,7 @@ import { useLegalLight } from '@/features/legalLight/useLegalLight';
 import { useDawnConditions } from '@/features/weather/useDawnConditions';
 import { openExternalUrl } from '@/lib/openUrl';
 import { useActiveStates, useSeasonsFeed, useSpecies, useUpcomingCountdown, useWeekendStateOpeners, useWindowsFeed } from '@/features/reference/queries';
+import { coverageOf, coverageWord } from '@/features/coverage/gaps';
 import type { SeasonWithRefs } from '@/features/reference/types';
 import { queryClient } from '@/lib/queryClient';
 import { maybeRequestReview } from '@/lib/rateApp';
@@ -38,7 +39,15 @@ function diffDays(fromISO: string, toISO: string): number {
   return Math.round((Date.UTC(by, bm - 1, bd) - Date.UTC(ay, am - 1, ad)) / 86400000);
 }
 
-type RosterItem = { speciesId: string; name: string; codes: string[]; state: 'open' | 'upcoming' | 'none'; days: number | null };
+type RosterItem = {
+  speciesId: string;
+  name: string;
+  codes: string[];
+  state: 'open' | 'upcoming' | 'none';
+  days: number | null;
+  /** Set only when `state` is 'none': which kind of nothing this is. */
+  gap: string | null;
+};
 
 function methodLabel(method: string): string {
   return method.charAt(0).toUpperCase() + method.slice(1);
@@ -56,13 +65,15 @@ function openerDetail(s: SeasonWithRefs, withZone: boolean): string {
 }
 
 /** Reduce a species' followed seasons to a single roster status. */
-function rosterStatus(seasons: SeasonWithRefs[]): { state: 'open' | 'upcoming' | 'none'; days: number | null } {
+function rosterStatus(seasons: SeasonWithRefs[]): { state: 'open' | 'upcoming' | 'none'; days: number | null; gap: string | null } {
   const iso = todayISO();
   const open = seasons.find((s) => s.open_date && s.close_date && s.open_date <= iso && iso <= s.close_date);
-  if (open) return { state: 'open', days: open.close_date ? Math.max(diffDays(iso, open.close_date), 0) : null };
+  if (open) return { state: 'open', days: open.close_date ? Math.max(diffDays(iso, open.close_date), 0) : null, gap: null };
   const next = seasons.filter((s) => s.open_date && s.open_date > iso).sort((a, b) => (a.open_date! < b.open_date! ? -1 : 1))[0];
-  if (next) return { state: 'upcoming', days: diffDays(iso, next.open_date!) };
-  return { state: 'none', days: null };
+  if (next) return { state: 'upcoming', days: diffDays(iso, next.open_date!), gap: null };
+  // Nothing open and nothing coming is two different facts: the agency has not
+  // published next season, or we never had this pair at all. Say which.
+  return { state: 'none', days: null, gap: coverageWord(coverageOf(seasons, iso)) };
 }
 
 export default function Home() {
@@ -519,7 +530,12 @@ function WeekendBriefCard({
 }
 
 function RosterRow({ item, onPress }: { item: RosterItem; onPress: () => void }) {
-  const right = item.state === 'open' ? 'Open' : item.state === 'upcoming' ? `in ${Math.max(item.days ?? 0, 0)}d` : 'No dates yet';
+  const right =
+    item.state === 'open'
+      ? 'Open'
+      : item.state === 'upcoming'
+        ? `in ${Math.max(item.days ?? 0, 0)}d`
+        : (item.gap ?? 'No dates yet');
   const rightColor = item.state === 'open' ? lang.color.copper : item.state === 'upcoming' ? lang.color.copperDim : lang.color.dim;
   return (
     <Pressable onPress={onPress} style={({ pressed }) => [styles.row, pressed && styles.pressed]}>

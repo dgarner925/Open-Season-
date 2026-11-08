@@ -118,12 +118,18 @@ export default function Seasons() {
         ) : isLoading ? (
           <ActivityIndicator color={color.copper} style={{ marginTop: space.section }} />
         ) : open.length === 0 && upcomingMonths.length === 0 ? (
+          /* Three different kinds of nothing, and the reader deserves to
+             know which. Between February and July the usual one is "we hold
+             last season's dates and the agencies haven't posted the next" —
+             which the old single line reported as if there were no season. */
           <Sentence style={{ marginTop: space.section }}>
             {speciesFilter
               ? 'No current or upcoming dates for this species.'
-              : browsing
-                ? 'Nothing open or upcoming in this state right now. Try another.'
-                : 'No upcoming seasons for your follows yet — add species from Home.'}
+              : seasons.length > 0
+                ? `Every date we hold ${browsing ? 'for this state' : 'for your follows'} is last season's. The agencies publish next year's through the spring${browsing ? '.' : " — you'll hear from us as they land."}`
+                : browsing
+                  ? "We don't have this state's dates yet — that's our gap, not the state's. Try another while we fill it."
+                  : 'No seasons for your follows yet — add species from Home.'}
           </Sentence>
         ) : (
           <>

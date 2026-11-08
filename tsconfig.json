@@ -12,5 +12,6 @@
     ".expo/types/**/*.ts",
     "expo-env.d.ts"
   ],
-  "exclude": ["node_modules", "supabase/functions"]
+  "comment": "*.test.ts is checked by supabase/vitest.config.ts, not here: vitest lives in supabase/package.json and must never become an app dependency (it rewrote the lockfile and broke the native build on 2026-10-31).",
+  "exclude": ["node_modules", "supabase", "**/*.test.ts"]
 }

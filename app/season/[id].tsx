@@ -7,6 +7,7 @@ import { PromiseNote } from '@/components/NextOpener';
 import { Watermark } from '@/components/Watermark';
 import { openerOffsetsFor, useAlertPreferences } from '@/features/alerts/queries';
 import { firingsFor, promiseHead } from '@/features/alerts/promise';
+import { huntYear } from '@/features/coverage/gaps';
 import { Disclaimer } from '@/components/Provenance';
 import { ActionRow, LicenseRow } from '@/components/LicenseRow';
 import { useAuth } from '@/providers/AuthProvider';
@@ -178,6 +179,16 @@ function SeasonPageBody({ id }: { id: string | undefined }) {
 
   const open = season ? isOpenNow(season.open_date, season.close_date) : false;
   const days = season?.open_date ? daysUntil(season.open_date) : null;
+  // "Closed for the year" is only true if the dates on screen ARE this year's.
+  // When they belong to a season year that has already turned, the honest
+  // reading is that the agency has not published the next one and neither
+  // have we — not that the hunt is over. Transcribing an old span row as a
+  // live season is the worst bug this app can ship, and a line that names the
+  // year is the cheapest guard against it.
+  const stale =
+    season && season.season_year > 0 && season.season_year < huntYear(new Date().toISOString().slice(0, 10))
+      ? season.season_year
+      : null;
   const light = useLegalLight(season?.state?.code, open ? 0 : Math.max(days ?? 0, 0));
 
   if (isLoading) {
@@ -295,6 +306,10 @@ function SeasonPageBody({ id }: { id: string | undefined }) {
               </Serif>
               {` — ${spoken(season.open_date).weekday}, ${spoken(season.open_date).date}.`}
             </>
+          ) : stale ? (
+            `These are the ${stale} season's dates. ${
+              season.source?.agency_name ?? season.state?.name ?? 'The state'
+            } hasn't published ${stale + 1} yet.`
           ) : (
             'Closed for the year.'
           )}
