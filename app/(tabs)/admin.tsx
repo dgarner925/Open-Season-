@@ -11,6 +11,7 @@ import {
   useApproveCleanReviews,
   useRejectReview,
 } from '@/features/review/queries';
+import { notifyCount, notifySentence } from '@/features/review/notify';
 import type { ReviewQueueRow } from '@/lib/database.types';
 import { formatDate } from '@/lib/date';
 import { spacing, theme } from '@/theme';
@@ -25,20 +26,37 @@ export default function Admin() {
   const approve = useApproveReview();
   const sweep = useApproveCleanReviews();
   const reject = useRejectReview();
-  // Off by default: a sweep is almost always us catching up with our own
-  // extraction, and dates that never moved in the real world are not news.
-  const [alertFollowers, setAlertFollowers] = useState(false);
+  // ON by default, which is the opposite of how this shipped.
+  //
+  // Off was the safe choice while the number of pushes a sweep would send was
+  // unknowable from this screen: approving 300 clean items might tell nobody
+  // anything or might send 373 alerts about dates that never moved. So it was
+  // left off, every sweep went out silent, and on 2026-11-02 three published
+  // openers moved — one of them six days EARLIER — with nobody told. The app
+  // promises it watches so you don't have to. It wasn't.
+  //
+  // The switch is safe to leave on now because the count is no longer a
+  // guess: notifyCount() applies the watchdog's own conditions to the pending
+  // items, so the screen says exactly how many hunts would hear about this
+  // before you commit. Creates can't notify anyone at all, and a backlog is
+  // almost entirely creates — the risk that justified "off" was concentrated
+  // in a handful of rows all along.
+  const [alertFollowers, setAlertFollowers] = useState(true);
 
   if (!isAdmin) return <Redirect href="/(tabs)" />;
 
   const clean = reviews.filter(isCleanReview);
   const busy = approve.isPending || reject.isPending || sweep.isPending;
 
+  // How many of these would actually reach a follower. The whole point of
+  // showing it is that the answer is usually none.
+  const notifying = notifyCount(clean);
+
   const runSweep = () => {
     Alert.alert(
       `Approve ${clean.length} clean item${clean.length === 1 ? '' : 's'}?`,
       alertFollowers
-        ? 'Applies every item at or above 85% confidence with no validation errors — and pushes a “dates changed” alert to everyone following an affected hunt.'
+        ? `Applies every item at or above 85% confidence with no validation errors. ${notifySentence(notifying)}`
         : 'Applies every item at or above 85% confidence with no validation errors, stamped verified. No alerts go out, and the change stays out of the in-app Updates list.',
       [
         { text: 'Cancel', style: 'cancel' },
@@ -86,7 +104,8 @@ export default function Admin() {
             <View style={{ flex: 1, paddingRight: spacing.md }}>
               <AppText variant="bodyStrong">Alert followers</AppText>
               <AppText variant="caption" color={theme.color.textMuted}>
-                Leave off when you are correcting our own data. Turn on only when an agency really moved these dates.
+                {notifySentence(notifying)} Turn it off when you are correcting our own data rather
+                than passing on an agency's change.
               </AppText>
             </View>
             <Switch

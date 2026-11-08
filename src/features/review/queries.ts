@@ -70,14 +70,22 @@ export type CleanSweepResult = {
 };
 
 /**
- * Apply every clean item in one pass. Quiet by default: a sweep is almost
- * always us catching up with our own extraction, and 300 "dates changed"
- * pushes for dates that never moved is the failure we're avoiding.
+ * Apply every clean item in one pass.
+ *
+ * `quiet` is required, with no default. It used to default to true, and since
+ * this is how a large queue actually gets worked, every sweep went out silent
+ * and the date-change watchdog never fired once between shipping on 2026-11-01
+ * and 2026-11-08 — three published openers moved in that window with nobody
+ * told. A default either way is a decision made far from the screen that knows
+ * the consequences, so the caller has to say.
+ *
+ * See notifyCount() in ./notify for how the screen works out what a sweep
+ * would actually announce before asking.
  */
 export function useApproveCleanReviews() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async ({ quiet = true }: { quiet?: boolean } = {}): Promise<CleanSweepResult> => {
+    mutationFn: async ({ quiet }: { quiet: boolean }): Promise<CleanSweepResult> => {
       const { data, error } = await supabase.rpc('approve_clean_reviews', {
         p_quiet: quiet,
         p_min_confidence: CLEAN_MIN_CONFIDENCE,
