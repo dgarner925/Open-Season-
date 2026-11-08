@@ -1,4 +1,5 @@
 import * as Notifications from 'expo-notifications';
+import { Platform } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useEffect, useRef } from 'react';
 import { useAuth } from '@/providers/AuthProvider';
@@ -34,7 +35,21 @@ export function routeForNotification(router: AppRouter, data: NotificationData):
  * useLastNotificationResponse, and only navigates once we have a signed-in user
  * so the deep link doesn't fight the auth gate. Returns null (no UI).
  */
+/**
+ * Stands down on web. expo-notifications has no getLastNotificationResponse
+ * there and the hook throws rather than returning null, which took the whole
+ * app down with it — nothing deep-links into a browser anyway, and this is
+ * what lets Home be previewed in one while a layout is being designed.
+ *
+ * The platform check lives in a wrapper that calls no hooks of its own, so
+ * the hook order inside the real router is never conditional.
+ */
 export function NotificationRouter() {
+  if (Platform.OS === 'web') return null;
+  return <NativeNotificationRouter />;
+}
+
+function NativeNotificationRouter() {
   const router = useRouter();
   const { user, loading } = useAuth();
   const response = Notifications.useLastNotificationResponse();

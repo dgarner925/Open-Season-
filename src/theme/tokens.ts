@@ -8,7 +8,7 @@
  *   one 24pt rhythm · display serif reserved for species/dates/times/counts ·
  *   one tight sans headline per screen, saying what the screen is for
  *   (David, 2026-11-08 — "amplify the main thing the app does") ·
- *   no uppercase section headers (micro labels name a value's role only) ·
+ *   uppercase micro labels name a zone or a value’s role, never decorate ·
  *   copper is scarce (one per region) · sentences over field labels ·
  *   state the thing before the number · warnings earn weight by position.
  *

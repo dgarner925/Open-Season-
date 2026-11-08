@@ -4,8 +4,17 @@ import { useEffect, useMemo, useState } from 'react';
 import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AlmanacCol, almanacStyles } from '@/components/AlmanacRow';
-import { LightRow, NextOpener, OpenerRow, type PromiseState } from '@/components/NextOpener';
-import { Micro, Monogram, Sentence, Serif, Tile, tileSurface } from '@/components/system';
+import {
+  LightLine,
+  OpenerRow,
+  PromiseBlock,
+  TodayHero,
+  nextOpenerSentence,
+  todaySentence,
+  type PromiseState,
+} from '@/components/NextOpener';
+import { Contours } from '@/components/Contours';
+import { Micro, Monogram, Sentence, Serif, tileSurface } from '@/components/system';
 import { Watermark } from '@/components/Watermark';
 import { armedFor, openerOffsetsFor, useAlertPreferences } from '@/features/alerts/queries';
 import { firingsFor } from '@/features/alerts/promise';
@@ -45,9 +54,19 @@ type RosterItem = {
   codes: string[];
   state: 'open' | 'upcoming' | 'none';
   days: number | null;
+  /** Set only when `state` is 'open': when the running season ends. For a
+   *  season already underway, when it *stops* is the live question. */
+  closeISO: string | null;
   /** Set only when `state` is 'none': which kind of nothing this is. */
   gap: string | null;
 };
+
+const MON_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+/** "11 Jan" — a date with no weekday, for a line that already has a verb. */
+function shortDate(dateISO: string): string {
+  const [, m, d] = dateISO.split('-').map(Number);
+  return `${d} ${MON_SHORT[m - 1]}`;
+}
 
 function methodLabel(method: string): string {
   return method.charAt(0).toUpperCase() + method.slice(1);
@@ -68,15 +87,22 @@ function openerDetail(s: SeasonWithRefs, withZone: boolean, withDate = true): st
 }
 
 /** Reduce a species' followed seasons to a single roster status. */
-function rosterStatus(seasons: SeasonWithRefs[]): { state: 'open' | 'upcoming' | 'none'; days: number | null; gap: string | null } {
+function rosterStatus(seasons: SeasonWithRefs[]): { state: 'open' | 'upcoming' | 'none'; days: number | null; closeISO: string | null; gap: string | null } {
   const iso = todayISO();
   const open = seasons.find((s) => s.open_date && s.close_date && s.open_date <= iso && iso <= s.close_date);
-  if (open) return { state: 'open', days: open.close_date ? Math.max(diffDays(iso, open.close_date), 0) : null, gap: null };
+  if (open) {
+    return {
+      state: 'open',
+      days: open.close_date ? Math.max(diffDays(iso, open.close_date), 0) : null,
+      closeISO: open.close_date ?? null,
+      gap: null,
+    };
+  }
   const next = seasons.filter((s) => s.open_date && s.open_date > iso).sort((a, b) => (a.open_date! < b.open_date! ? -1 : 1))[0];
-  if (next) return { state: 'upcoming', days: diffDays(iso, next.open_date!), gap: null };
+  if (next) return { state: 'upcoming', days: diffDays(iso, next.open_date!), closeISO: null, gap: null };
   // Nothing open and nothing coming is two different facts: the agency has not
   // published next season, or we never had this pair at all. Say which.
-  return { state: 'none', days: null, gap: coverageWord(coverageOf(seasons, iso)) };
+  return { state: 'none', days: null, closeISO: null, gap: coverageWord(coverageOf(seasons, iso)) };
 }
 
 export default function Home() {
@@ -155,8 +181,33 @@ export default function Home() {
     [seasons, iso],
   );
   const nextOpener = upcoming[0] ?? null;
-  const laterOpeners = upcoming.slice(1);
+  // Every opener in one ledger, soonest first. The next one used to be
+  // lifted out as the hero with the rest listed under it as "more ahead";
+  // it is just the first row now, so the sort order carries the meaning.
+  const openerList = upcoming;
   const light = useLegalLight(homeStateCode, 0);
+
+  // What is open right now, named. This leads the screen (David,
+  // 2026-11-08: "What is open, what opens next, what they follow"), because
+  // it is the only thing on the page a hunter can act on this morning. It
+  // used to be the last thing on it, as a row marked "Open", while an
+  // opener six days out took the hero.
+  const openNames = useMemo(() => {
+    const names = seasons
+      .filter((s) => s.open_date && s.close_date && s.open_date <= iso && iso <= s.close_date)
+      .map((s) => s.species?.name)
+      .filter((n): n is string => !!n);
+    return [...new Set(names)].sort((a, b) => a.localeCompare(b));
+  }, [seasons, iso]);
+
+  // One sentence at the top, never two. When nothing is open the next
+  // opener takes it, so the zone is never empty and the page never has two
+  // heroes competing at the same weight.
+  const heroSentence = openNames.length > 0
+    ? todaySentence(openNames)
+    : nextOpener
+      ? nextOpenerSentence(nextOpener.species?.name ?? 'The next season', diffDays(iso, nextOpener.open_date!))
+      : '';
 
   const promise = useMemo<PromiseState>(() => {
     if (!nextOpener) return { kind: 'loading' };
@@ -198,6 +249,10 @@ export default function Home() {
 
   return (
     <SafeAreaView style={styles.screen} edges={['top', 'left', 'right']}>
+      {/* Land under the page. Without it every group has to earn its
+          separation with a box, which is how this screen became a stack of
+          identical tiles. Fixed, not scrolling: it is ground, not content. */}
+      <Contours />
       <ScrollView
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
@@ -230,61 +285,63 @@ export default function Home() {
           {firstName ? <Text style={styles.greetingName}>, {firstName}</Text> : null}.
         </Text>
 
-        {/* The next opener, and the promise to say so before it lands. This is
-            the hero now: legal light used to own the space and the reminder was
-            a switch buried two screens down (David, 2026-11-08). Light reads as
-            one line further down, and the full picture of today lives on the
-            outlook page. */}
-        {nextOpener ? (
-          <View style={styles.heroBlock}>
-            {/* The plate of the animal you are waiting on, run faint behind
-                the headline. */}
-            <Watermark species={nextOpener.species?.name} size={300} style={styles.heroPlate} />
-            <NextOpener
-              speciesName={nextOpener.species?.name ?? 'The next season'}
-              dateLabel={dayAndDate(nextOpener.open_date)}
-              detail={openerDetail(nextOpener, true, false)}
-              days={diffDays(iso, nextOpener.open_date!)}
-              promise={promise}
-              onOpenSeason={() => router.push({ pathname: '/season/[id]', params: { id: nextOpener.id } })}
-              onSeeNotices={() => router.push('/what-arrives')}
-              onSignIn={() => router.push('/(auth)/sign-in')}
-              onChangeTiming={() => router.push('/alerts')}
+        {/* ZONE 1 — what is open. One tight sans sentence, and legal light
+            hung off it by a rule rather than floating in a tile of its own:
+            the question after "deer is open" is "what hours". Light only
+            appears when something is open, because shooting hours for a day
+            with no season are a fact about nothing. */}
+        <View style={styles.heroBlock}>
+          {/* The plate of the animal the sentence is about, run faint behind
+              it. */}
+          <Watermark species={openNames[0] ?? nextOpener?.species?.name} size={300} style={styles.heroPlate} />
+          {heroSentence ? (
+            <TodayHero sentence={heroSentence} />
+          ) : (
+            /* Nothing open and nothing ahead — the masthead carries it. */
+            <>
+              <PageTitle lead={'Open\n'} accent="season." style={styles.hero} />
+              <Micro style={styles.dateLine}>
+                {`${WEEKDAYS[now.getDay()]}, ${MONTHS[now.getMonth()]} ${now.getDate()}`}
+              </Micro>
+            </>
+          )}
+          {openNames.length > 0 && light && homeStateCode ? (
+            <LightLine
+              window={light.window}
+              durationMin={light.durationMin}
+              before={light.before}
+              after={light.after}
+              approx={light.approx}
+              onPress={() => router.push({ pathname: '/outlook', params: { state: homeStateCode } })}
             />
-          </View>
-        ) : (
-          /* Nothing ahead in these states — the masthead carries the screen. */
-          <View style={styles.heroBlock}>
-            <PageTitle lead={'Open\n'} accent="season." style={styles.hero} />
-            <Micro style={styles.dateLine}>
-              {`${WEEKDAYS[now.getDay()]}, ${MONTHS[now.getMonth()]} ${now.getDate()}`}
-            </Micro>
-          </View>
-        )}
+          ) : null}
+        </View>
 
-        {/* Directly under the promise, because an unarmed phone makes a liar
-            of everything above it. */}
+        {/* High on the page, because an unarmed phone makes a liar of every
+            promise below it. */}
         <View style={{ marginTop: lang.space.gutter }}>
           <NotificationsOffBanner />
         </View>
 
-        {/* One panel, not three.
+        {/* ZONE 2 — what opens next. One ledger under one heading, with the
+            next opener as simply its first row (David, 2026-11-08: "the Next
+            Opener could be listed like the More ahead. Use the same titles").
+            The sort order does the work a lifted-out hero used to do.
 
-            "Translucent tiles group, rules do not" — but when every fact
-            wears its own tile the tile stops grouping anything, and the page
-            reads as a stack of identical boxes with nowhere for the eye to
-            go (David, 2026-11-08: "I don't like this layout. Its boring").
-            The later openers and today's light are the same kind of thing —
-            short facts about what is coming — so they share one surface and
-            take hairlines between them.
+            Hairlines on the page, not a tile: a tile groups rows that would
+            otherwise look unrelated, and a list of openers already looks like
+            a list. When every group wore one, the tile stopped grouping
+            anything and the page read as a stack of identical boxes.
 
-            The labels are gone with the tiles. "1 MORE OPENER AHEAD" counted
-            rows the reader can see, "BELL = ARMED" was a legend for an icon
-            that explains itself (an unarmed row says "Remind me"), and
-            "LEGAL LIGHT TODAY" announced a row titled "Legal light". */}
-        {laterOpeners.length > 0 || (light && homeStateCode) ? (
-          <Tile style={styles.tile}>
-            {laterOpeners.slice(0, 4).map((s, i) => (
+            The bell legend stays — unlike the labels it replaced, it explains
+            a mark the row's own words don't. */}
+        {openerList.length > 0 ? (
+          <View style={styles.section}>
+            <View style={styles.sectionHead}>
+              <Micro>Opens next</Micro>
+              <Micro style={styles.legend}>Bell = armed</Micro>
+            </View>
+            {openerList.slice(0, 5).map((s, i) => (
               <View key={s.id}>
                 {i > 0 ? <View style={styles.groupHair} /> : null}
                 <OpenerRow
@@ -297,19 +354,22 @@ export default function Home() {
               </View>
             ))}
 
-            {laterOpeners.length > 0 && light && homeStateCode ? (
-              <View style={styles.groupHair} />
-            ) : null}
-
-            {light && homeStateCode ? (
-              <LightRow
-                window={light.window}
-                durationMin={light.durationMin}
-                approx={light.approx}
-                onPress={() => router.push({ pathname: '/outlook', params: { state: homeStateCode } })}
+            {/* The promise sits under the ledger it is about. It names its own
+                species now: with no headline above it, "You'll hear from us
+                Friday" would otherwise be a promise about nothing in
+                particular. */}
+            {nextOpener ? (
+              <PromiseBlock
+                promise={promise}
+                speciesName={nextOpener.species?.name ?? 'The next season'}
+                openerLabel={openerDetail(nextOpener, true)}
+                onOpenSeason={() => router.push({ pathname: '/season/[id]', params: { id: nextOpener.id } })}
+                onSeeNotices={() => router.push('/what-arrives')}
+                onSignIn={() => router.push('/(auth)/sign-in')}
+                onChangeTiming={() => router.push('/alerts')}
               />
             ) : null}
-          </Tile>
+          </View>
         ) : null}
 
         <WeekendBriefCard
@@ -324,14 +384,15 @@ export default function Home() {
         <ProUpsellCard />
 
         {permitFollows.length > 0 ? (
-          <Tile style={styles.tile}>
-            <Text style={styles.groupNote}>Permit hunts</Text>
+          <View style={styles.section}>
+            <Micro>Permit hunts</Micro>
             {permitFollows
               .filter((f) => f.hunt)
               .sort((a, b) => (a.hunt!.name < b.hunt!.name ? -1 : 1))
               .map((f, i) => (
+                <View key={f.id}>
+                {i > 0 ? <View style={styles.groupHair} /> : null}
                 <Pressable
-                  key={f.id}
                   onPress={() => openExternalUrl(f.hunt!.url)}
                   accessibilityRole="link"
                   style={({ pressed }) => [styles.row, pressed && styles.pressed]}
@@ -358,8 +419,9 @@ export default function Home() {
                   })()}
                   <Ionicons name="open-outline" size={12} color={lang.color.dim} />
                 </Pressable>
+                </View>
               ))}
-          </Tile>
+          </View>
         ) : null}
 
         {/* What you follow ends the page (David, 2026-09-07) — managing it
@@ -405,12 +467,17 @@ export default function Home() {
             </Pressable>
           )
         ) : (
-          <Tile style={styles.tile}>
-            <Text style={styles.groupNote}>Your species</Text>
-            {roster.map((r) => (
-              <RosterRow key={r.speciesId} item={r} onPress={() => router.push({ pathname: '/species/[id]', params: { id: r.speciesId } })} />
+          /* ZONE 3 — what you follow, in the same ledger idiom as the
+             openers above it. */
+          <View style={styles.section}>
+            <Micro>You follow</Micro>
+            {roster.map((r, i) => (
+              <View key={r.speciesId}>
+                {i > 0 ? <View style={styles.groupHair} /> : null}
+                <RosterRow item={r} onPress={() => router.push({ pathname: '/species/[id]', params: { id: r.speciesId } })} />
+              </View>
             ))}
-          </Tile>
+          </View>
         )}
       </ScrollView>
     </SafeAreaView>
@@ -575,6 +642,12 @@ function RosterRow({ item, onPress }: { item: RosterItem; onPress: () => void })
         ? `in ${Math.max(item.days ?? 0, 0)}d`
         : (item.gap ?? 'No dates yet');
   const rightColor = item.state === 'open' ? lang.color.copper : item.state === 'upcoming' ? lang.color.copperDim : lang.color.dim;
+  const where =
+    item.codes.length === 0
+      ? 'Tracked'
+      : item.codes.length <= 3
+        ? item.codes.join(' · ')
+        : `${item.codes.length} states`;
   return (
     <Pressable
       onPress={onPress}
@@ -587,11 +660,10 @@ function RosterRow({ item, onPress }: { item: RosterItem; onPress: () => void })
           {item.name}
         </Text>
         <Text style={styles.rowSub} numberOfLines={1}>
-          {item.codes.length === 0
-            ? 'Tracked'
-            : item.codes.length <= 3
-              ? item.codes.join(' · ')
-              : `${item.codes.length} states`}
+          {where}
+          {/* For a season already running, when it ends is the live
+              question — "Open" on its own never said for how long. */}
+          {item.closeISO ? ` · closes ${shortDate(item.closeISO)}` : ''}
         </Text>
       </View>
       <Text style={[styles.rowMetric, { color: rightColor }]}>{right}</Text>
@@ -631,19 +703,16 @@ const styles = StyleSheet.create({
   // rule between them (David, 2026-11-08 -- "I don't like how everything is
   // separated... it needs to be something else").
   tile: { marginTop: lang.space.x12 },
+  // A zone of the page: a heading and a ledger of hairline rows, with no
+  // surface under it. Separated by air, which is what a rule or a tile was
+  // standing in for.
+  section: { marginTop: lang.space.section },
+  // The bell legend, stepped down so the heading still leads the row.
+  legend: { color: lang.color.dim, fontSize: 9.5 },
   tileFill: { gap: 2 },
   // Separates rows inside one panel. White hairline, not the copper rule:
   // copper is scarce and the hero already spends it.
   groupHair: { height: StyleSheet.hairlineWidth, backgroundColor: lang.color.hair },
-  // Names a group without shouting at it. Sentence case, no letterspacing —
-  // the uppercase Micro label is what made this screen read as scaffolding.
-  groupNote: {
-    fontFamily: lang.type.ui,
-    fontSize: 12.5,
-    color: lang.color.dim,
-    marginBottom: lang.space.x4,
-  },
-
   sectionHead: {
     flexDirection: 'row',
     alignItems: 'baseline',
