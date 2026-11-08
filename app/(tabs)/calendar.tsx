@@ -3,13 +3,15 @@ import { useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { AppText, Card } from '@/components/ui';
-import { PageTitle, SpeciesBadge, StatusPill } from '@/components/midnight';
+import { Headline, Micro, Sentence } from '@/components/system';
+import { SpeciesBadge } from '@/components/midnight';
 import { useSeasonsFeed } from '@/features/reference/queries';
 import { BrowseStateChip, BrowseStatePrompt } from '@/components/BrowseStateChip';
 import type { SeasonWithRefs } from '@/features/reference/types';
 import { daysUntil, formatDate } from '@/lib/date';
-import { fontFamily, spacing, theme } from '@/theme';
+import { lang } from '@/theme/tokens';
+
+const { color, space, type } = lang;
 
 function todayISO(): string {
   const d = new Date();
@@ -55,7 +57,7 @@ export default function Seasons() {
 
     // Group upcoming by opening month, so the list reads like a season
     // calendar ("August is gator, September is the pile-up").
-    const MONTHS = ['JANUARY', 'FEBRUARY', 'MARCH', 'APRIL', 'MAY', 'JUNE', 'JULY', 'AUGUST', 'SEPTEMBER', 'OCTOBER', 'NOVEMBER', 'DECEMBER'];
+    const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
     const thisYear = iso.slice(0, 4);
     const months: { key: string; label: string; items: Item[] }[] = [];
     for (const it of upcomingList) {
@@ -74,31 +76,29 @@ export default function Seasons() {
   return (
     <SafeAreaView style={styles.screen} edges={['top', 'left', 'right']}>
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+        {/* One tight sans headline saying what the screen is for, and a
+            sentence saying whose dates these are. The serif masthead and the
+            SEASON DATES overline above it were two titles doing one job. */}
         <View style={styles.header}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-            <AppText variant="overline" color={theme.color.textMuted}>
-              SEASON DATES
-            </AppText>
+          <View style={styles.headRow}>
+            <Headline style={{ flex: 1 }}>What's open,{'\n'}and what's next.</Headline>
             <Pressable
               onPress={() => router.push('/search')}
-              hitSlop={10}
-              style={({ pressed }) => [styles.searchBtn, pressed && { opacity: 0.7 }]}
+              hitSlop={12}
+              accessibilityRole="button"
+              accessibilityLabel="Search"
+              style={({ pressed }) => [styles.searchBtn, pressed && styles.pressed]}
             >
-              <Ionicons name="search" size={17} color={theme.color.textPrimary} />
+              <Ionicons name="search" size={19} color={color.muted} />
             </Pressable>
           </View>
-          <PageTitle
-            lead={browsing ? 'The ' : 'Your '}
-            accent="seasons."
-            style={{ fontSize: 44, lineHeight: 50, marginTop: spacing.xs, paddingTop: 3 }}
-          />
-          <AppText variant="body" color={theme.color.textSecondary} style={{ marginTop: spacing.sm }}>
+          <Sentence style={{ marginTop: space.x16 }}>
             {browsing
               ? 'Every published season in one state. Follow what you hunt to narrow it down.'
               : 'When each species opens and closes, for everything you track.'}
-          </AppText>
+          </Sentence>
           {browsing ? (
-            <View style={{ marginTop: spacing.md }}>
+            <View style={{ marginTop: space.x12 }}>
               <BrowseStateChip stateCode={stateCode} />
             </View>
           ) : null}
@@ -116,28 +116,28 @@ export default function Seasons() {
         {needsState ? (
           <BrowseStatePrompt line="Season dates for every state are free to read. Choose where you hunt." />
         ) : isLoading ? (
-          <ActivityIndicator color={theme.color.accent} style={{ marginTop: spacing.xl }} />
+          <ActivityIndicator color={color.copper} style={{ marginTop: space.section }} />
         ) : open.length === 0 && upcomingMonths.length === 0 ? (
-          <AppText variant="body" color={theme.color.textMuted} style={{ marginTop: spacing.xl }}>
+          <Sentence style={{ marginTop: space.section }}>
             {speciesFilter
               ? 'No current or upcoming dates for this species.'
               : browsing
                 ? 'Nothing open or upcoming in this state right now. Try another.'
                 : 'No upcoming seasons for your follows yet — add species from Home.'}
-          </AppText>
+          </Sentence>
         ) : (
           <>
             {open.length > 0 ? (
-              <Section label="OPEN NOW">
-                {open.map((it) => (
-                  <SeasonRow key={it.season.id} item={it} onPress={() => router.push(`/season/${it.season.id}`)} />
+              <Section label="Open now">
+                {open.map((it, i) => (
+                  <SeasonRow key={it.season.id} item={it} divider={i > 0} onPress={() => router.push(`/season/${it.season.id}`)} />
                 ))}
               </Section>
             ) : null}
             {upcomingMonths.map((m) => (
               <Section key={m.key} label={m.label}>
-                {m.items.map((it) => (
-                  <SeasonRow key={it.season.id} item={it} onPress={() => router.push(`/season/${it.season.id}`)} />
+                {m.items.map((it, i) => (
+                  <SeasonRow key={it.season.id} item={it} divider={i > 0} onPress={() => router.push(`/season/${it.season.id}`)} />
                 ))}
               </Section>
             ))}
@@ -148,72 +148,85 @@ export default function Seasons() {
   );
 }
 
+/** The one place pills are allowed: they act. Copper fill marks the live one. */
 function FilterChip({ label, active, onPress }: { label: string; active: boolean; onPress: () => void }) {
   return (
     <Pressable
       onPress={onPress}
-      style={[
-        styles.chip,
-        active
-          ? { backgroundColor: theme.color.accent, borderColor: theme.color.accent }
-          : { backgroundColor: theme.color.surfaceFlat, borderColor: theme.color.borderFlat },
-      ]}
+      style={({ pressed }) => [styles.chip, active ? styles.chipOn : styles.chipOff, pressed && styles.pressed]}
     >
-      <Text style={[styles.chipLabel, { color: active ? theme.color.onAccent : theme.color.textSecondary }]}>{label}</Text>
+      <Text style={[styles.chipLabel, { color: active ? color.bg : color.muted }]}>{label}</Text>
     </Pressable>
   );
 }
 
+/** A copper rule to the page's edges, a micro label, then hairline entries. */
 function Section({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <View style={{ marginTop: spacing.xl, gap: spacing.sm }}>
-      <AppText variant="overline" color={theme.color.textMuted}>
-        {label}
-      </AppText>
+    <View style={styles.section}>
+      <View style={styles.sectionRule} />
+      <Micro>{label}</Micro>
       {children}
     </View>
   );
 }
 
-function SeasonRow({ item, onPress }: { item: Item; onPress: () => void }) {
+function SeasonRow({ item, divider, onPress }: { item: Item; divider: boolean; onPress: () => void }) {
   const s = item.season;
   const openNow = item.status === 'open';
   const days = Math.max(item.days ?? 0, 0);
   return (
-    <Card onPress={onPress} variant={openNow ? 'gradient' : 'flat'} style={styles.row}>
-      <SpeciesBadge name={s.species?.name} size={40} muted={!openNow} />
+    <Pressable onPress={onPress} style={({ pressed }) => [styles.row, divider && styles.rowDivider, pressed && styles.pressed]}>
+      <SpeciesBadge name={s.species?.name} size={34} muted={!openNow} />
       <View style={{ flex: 1 }}>
-        <AppText variant="bodyStrong" numberOfLines={1}>
+        <Text style={styles.rowTitle} numberOfLines={1}>
           {s.species?.name}
           {s.label ? ` · ${s.label}` : s.method ? ` · ${cap(s.method)}` : ''}
-        </AppText>
-        <AppText variant="caption" color={theme.color.textMuted} numberOfLines={1}>
+        </Text>
+        <Text style={styles.rowSub} numberOfLines={1}>
           {s.state?.code ? `${s.state.code} · ` : ''}
           {formatDate(s.open_date)}
           {s.close_date ? ` – ${formatDate(s.close_date)}` : ''}
-        </AppText>
-      </View>
-      <View style={styles.right}>
-        {openNow ? <StatusPill status="open" /> : null}
-        <Text style={[styles.metric, { color: openNow ? theme.color.textMuted : theme.color.accent }]}>
-          {openNow ? `ends ${days}d` : `in ${days}d`}
         </Text>
       </View>
-    </Card>
+      {/* The status pill is gone: the words carry it. An open season counts
+          down to its close, an upcoming one counts down to its opener, and
+          copper is spent on the one that is live. */}
+      <Text style={[styles.metric, { color: openNow ? color.copper : color.muted }]}>
+        {openNow ? `${days}d left` : `in ${days}d`}
+      </Text>
+    </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
-  searchBtn: { width: 34, height: 34, borderRadius: 17, backgroundColor: theme.color.surfaceFlat, alignItems: 'center', justifyContent: 'center' },
-  screen: { flex: 1, backgroundColor: theme.color.background },
-  content: { paddingHorizontal: spacing.xl, paddingTop: spacing.lg, paddingBottom: spacing.xxl },
-  header: {},
-  row: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, padding: spacing.lg },
-  right: { alignItems: 'flex-end', gap: 4 },
-  metric: { fontFamily: fontFamily.serifItalic, fontSize: 18 },
+  screen: { flex: 1, backgroundColor: color.bg },
+  content: { paddingHorizontal: space.gutter, paddingTop: space.x16, paddingBottom: 56 },
 
-  chipScroll: { marginTop: spacing.lg, marginHorizontal: -spacing.xl },
-  chipRow: { paddingHorizontal: spacing.xl, gap: spacing.sm, flexDirection: 'row' },
-  chip: { paddingHorizontal: spacing.lg, paddingVertical: 8, borderRadius: 20, borderWidth: StyleSheet.hairlineWidth },
-  chipLabel: { fontFamily: fontFamily.sansSemiBold, fontSize: 13 },
+  header: { marginTop: space.x12 },
+  headRow: { flexDirection: 'row', alignItems: 'flex-start', gap: space.x12 },
+  searchBtn: { width: 32, height: 32, alignItems: 'center', justifyContent: 'center', marginTop: 4 },
+
+  section: { marginTop: space.section },
+  sectionRule: {
+    height: 1,
+    backgroundColor: color.rule,
+    marginHorizontal: -space.gutter,
+    marginBottom: space.x12,
+  },
+
+  row: { flexDirection: 'row', alignItems: 'center', gap: space.x12, paddingVertical: space.x16 },
+  rowDivider: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: color.hair },
+  rowTitle: { fontFamily: type.uiMedium, fontSize: 15.5, color: color.bone },
+  rowSub: { fontFamily: type.ui, fontSize: 12.5, color: color.muted, marginTop: 1 },
+  metric: { fontFamily: type.uiMedium, fontSize: 12.5, marginLeft: space.x8, fontVariant: ['tabular-nums'] },
+
+  chipScroll: { marginTop: space.section, marginHorizontal: -space.gutter },
+  chipRow: { paddingHorizontal: space.gutter, gap: space.x8, flexDirection: 'row' },
+  chip: { paddingHorizontal: space.x16, paddingVertical: 7, borderRadius: lang.radius.pill, borderWidth: StyleSheet.hairlineWidth },
+  chipOn: { backgroundColor: color.copper, borderColor: color.copper },
+  chipOff: { backgroundColor: 'transparent', borderColor: color.hair },
+  chipLabel: { fontFamily: type.uiMedium, fontSize: 13 },
+
+  pressed: { opacity: 0.6 },
 });
