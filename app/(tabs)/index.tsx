@@ -80,6 +80,11 @@ export default function Home() {
   const { items } = useUpcomingCountdown(); // widget only
   const [refreshing, setRefreshing] = useState(false);
   const now = new Date();
+  // The greeting comes before the information, not instead of it (David,
+  // 2026-11-08). It is set as a sentence, so it introduces the headline
+  // rather than competing with it; the name is the one copper word.
+  const firstName = (profile?.display_name ?? '').trim().split(' ')[0];
+  const partOfDay = now.getHours() < 12 ? 'Good morning' : now.getHours() < 17 ? 'Good afternoon' : 'Good evening';
   const iso = todayISO();
 
   const speciesName = useMemo(() => new Map(allSpecies.map((s) => [s.id, s.name])), [allSpecies]);
@@ -200,6 +205,11 @@ export default function Home() {
             <Ionicons name="search" size={19} color={lang.color.muted} />
           </Pressable>
         </View>
+
+        <Text style={styles.greeting}>
+          {partOfDay}
+          {firstName ? <Text style={styles.greetingName}>, {firstName}</Text> : null}.
+        </Text>
 
         {/* The next opener, and the promise to say so before it lands. This is
             the hero now: legal light used to own the space and the reminder was
@@ -545,7 +555,16 @@ const styles = StyleSheet.create({
   chipText: { fontFamily: lang.type.uiMedium, fontSize: 13, color: lang.color.muted },
   bellBtn: { width: 32, height: 32, alignItems: 'center', justifyContent: 'center' },
 
-  heroBlock: { marginTop: lang.space.section },
+  greeting: {
+    fontFamily: lang.type.ui,
+    fontSize: 15.5,
+    lineHeight: 23,
+    color: lang.color.muted,
+    marginTop: lang.space.x16,
+  },
+  greetingName: { fontFamily: lang.type.uiSemiBold, color: lang.color.copper },
+
+  heroBlock: { marginTop: lang.space.x16 },
   hero: { fontSize: 62, lineHeight: 70, paddingTop: 4 },
   dateLine: { marginTop: lang.space.x16 },
 
