@@ -192,11 +192,13 @@ export default function SignIn() {
           </Pressable>
         )}
 
-        {/* The escape hatch. This screen is no longer a wall: every date in the
-            app is readable without an account, and the only honest thing to do
-            is say so and let people past. */}
+        {/* The escape hatch. This screen is the first thing a new install sees
+            (David, 2026-11-08), but it is not a wall: every date in the app is
+            readable without an account, and the only honest thing to do is say
+            so and let people past. It goes to the picker, not the tabs -- a
+            guest with no state to browse gets redirected back here. */}
         <Pressable
-          onPress={() => router.replace('/(tabs)')}
+          onPress={() => router.replace('/pick-state')}
           hitSlop={10}
           accessibilityRole="button"
           style={styles.lookAround}

@@ -38,11 +38,12 @@ export default function TabsLayout() {
   // first. Onboarding is now entered on purpose (Profile -> Set up your hunts),
   // not by redirect.
   //
-  // The one thing a guest cannot do without is a state to browse, so a fresh
-  // install goes to the picker -- one tap, no account -- and comes straight
-  // back. Signed-in users are never sent there: they have follows, or the
-  // tabs offer them the picker inline.
-  if (!session && !browseCode) return <Redirect href="/pick-state" />;
+  // A fresh install now opens on sign-in (David, 2026-11-08) rather than the
+  // state picker. The door stays unlocked: "Look around first" on that screen
+  // goes to the picker, and from there everything reads without an account.
+  // It must not point back at the tabs, or this redirect bounces it straight
+  // back to sign-in.
+  if (!session && !browseCode) return <Redirect href="/(auth)/sign-in" />;
 
   return (
     <Tabs
