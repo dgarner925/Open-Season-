@@ -1,6 +1,7 @@
 import { useRouter } from 'expo-router';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Unreachable } from '@/components/GapNote';
 import { Headline, Micro, Sentence, Tile } from '@/components/system';
 import { Disclaimer } from '@/components/Provenance';
 import { useRegsFeed } from '@/features/reference/queries';
@@ -13,7 +14,7 @@ const { color, space, type } = lang;
 
 export default function Regs() {
   const router = useRouter();
-  const { data: regs, isLoading, browsing, stateCode, needsState } = useRegsFeed();
+  const { data: regs, isLoading, isError, browsing, stateCode, needsState } = useRegsFeed();
 
   if (isLoading) {
     return (
@@ -64,6 +65,8 @@ export default function Regs() {
           </Tile>
         ) : needsState ? (
           <BrowseStatePrompt line="Regulation summaries are free to read. Choose where you hunt." />
+        ) : isError ? (
+          <Unreachable what="these summaries" style={{ marginTop: space.section }} />
         ) : (
           <Sentence style={{ marginTop: space.section }}>
             {browsing ? 'No published summaries for this state yet.' : 'No published summaries for your follows yet.'}

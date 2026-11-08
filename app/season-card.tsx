@@ -1,6 +1,7 @@
 import { Stack, useRouter } from 'expo-router';
 import { useMemo } from 'react';
 import { ActivityIndicator, Share, StyleSheet, View, useWindowDimensions } from 'react-native';
+import { Unreachable } from '@/components/GapNote';
 import { Headline, Pill, Screen, Sentence } from '@/components/system';
 import { CARD_H, CARD_W, SeasonCard } from '@/components/SeasonCard';
 import { buildSeasonCard } from '@/features/card/season';
@@ -26,7 +27,7 @@ function todayISO(): string {
 export default function SeasonCardScreen() {
   const router = useRouter();
   const { width } = useWindowDimensions();
-  const { data: seasons, isLoading } = useSeasonsFeed();
+  const { data: seasons, isLoading, isError } = useSeasonsFeed();
   const iso = todayISO();
 
   const card = useMemo(() => buildSeasonCard(seasons, iso), [seasons, iso]);
@@ -52,6 +53,8 @@ export default function SeasonCardScreen() {
 
       {isLoading ? (
         <ActivityIndicator color={color.copper} style={{ marginTop: space.x38 }} />
+      ) : isError ? (
+        <Unreachable what="your openers" style={{ marginTop: space.section }} />
       ) : card.openers.length === 0 ? (
         <>
           <Headline style={{ marginTop: space.x16 }}>Nothing to put on it yet.</Headline>

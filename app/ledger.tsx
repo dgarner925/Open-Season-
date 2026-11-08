@@ -6,6 +6,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Stack, useRouter } from 'expo-router';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Unreachable } from '@/components/GapNote';
 import { Screen, Sentence, Serif } from '@/components/system';
 import { useApplications, type ApplicationWithRefs } from '@/features/applications/queries';
 import { usePointBalances } from '@/features/points/queries';
@@ -41,7 +42,7 @@ function rightLine(a: ApplicationWithRefs): { text: string; tone: 'copper' | 'mu
 
 export default function Ledger() {
   const router = useRouter();
-  const { data: apps = [], isLoading } = useApplications();
+  const { data: apps = [], isLoading, isError } = useApplications();
   const { data: balances = [] } = usePointBalances();
 
   const pending = apps.filter((a) => a.status === 'applied');
@@ -58,6 +59,8 @@ export default function Ledger() {
 
       {isLoading ? (
         <ActivityIndicator color={color.copper} style={{ marginTop: space.x38 }} />
+      ) : isError ? (
+        <Unreachable what="your ledger" style={{ marginTop: space.section }} />
       ) : apps.length === 0 ? (
         <Sentence style={{ marginTop: space.section }}>
           Nothing here yet. Track a draw from any deadline page.

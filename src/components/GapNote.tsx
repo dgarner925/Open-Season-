@@ -62,3 +62,25 @@ const styles = StyleSheet.create({
   link: { minHeight: 32, justifyContent: 'center', marginTop: space.x4 },
   linkText: { fontFamily: type.uiMedium, fontSize: 13.5, color: color.copper },
 });
+
+/**
+ * What the screen cannot tell you because it could not ask.
+ *
+ * This exists because of the gap copy above. Once an empty list says "we
+ * don't have this yet — that's our gap", a failed request renders as a
+ * coverage hole, which is exactly the dishonesty the gap note was written to
+ * remove. A query that errored knows nothing about coverage and must say so.
+ *
+ * Deliberately not a retry button: react-query already retries, and a button
+ * that does nothing visible is worse than a sentence that is true.
+ */
+export function Unreachable({ what, style }: { what: string; style?: object }) {
+  return (
+    <View style={style}>
+      <Sentence tone="bone">We couldn't load {what}.</Sentence>
+      <Sentence style={{ marginTop: 2 }}>
+        That's the connection, not a gap in the dates — pull down to try again once you have signal.
+      </Sentence>
+    </View>
+  );
+}

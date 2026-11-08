@@ -3,6 +3,7 @@ import { useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Unreachable } from '@/components/GapNote';
 import { Headline, Micro, Sentence, Tile } from '@/components/system';
 import { SpeciesBadge } from '@/components/midnight';
 import { useSeasonsFeed } from '@/features/reference/queries';
@@ -30,7 +31,7 @@ type Item = {
 /** Seasons — a clear, dated list of what's open now and what's opening next. */
 export default function Seasons() {
   const router = useRouter();
-  const { data: seasons, isLoading, browsing, stateCode, needsState } = useSeasonsFeed();
+  const { data: seasons, isLoading, isError, browsing, stateCode, needsState } = useSeasonsFeed();
   const iso = todayISO();
 
   // Species filter — chips over the list. null = all.
@@ -117,6 +118,10 @@ export default function Seasons() {
           <BrowseStatePrompt line="Season dates for every state are free to read. Choose where you hunt." />
         ) : isLoading ? (
           <ActivityIndicator color={color.copper} style={{ marginTop: space.section }} />
+        ) : isError ? (
+          /* Before any claim about coverage: a request that failed knows
+             nothing about what we do and don't have. */
+          <Unreachable what="these dates" style={{ marginTop: space.section }} />
         ) : open.length === 0 && upcomingMonths.length === 0 ? (
           /* Three different kinds of nothing, and the reader deserves to
              know which. Between February and July the usual one is "we hold

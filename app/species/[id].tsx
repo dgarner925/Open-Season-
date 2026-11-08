@@ -6,7 +6,7 @@ import quotes from '@/assets/quotes.json';
 import { attrName, attrTitle } from '@/components/LaunchQuote';
 import { Medallion } from '@/components/Medallion';
 import { VerifiedStamp, SourceLink } from '@/components/Provenance';
-import { GapNote } from '@/components/GapNote';
+import { GapNote, Unreachable } from '@/components/GapNote';
 import { Sentence, Serif } from '@/components/system';
 import { coverageOf } from '@/features/coverage/gaps';
 import { useFollowedSeasons } from '@/features/reference/queries';
@@ -49,7 +49,7 @@ function methodStatus(s: SeasonWithRefs): MethodRow {
 export default function SpeciesDetail() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
-  const { data: allSeasons = [], isLoading } = useFollowedSeasons();
+  const { data: allSeasons = [], isLoading, isError } = useFollowedSeasons();
   const { profile } = useAuth();
   const report = useReportDate();
   const residentStateId = profile?.resident_state_id ?? null;
@@ -133,6 +133,8 @@ export default function SpeciesDetail() {
       <Stack.Screen options={{ headerShown: false }} />
       {isLoading ? (
         <ActivityIndicator color={color.copper} style={{ marginTop: space.x38 }} />
+      ) : isError ? (
+        <Unreachable what="this species' dates" style={{ marginTop: space.x38, paddingHorizontal: space.gutter }} />
       ) : (
         <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
           <View style={styles.navRow}>

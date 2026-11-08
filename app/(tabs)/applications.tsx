@@ -1,6 +1,7 @@
 import { useRouter } from 'expo-router';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Unreachable } from '@/components/GapNote';
 import { Headline, LinkSentence, Micro, Sentence, Tile } from '@/components/system';
 import { SpeciesBadge } from '@/components/midnight';
 import { useWindowsFeed } from '@/features/reference/queries';
@@ -14,7 +15,7 @@ const { color, space, type } = lang;
 
 export default function Applications() {
   const router = useRouter();
-  const { data: windows, isLoading, browsing, stateCode, needsState } = useWindowsFeed();
+  const { data: windows, isLoading, isError, browsing, stateCode, needsState } = useWindowsFeed();
 
   if (isLoading) {
     return (
@@ -57,6 +58,8 @@ export default function Applications() {
           </Tile>
         ) : needsState ? (
           <BrowseStatePrompt line="Draw deadlines are free to read too. Choose where you hunt." />
+        ) : isError ? (
+          <Unreachable what="these deadlines" style={{ marginTop: space.section }} />
         ) : (
           <Sentence style={{ marginTop: space.section }}>
             {browsing

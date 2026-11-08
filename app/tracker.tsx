@@ -1,5 +1,6 @@
 import { Stack, useRouter } from 'expo-router';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Unreachable } from '@/components/GapNote';
 import { Headline, LinkSentence, Pill, Screen, Sentence, Serif, Tile, tileSurface } from '@/components/system';
 import { useApplications, type ApplicationWithRefs } from '@/features/applications/queries';
 import { useRequirePro } from '@/hooks/useRequirePro';
@@ -37,7 +38,7 @@ function statusTone(s: ApplicationStatus): string {
 
 export default function Tracker() {
   const router = useRouter();
-  const { data: apps = [], isLoading } = useApplications();
+  const { data: apps = [], isLoading, isError } = useApplications();
   const requirePro = useRequirePro();
   const requireAccount = useRequireAccount();
 
@@ -55,6 +56,8 @@ export default function Tracker() {
 
       {isLoading ? (
         <ActivityIndicator color={color.copper} style={{ marginTop: space.section }} />
+      ) : isError ? (
+        <Unreachable what="your applications" style={{ marginTop: space.section }} />
       ) : apps.length === 0 ? (
         <Tile style={{ marginTop: space.section }}>
           <Sentence tone="bone">Nothing tracked yet.</Sentence>

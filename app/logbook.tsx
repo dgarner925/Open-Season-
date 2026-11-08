@@ -1,6 +1,7 @@
 import { Stack, useRouter } from 'expo-router';
 import { useMemo } from 'react';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
+import { Unreachable } from '@/components/GapNote';
 import { Headline, LinkSentence, Pill, Screen, Sentence, Serif, Tile } from '@/components/system';
 import { useApplications } from '@/features/applications/queries';
 import { useFollows } from '@/features/follows/queries';
@@ -27,7 +28,7 @@ function todayISO(): string {
  */
 export default function Logbook() {
   const router = useRouter();
-  const { data: apps = [], isLoading } = useApplications();
+  const { data: apps = [], isLoading, isError } = useApplications();
   const { data: follows = [] } = useFollows();
   const { data: states = [] } = useActiveStates();
   const { data: allSpecies = [] } = useSpecies();
@@ -88,6 +89,10 @@ export default function Logbook() {
 
       {isLoading ? (
         <ActivityIndicator color={color.copper} style={{ marginTop: space.x38 }} />
+      ) : isError ? (
+        /* "Nothing in the book yet" is a claim about the reader's own
+           record; a failed request is in no position to make it. */
+        <Unreachable what="your logbook" style={{ marginTop: space.section }} />
       ) : years.length === 0 ? (
         <>
           <Tile style={{ marginTop: space.section }}>
