@@ -3,6 +3,9 @@ import { useQuery } from '@tanstack/react-query';
 import { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Alert, FlatList, Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { LinkSentence, Micro, Pill, Screen, Sentence, Serif, SunArc } from '@/components/system';
+import { PromiseNote } from '@/components/NextOpener';
+import { openerOffsetsFor, useAlertPreferences } from '@/features/alerts/queries';
+import { firingsFor, timesWord } from '@/features/alerts/promise';
 import { Disclaimer } from '@/components/Provenance';
 import { ActionRow, LicenseRow } from '@/components/LicenseRow';
 import { useAuth } from '@/providers/AuthProvider';
@@ -133,6 +136,7 @@ function SeasonPageBody({ id }: { id: string | undefined }) {
   const stateId = season?.state?.id ?? season?.state_id;
   const speciesId = season?.species?.id ?? season?.species_id;
   const reminder = useMethodReminder(stateId, speciesId);
+  const { data: alertPrefs = [] } = useAlertPreferences();
   const { data: myParties = [] } = useMyParties();
   const createParty = useCreateParty();
   const myParty = myParties.find((p) => p.season_id === id);
@@ -194,6 +198,11 @@ function SeasonPageBody({ id }: { id: string | undefined }) {
 
   const title = season.label ?? cap(season.method);
   const armed = reminder.isArmed(season.method);
+  // The reminders still to come for this opener, named rather than promised.
+  const firings =
+    armed && season.open_date
+      ? firingsFor(season.open_date, openerOffsetsFor(alertPrefs, season.state_id, season.species_id))
+      : [];
   const residency =
     profile?.resident_state_id && stateId ? (profile.resident_state_id === stateId ? 'resident' : 'nonresident') : null;
 
@@ -370,22 +379,30 @@ function SeasonPageBody({ id }: { id: string | undefined }) {
 
       <View style={{ height: space.section }} />
 
-      {/* The caveat sits directly above the action it qualifies. */}
+      {/* The promise, with the times behind it, then ONE action at full width.
+          Two equal pills made the reminder look like one option of two, when
+          it is the reason the page exists (David, 2026-11-08). */}
       {armed ? (
-        <Sentence tone="dim" style={{ marginBottom: space.x16, fontSize: 13 }}>
-          You'll get a reminder before the opener. Change the timing in Profile.
-        </Sentence>
+        firings.length > 0 ? (
+          <PromiseNote head={`You'll be told ${timesWord(firings.length)}.`} armed firings={firings} />
+        ) : (
+          <PromiseNote head="Every reminder for this one has gone out." armed={false} firings={[]}>
+            <LinkSentence size={13} style={{ marginTop: space.x12 }} onPress={() => router.push('/alerts')}>
+              Add an earlier reminder
+            </LinkSentence>
+          </PromiseNote>
+        )
       ) : null}
-      <View style={styles.actions}>
-        <Pill
-          label={armed ? 'Notifying you ✓' : 'Notify me'}
-          variant={armed ? 'secondary' : 'primary'}
-          onPress={onNotify}
-          disabled={reminder.toggle.isPending}
-          style={{ flex: 1.4 }}
-        />
-        <Pill label="Add to calendar" variant="secondary" onPress={onCalendar} style={{ flex: 1 }} />
-      </View>
+      <Pill
+        label={armed ? 'Reminder set ✓' : 'Remind me when this opens'}
+        variant={armed ? 'secondary' : 'primary'}
+        onPress={onNotify}
+        disabled={reminder.toggle.isPending}
+        style={{ marginTop: space.x16 }}
+      />
+      <LinkSentence size={13} style={{ marginTop: space.x12, textAlign: 'center' }} onPress={onCalendar}>
+        Add it to your calendar
+      </LinkSentence>
 
       {/* Parties aren't just for draws — the deer camp needs a roster too. */}
       <ActionRow
@@ -423,7 +440,6 @@ const styles = StyleSheet.create({
     letterSpacing: 1.2,
     color: color.copper,
   },
-  actions: { flexDirection: 'row', gap: space.x12 },
   dots: {
     position: 'absolute',
     bottom: 10,

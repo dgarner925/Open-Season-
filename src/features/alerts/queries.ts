@@ -9,6 +9,8 @@ export type AlertPref = {
   opener_offsets: number[];
   deadline_offsets: number[];
   results_offsets: number[];
+  /** null = every method of this hunt, [] = none, ['archery'] = only those. */
+  methods: string[] | null;
   follow: {
     state: { code: string; name: string } | null;
     species: { id: string; key: string; name: string } | null;
@@ -32,7 +34,7 @@ export function useAlertPreferences() {
     queryFn: async (): Promise<AlertPref[]> => {
       const { data, error } = await supabase
         .from('follows')
-        .select('id, state_id, species_id, state:states(code,name), species:species(id,key,name), alert_preferences(opener_offsets, deadline_offsets, results_offsets)')
+        .select('id, state_id, species_id, state:states(code,name), species:species(id,key,name), alert_preferences(opener_offsets, deadline_offsets, results_offsets, methods)')
         .eq('user_id', user!.id);
       if (error) throw error;
       return (data ?? []).map((f: any) => {
@@ -44,11 +46,42 @@ export function useAlertPreferences() {
           opener_offsets: ap?.opener_offsets ?? DEFAULT_OFFSETS,
           deadline_offsets: ap?.deadline_offsets ?? DEFAULT_OFFSETS,
           results_offsets: ap?.results_offsets ?? DEFAULT_RESULTS,
+          methods: ap?.methods ?? null,
           follow: { state: f.state, species: f.species },
         } as AlertPref;
       });
     },
   });
+}
+
+/**
+ * Is this exact season armed? Same rule the season page arms by
+ * (useMethodReminder): the pair has to be followed, and the method has to be
+ * in scope — a null `methods` means every method of that hunt.
+ *
+ * Reading it off the prefs list rather than per-season keeps Home to one
+ * query, so a list of openers can each show their own bell.
+ */
+export function armedFor(
+  prefs: AlertPref[],
+  stateId: string | null | undefined,
+  speciesId: string | null | undefined,
+  method: string | null | undefined,
+): boolean {
+  if (!stateId || !speciesId) return false;
+  const p = prefs.find((x) => x.state_id === stateId && x.species_id === speciesId);
+  if (!p) return false;
+  return p.methods === null || (method != null && p.methods.includes(method));
+}
+
+/** The opener cadence for a (state, species) pair, or the defaults. */
+export function openerOffsetsFor(
+  prefs: AlertPref[],
+  stateId: string | null | undefined,
+  speciesId: string | null | undefined,
+): number[] {
+  const p = prefs.find((x) => x.state_id === stateId && x.species_id === speciesId);
+  return p?.opener_offsets ?? DEFAULT_OFFSETS;
 }
 
 /** Add/remove one day-offset from a follow's opener or deadline list. */

@@ -5,6 +5,8 @@
  * Rules that travel with these tokens:
  *   one 20pt gutter · hairlines not cards · pills are for actions only ·
  *   one 24pt rhythm · display serif reserved for species/dates/times/counts ·
+ *   one tight sans headline per screen, saying what the screen is for
+ *   (David, 2026-11-08 — "amplify the main thing the app does") ·
  *   no uppercase section headers (micro labels name a value's role only) ·
  *   copper is scarce (one per region) · sentences over field labels ·
  *   state the thing before the number · warnings earn weight by position.
@@ -37,7 +39,11 @@ export const lang = {
     ui: 'Archivo_400Regular',
     uiMedium: 'Archivo_500Medium',
     uiSemiBold: 'Archivo_600SemiBold',
-    size: { hero: 52, title: 33, lede: 24, body: 15.5, micro: 10.5 },
+    /** Headline weight — see `size.headline` below. */
+    uiBold: 'Archivo_700Bold',
+    size: { hero: 52, headline: 44, title: 33, lede: 24, body: 15.5, micro: 10.5 },
     microTracking: 1.5, // ≈0.14em at 10.5pt
+    /** ≈-0.045em at 44pt — the headline is set tight enough to read as one object. */
+    headlineTracking: -2,
   },
 } as const;

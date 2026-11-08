@@ -243,6 +243,38 @@ export function Sentence({
   return <Text style={[styles.sentence, { color: color[tone] }, style]}>{children}</Text>;
 }
 
+/**
+ * The headline: one tight sans sentence per screen, saying what the screen is
+ * for ("Ducks open in 7 days."). Archivo at a weight and tracking the serif
+ * can't hold — the serif stays on values. One per screen, never two.
+ */
+export function Headline({
+  children,
+  size = type.size.headline,
+  style,
+}: {
+  children: ReactNode;
+  size?: number;
+  style?: StyleProp<TextStyle>;
+}) {
+  return (
+    <Text
+      style={[
+        {
+          fontFamily: type.uiBold,
+          fontSize: size,
+          lineHeight: Math.round(size * 0.98),
+          letterSpacing: type.headlineTracking,
+          color: color.bone,
+        },
+        style,
+      ]}
+    >
+      {children}
+    </Text>
+  );
+}
+
 /** Display serif inline — species names, dates, times, counts only. */
 export function Serif({
   children,

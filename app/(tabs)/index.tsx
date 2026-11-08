@@ -5,8 +5,11 @@ import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'r
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AppText } from '@/components/ui';
 import { AlmanacCol, almanacStyles } from '@/components/AlmanacRow';
-import { LightCountdown } from '@/components/LightCountdown';
-import { useDailyBrief } from '@/features/brief/queries';
+import { LightRow, NextOpener, OpenerRow, type PromiseState } from '@/components/NextOpener';
+import { Micro } from '@/components/system';
+import { armedFor, openerOffsetsFor, useAlertPreferences } from '@/features/alerts/queries';
+import { firingsFor } from '@/features/alerts/promise';
+import { dayAndDate } from '@/lib/date';
 import { PageTitle, SpeciesBadge } from '@/components/midnight';
 import { NotificationsOffBanner } from '@/components/NotificationsOffBanner';
 import { ProUpsellCard } from '@/components/ProUpsellCard';
@@ -39,6 +42,21 @@ function diffDays(fromISO: string, toISO: string): number {
 
 type RosterItem = { speciesId: string; name: string; codes: string[]; state: 'open' | 'upcoming' | 'none'; days: number | null };
 
+function methodLabel(method: string): string {
+  return method.charAt(0).toUpperCase() + method.slice(1);
+}
+
+/**
+ * "Youth, Military & Veterans Days · Sat 14 Nov · Statewide" — what this
+ * opener is, when it lands, and where. The season's own label wins when it has
+ * one; otherwise the method names it.
+ */
+function openerDetail(s: SeasonWithRefs, withZone: boolean): string {
+  const what = (s.label ?? '').trim() || methodLabel(s.method);
+  const zone = withZone ? (s.zone?.name ?? null) : null;
+  return [what, dayAndDate(s.open_date), zone].filter(Boolean).join(' · ');
+}
+
 /** Reduce a species' followed seasons to a single roster status. */
 function rosterStatus(seasons: SeasonWithRefs[]): { state: 'open' | 'upcoming' | 'none'; days: number | null } {
   const iso = todayISO();
@@ -66,12 +84,6 @@ export default function Home() {
   const now = new Date();
   const iso = todayISO();
 
-  // Time-of-day greeting, personalized with the name set in Settings. Falls back
-  // to just the greeting (no dangling comma) when no name is set.
-  const firstName = (profile?.display_name ?? '').trim().split(' ')[0];
-  const hour = now.getHours();
-  const partOfDay = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
-
   const speciesName = useMemo(() => new Map(allSpecies.map((s) => [s.id, s.name])), [allSpecies]);
   const stateCode = useMemo(() => new Map(states.map((s) => [s.id, s.code])), [states]);
 
@@ -88,10 +100,6 @@ export default function Home() {
     return rows.sort((a, b) => rank[a.state] - rank[b.state] || (a.days ?? 9e9) - (b.days ?? 9e9) || a.name.localeCompare(b.name));
   }, [follows, seasons, speciesName, stateCode]);
 
-  const openCount = roster.filter((r) => r.state === 'open').length;
-
-  const openerCount = seasons.filter((s) => s.open_date && s.open_date > iso).length;
-  const deadlineCount = windows.filter((w) => w.closes_at && w.closes_at >= iso).length;
   const trackedStates = [...new Set(follows.map((f) => stateCode.get(f.state_id)).filter(Boolean))];
   // Which state's sky this screen is talking about: the one you said you live
   // in, else the first you follow, else the one you're browsing. The last of
@@ -116,6 +124,40 @@ export default function Home() {
       : trackedStates.length === 1
         ? (states.find((s) => s.code === trackedStates[0])?.name ?? trackedStates[0]!)
         : `${trackedStates.length} states`);
+
+  // ---- The next opener, and whether we have promised to say so ------------
+  // The top of this screen answers one question now: what opens next, and
+  // will my phone tell me before it does? (David, 2026-11-08 — "amplify the
+  // main thing the app does".) Today counts as an opener: "Ducks open today."
+  const { data: alertPrefs = [], isLoading: prefsLoading } = useAlertPreferences();
+  const upcoming = useMemo(
+    () =>
+      seasons
+        .filter((s) => s.open_date && s.open_date >= iso)
+        .sort((a, b) => a.open_date!.localeCompare(b.open_date!)),
+    [seasons, iso],
+  );
+  const nextOpener = upcoming[0] ?? null;
+  const laterOpeners = upcoming.slice(1);
+  const light = useLegalLight(homeStateCode, 0);
+
+  const promise = useMemo<PromiseState>(() => {
+    if (!nextOpener) return { kind: 'loading' };
+    if (isGuest) return { kind: 'guest' };
+    if (prefsLoading) return { kind: 'loading' };
+    const followed = follows.some(
+      (f) => f.state_id === nextOpener.state_id && f.species_id === nextOpener.species_id,
+    );
+    if (!followed) return { kind: 'unfollowed' };
+    if (!armedFor(alertPrefs, nextOpener.state_id, nextOpener.species_id, nextOpener.method)) {
+      return { kind: 'unarmed' };
+    }
+    const firings = firingsFor(
+      nextOpener.open_date!,
+      openerOffsetsFor(alertPrefs, nextOpener.state_id, nextOpener.species_id),
+    );
+    return firings.length > 0 ? { kind: 'armed', firings } : { kind: 'spent' };
+  }, [nextOpener, isGuest, prefsLoading, follows, alertPrefs]);
 
   useEffect(() => {
     pushWidgetEvent(items[0]);
@@ -156,32 +198,72 @@ export default function Home() {
           </Pressable>
         </View>
 
-        <View style={styles.heroBlock}>
-          <PageTitle lead={'Open\n'} accent="season." style={styles.hero} />
-          <AppText variant="overline" color={theme.color.textMuted} style={styles.dateLine}>
-            {WEEKDAYS[now.getDay()]}, {MONTHS[now.getMonth()]} {now.getDate()}
-          </AppText>
-          {firstName ? (
-            <Text style={styles.greeting}>
-              {partOfDay}, <Text style={styles.greetingName}>{firstName}</Text>
-            </Text>
-          ) : (
-            <Text style={styles.greeting}>{partOfDay}</Text>
-          )}
-        </View>
+        {/* The next opener, and the promise to say so before it lands. This is
+            the hero now: legal light used to own the space and the reminder was
+            a switch buried two screens down (David, 2026-11-08). Light reads as
+            one line further down, and the full picture of today lives on the
+            outlook page. */}
+        {nextOpener ? (
+          <View style={styles.heroBlock}>
+            <NextOpener
+              speciesName={nextOpener.species?.name ?? 'The next season'}
+              detail={openerDetail(nextOpener, true)}
+              days={diffDays(iso, nextOpener.open_date!)}
+              stateLabel={nextOpener.state?.name ?? nextOpener.state?.code ?? null}
+              promise={promise}
+              onOpenSeason={() => router.push({ pathname: '/season/[id]', params: { id: nextOpener.id } })}
+              onSeeNotices={() => router.push('/what-arrives')}
+              onSignIn={() => router.push('/(auth)/sign-in')}
+              onChangeTiming={() => router.push('/alerts')}
+            />
+          </View>
+        ) : (
+          /* Nothing ahead in these states — the masthead carries the screen. */
+          <View style={styles.heroBlock}>
+            <PageTitle lead={'Open\n'} accent="season." style={styles.hero} />
+            <AppText variant="overline" color={theme.color.textMuted} style={styles.dateLine}>
+              {WEEKDAYS[now.getDay()]}, {MONTHS[now.getMonth()]} {now.getDate()}
+            </AppText>
+          </View>
+        )}
 
-        {/* The Daily Outlook — the Weekend Brief's everyday sibling: today's
-            legal light and today's dawn conditions (David, 2026-09-06). Opens
-            the full outlook page. */}
-        <DailyOutlookCard
-          stateCode={homeStateCode}
-          onPress={homeStateCode ? () => router.push({ pathname: '/outlook', params: { state: homeStateCode } }) : undefined}
-        />
-
-        <View style={{ marginTop: spacing.xl }}>
+        {/* Directly under the promise, because an unarmed phone makes a liar
+            of everything above it. */}
+        <View style={{ marginTop: lang.space.gutter }}>
           <NotificationsOffBanner />
-          <ProUpsellCard />
         </View>
+
+        {laterOpeners.length > 0 ? (
+          <View style={styles.openerSection}>
+            <View style={styles.openerHead}>
+              <Micro>
+                {laterOpeners.length === 1 ? '1 more opener ahead' : `${laterOpeners.length} more openers ahead`}
+              </Micro>
+              <Micro>Bell = armed</Micro>
+            </View>
+            {laterOpeners.slice(0, 4).map((s, i, shown) => (
+              <OpenerRow
+                key={s.id}
+                speciesName={s.species?.name ?? 'Season'}
+                detail={openerDetail(s, false)}
+                days={diffDays(iso, s.open_date!)}
+                armed={armedFor(alertPrefs, s.state_id, s.species_id, s.method)}
+                last={i === shown.length - 1}
+                onPress={() => router.push({ pathname: '/season/[id]', params: { id: s.id } })}
+              />
+            ))}
+          </View>
+        ) : null}
+
+        {/* Legal light, demoted to a line — the outlook page tells the rest. */}
+        {light && homeStateCode ? (
+          <LightRow
+            window={light.window}
+            durationMin={light.durationMin}
+            approx={light.approx}
+            onPress={() => router.push({ pathname: '/outlook', params: { state: homeStateCode } })}
+          />
+        ) : null}
 
         <WeekendBriefCard
           seasons={seasons}
@@ -192,11 +274,7 @@ export default function Home() {
           onPress={() => router.push('/calendar')}
         />
 
-        <View style={styles.stats}>
-          <StatTile value={openCount} label="Open now" onPress={() => router.push('/calendar')} />
-          <StatTile value={openerCount} label="Openers" onPress={() => router.push('/calendar')} />
-          <StatTile value={deadlineCount} label="Deadlines" onPress={() => router.push('/applications')} />
-        </View>
+        <ProUpsellCard />
 
         {permitFollows.length > 0 ? (
           <View style={styles.section}>
@@ -281,76 +359,6 @@ export default function Home() {
         )}
       </ScrollView>
     </SafeAreaView>
-  );
-}
-
-/**
- * The Daily Outlook — every day of the year: today's legal light and today's
- * dawn conditions, in the brief card's clothes. The moon renders even offline;
- * the weather columns appear as NWS answers.
- */
-function DailyOutlookCard({ stateCode, onPress }: { stateCode: string | null; onPress?: () => void }) {
-  const light = useLegalLight(stateCode, 0);
-  const dawn = useDawnConditions(stateCode, 0);
-  // Your own day, in a sentence — sits under the light, never above it.
-  const { data: dailyBrief } = useDailyBrief();
-  const brief = dailyBrief?.brief ?? null;
-  if (!light && !dawn) return null;
-  const now = new Date();
-  const head = `${['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'][now.getDay()]}, ${MONTHS[now.getMonth()]} ${now.getDate()}`;
-  return (
-    <Pressable onPress={onPress} disabled={!onPress} style={({ pressed }) => [styles.briefCard, pressed && !!onPress && styles.pressed]}>
-      <View style={styles.briefHead}>
-        <AppText variant="overline" color={theme.color.accentSoft}>
-          THE DAILY OUTLOOK
-        </AppText>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-          <AppText variant="overline" color={theme.color.textMuted}>
-            {head}
-          </AppText>
-          {onPress ? <Ionicons name="chevron-forward" size={12} color={lang.color.copper} /> : null}
-        </View>
-      </View>
-      <View style={styles.briefRule} />
-      {light ? (
-        <>
-          <View style={styles.outlookLight}>
-            <Text style={styles.lightTimes}>
-              {light.approx ? '≈ ' : ''}
-              {light.window}
-            </Text>
-            <Text style={styles.lightLabel}>legal light</Text>
-          </View>
-          <LightCountdown light={light} stateCode={stateCode} />
-        </>
-      ) : null}
-      {brief ? <Text style={styles.briefLine2}>{brief}</Text> : null}
-      {dawn ? (
-        <>
-          <Text style={almanacStyles.head}>
-            {dawn.dayName === ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][now.getDay()]
-              ? 'AT FIRST LIGHT'
-              : `${dawn.dayName.toUpperCase()} AT FIRST LIGHT`}
-          </Text>
-          <View style={almanacStyles.row}>
-            {dawn.tempF != null ? <AlmanacCol value={`${dawn.tempF}°`} label={(dawn.sky ?? 'temp').toUpperCase()} first /> : null}
-            {dawn.windDir && dawn.windMph != null ? (
-              <AlmanacCol value={`${dawn.windDir} ${dawn.windMph}`} label="WIND · MPH" first={dawn.tempF == null} />
-            ) : null}
-            {dawn.pressureInHg != null ? (
-              <AlmanacCol
-                value={dawn.pressureInHg.toFixed(1)}
-                label={dawn.pressureTrend ? `PRESSURE · ${dawn.pressureTrend.toUpperCase()}` : 'PRESSURE'}
-                trend={dawn.pressureTrend}
-                first={false}
-              />
-            ) : null}
-            <AlmanacCol value={`${dawn.moonPct}%`} label={`MOON · ${dawn.moonWaxing ? 'WAXING' : 'WANING'}`} first={false} />
-          </View>
-          {dawn.frontLine ? <Text style={styles.briefLight}>{dawn.frontLine}</Text> : null}
-        </>
-      ) : null}
-    </Pressable>
   );
 }
 
@@ -504,17 +512,6 @@ function WeekendBriefCard({
   );
 }
 
-function StatTile({ value, label, onPress }: { value: number; label: string; onPress: () => void }) {
-  return (
-    <Pressable onPress={onPress} style={({ pressed }) => [styles.tile, pressed && styles.pressed]}>
-      <Text style={styles.tileValue}>{value}</Text>
-      <AppText variant="caption" color={theme.color.textMuted}>
-        {label}
-      </AppText>
-    </Pressable>
-  );
-}
-
 function RosterRow({ item, divider, onPress }: { item: RosterItem; divider: boolean; onPress: () => void }) {
   const right = item.state === 'open' ? 'Open' : item.state === 'upcoming' ? `in ${Math.max(item.days ?? 0, 0)}d` : 'No dates yet';
   const rightColor = item.state === 'open' ? theme.color.accent : item.state === 'upcoming' ? theme.color.accentSoft : theme.color.textMuted;
@@ -557,17 +554,17 @@ const styles = StyleSheet.create({
   heroBlock: { marginTop: spacing.xl },
   hero: { fontSize: 62, lineHeight: 70, paddingTop: 4 },
   dateLine: { marginTop: spacing.lg },
-  outlookLight: { flexDirection: 'row', alignItems: 'baseline', gap: spacing.md, marginVertical: 2 },
-  lightTimes: { fontFamily: fontFamily.serif, fontSize: 22, color: lang.color.bone },
-  lightLabel: {
-    fontFamily: fontFamily.sansSemiBold,
-    fontSize: 12,
-    letterSpacing: 1.8,
-    textTransform: 'uppercase',
-    color: lang.color.copper,
+
+  // The openers beneath the hero: a plain hairline list, no card. The bell is
+  // the only ornament it needs.
+  openerSection: { marginTop: lang.space.section },
+  openerHead: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    justifyContent: 'space-between',
+    gap: lang.space.x12,
+    marginBottom: lang.space.x4,
   },
-  greeting: { fontFamily: fontFamily.sansMedium, fontSize: 15, color: theme.color.textSecondary, marginTop: spacing.xs },
-  greetingName: { fontFamily: fontFamily.sansSemiBold, color: lang.color.copper },
 
   // The 1.3.5 brief card — flat surface, copper spine as a left border so it
   // follows the corner radius (David asked for this layout back, 2026-08-29).
@@ -586,19 +583,6 @@ const styles = StyleSheet.create({
   briefRule: { height: StyleSheet.hairlineWidth, backgroundColor: theme.color.borderFlat, marginVertical: 4 },
   briefLine: { fontFamily: fontFamily.serifItalic, fontSize: 16.5, lineHeight: 24, color: lang.color.bone },
   briefLight: { fontFamily: fontFamily.sansMedium, fontSize: 12.5, color: theme.color.textMuted, marginTop: 4 },
-  // The daily brief: quiet, under the light. Plain sans so it doesn't compete
-  // with the serif times or the italic countdown above it.
-  briefLine2: {
-    fontFamily: fontFamily.sansMedium,
-    fontSize: 13.5,
-    lineHeight: 20,
-    color: theme.color.textSecondary,
-    marginTop: 10,
-  },
-
-  stats: { flexDirection: 'row', gap: spacing.sm, marginTop: spacing.xl },
-  tile: { flex: 1, padding: spacing.lg, borderRadius: radius.md, backgroundColor: theme.color.surfaceFlat, borderWidth: StyleSheet.hairlineWidth, borderColor: theme.color.borderFlat, gap: 2 },
-  tileValue: { fontFamily: fontFamily.serif, fontSize: 30, color: lang.color.copper },
 
   section: { marginTop: spacing.xl, gap: spacing.sm },
   emptyCard: { marginTop: spacing.lg, padding: spacing.xl, borderRadius: radius.lg, backgroundColor: theme.color.surfaceFlat, borderWidth: StyleSheet.hairlineWidth, borderColor: theme.color.borderFlat, gap: spacing.xs },

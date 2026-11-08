@@ -39,11 +39,24 @@ const MONTHS = [
   'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
 ];
 
+const WEEKDAYS_SHORT = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
 /** 'Sep 13, 2026' — null-safe. */
 export function formatDate(dateStr: string | null): string {
   if (!dateStr) return 'TBD';
   const d = parseDateOnly(dateStr);
   return `${MONTHS[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}`;
+}
+
+/**
+ * 'Sat 14 Nov' — an opener the way a hunter says it. The weekday earns its
+ * place here: whether a season starts on a Saturday decides whether you can
+ * hunt it, which the calendar year never does.
+ */
+export function dayAndDate(dateStr: string | null): string {
+  if (!dateStr) return 'date TBD';
+  const d = parseDateOnly(dateStr);
+  return `${WEEKDAYS_SHORT[d.getDay()]} ${d.getDate()} ${MONTHS[d.getMonth()]}`;
 }
 
 /** 'Sep 13 – Oct 15, 2026', collapsing repeated year/month. */

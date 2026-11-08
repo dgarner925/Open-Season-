@@ -13,6 +13,7 @@ import * as SunCalc from 'suncalc';
 import { Micro, Screen, Sentence, Serif, SunArc } from '@/components/system';
 import { AlmanacCol, almanacStyles } from '@/components/AlmanacRow';
 import { LightCountdown } from '@/components/LightCountdown';
+import { useDailyBrief } from '@/features/brief/queries';
 import rules from '@/assets/legal-light.json';
 import centroids from '@/assets/state-centroids.json';
 import { getFix, useLegalLight } from '@/features/legalLight/useLegalLight';
@@ -60,6 +61,8 @@ export default function Outlook() {
 
   const light = useLegalLight(stateCode, 0);
   const dawn = useDawnConditions(stateCode, 0);
+  const { data: dailyBrief } = useDailyBrief();
+  const brief = dailyBrief?.brief ?? null;
   const { data: seasons = [] } = useFollowedSeasons();
   const [week, setWeek] = useState<WeekRow[] | null>(null);
   const [approx, setApprox] = useState(false);
@@ -154,6 +157,15 @@ export default function Outlook() {
         {todayName}, {MONTH_NAMES[now.getMonth()]} {now.getDate()}
         {rule && !rule.none ? ` — legal light runs ${phrase(rule)}.` : '.'}
       </Sentence>
+
+      {/* Your own day in a sentence. It used to sit on Home inside the light
+          card; when the opener took that space, the brief came here with the
+          rest of today (David, 2026-11-08). */}
+      {brief ? (
+        <Sentence tone="bone" style={{ marginTop: space.x16 }}>
+          {brief}
+        </Sentence>
+      ) : null}
 
       {light ? (
         <View style={styles.tile}>
