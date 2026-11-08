@@ -11,7 +11,7 @@
     "splash": {
       "image": "./assets/splash.png",
       "resizeMode": "contain",
-      "backgroundColor": "#100e0c"
+      "backgroundColor": "#0A0A0A"
     },
     "assetBundlePatterns": [
       "**/*"
@@ -36,7 +36,7 @@
       "versionCode": 11,
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#100e0c"
+        "backgroundColor": "#0A0A0A"
       }
     },
     "web": {
@@ -53,13 +53,13 @@
         "expo-notifications",
         {
           "icon": "./assets/notification-icon.png",
-          "color": "#d99e7f"
+          "color": "#E0A480"
         }
       ],
       [
         "expo-splash-screen",
         {
-          "backgroundColor": "#100e0c",
+          "backgroundColor": "#0A0A0A",
           "image": "./assets/splash.png",
           "imageWidth": 200
         }

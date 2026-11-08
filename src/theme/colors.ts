@@ -1,9 +1,21 @@
 /**
- * Open Season — "Ember" palette.
- * Warm charcoal (brown-black) base that leans into the copper accent — no green.
- * Cards are a subtle warm-dark gradient with a copper-tinted hairline; species
- * read as copper monograms. Status: Open = copper, Closed/Soon = muted white.
+ * Open Season — the legacy "Ember" palette, now a shim.
+ *
+ * The app's colours live in theme/tokens.ts (`lang`). This file stays only
+ * because a handful of older components still import `theme` from '@/theme':
+ * the admin and diagnostics screens, AlmanacRow, BrowseStateChip, HeaderBack,
+ * LaunchQuote, LightCountdown, MiniMarkdown, Provenance, ui.tsx and
+ * midnight.tsx.
+ *
+ * Every user-visible value below now reads from `lang`, so those components
+ * render the field-journal palette rather than Ember's. Before this they drew
+ * the old copper (#d99e7f) next to the new one (#E0A480) on the same screen —
+ * the almanac row on Home and the provenance footnotes were both doing it.
+ *
+ * Do not add to this file. Convert the component instead and delete its
+ * import; when the list above is empty, this goes with it.
  */
+import { lang } from './tokens';
 
 export const palette = {
   // Warm charcoal ink scale (no green tint)
@@ -31,38 +43,44 @@ export const palette = {
  * incidental accents only.
  */
 export const speciesColors = {
-  deer: '#d99e7f',
-  elk: '#c98a6a',
+  deer: lang.color.copper,
+  elk: lang.color.copperDim,
   bear: '#a97a5c',
   duck: '#8fa39a',
-  default: '#d99e7f',
+  default: lang.color.copper,
 } as const;
 
 export type SpeciesKey = keyof typeof speciesColors;
 
+/**
+ * The old names, pointed at the current tokens. Names are kept so the
+ * remaining importers need no edit; values are not, so nothing renders a
+ * second palette beside the real one.
+ */
 export const theme = {
   color: {
-    background: palette.ink900,
-    surface: palette.ink700,
-    surfaceElevated: palette.ink600,
-    border: 'rgba(217,158,127,0.20)', // copper-tinted border (featured/gradient card)
-    surfaceFlat: 'rgba(255,255,255,0.03)', // inactive rows, stat tiles, peek cards
-    borderFlat: 'rgba(255,255,255,0.07)', // border on flat surfaces
-    hairline: 'rgba(255,255,255,0.08)', // list dividers
-    textPrimary: palette.bone100,
-    textSecondary: 'rgba(244,241,234,0.80)', // raised for outdoor/sunlight legibility
-    textMuted: 'rgba(244,241,234,0.62)', // raised from .50 — dim greys were hard to read in bright light
-    accent: palette.copper400,
-    accentStrong: palette.copper500,
-    accentSoft: palette.copper300, // light copper — text on translucent/glass
-    accentFill: 'rgba(217,158,127,0.18)', // soft copper fill behind "Open" pills
-    onAccent: '#161a17', // near-black — legible on solid copper
+    background: lang.color.bg,
+    surface: lang.color.surface,
+    surfaceElevated: lang.color.surface,
+    border: lang.color.rule,
+    surfaceFlat: lang.color.tile,
+    borderFlat: lang.color.hair,
+    hairline: lang.color.hair,
+    textPrimary: lang.color.bone,
+    textSecondary: lang.color.muted,
+    textMuted: lang.color.dim,
+    accent: lang.color.copper,
+    accentStrong: lang.color.copperDim,
+    accentSoft: lang.color.copper,
+    accentFill: lang.color.tileWarm,
+    onAccent: lang.color.bg, // legible on solid copper
     danger: '#d9776a',
     warning: '#d9a86a',
-    success: palette.copper400, // "open / plenty of time" reads copper in Midnight
+    // "open / plenty of time" reads copper, same as everywhere else.
+    success: lang.color.copper,
   },
   gradient: {
-    card: ['#241e17', '#17130f'] as [string, string],
+    card: [lang.color.surface, lang.color.bg] as [string, string],
   },
   species: speciesColors,
 } as const;
