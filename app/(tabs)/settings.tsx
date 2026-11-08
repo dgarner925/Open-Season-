@@ -2,23 +2,25 @@ import Constants from 'expo-constants';
 import { Ionicons } from '@expo/vector-icons';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'expo-router';
-import { Alert, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
-import { AppText, Button, Card, Screen } from '@/components/ui';
-import { PageTitle, SectionRule } from '@/components/midnight';
+import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { Headline, Input, LinkSentence, Micro, Pill, Sentence, Serif } from '@/components/system';
 import { useAuth } from '@/providers/AuthProvider';
 import { useActiveStates } from '@/features/reference/queries';
 import { useBrowseStateCode } from '@/lib/browseState';
 import { supabase } from '@/lib/supabase';
 import { openExternalUrl } from '@/lib/openUrl';
 import { Engraving, engravingFor } from '@/components/Engraving';
-import { fontFamily, radius, spacing, theme } from '@/theme';
+import { lang } from '@/theme/tokens';
+
+const { color, space, type } = lang;
 
 const colophonArt = engravingFor('deer');
 
 const PRIVACY_POLICY_URL = 'https://dgarner925.github.io/OpenSeason-Legal/';
 const TERMS_URL = 'https://dgarner925.github.io/OpenSeason-Legal/terms.html';
 
-/** One row inside a grouped section card: title, optional caption, chevron. */
+/** One hairline row: title, optional caption, chevron. */
 function Row({
   title,
   caption,
@@ -31,17 +33,45 @@ function Row({
   first?: boolean;
 }) {
   return (
-    <Pressable onPress={onPress} style={({ pressed }) => [styles.row, !first && styles.rowDivider, pressed && { opacity: 0.65 }]}>
+    <Pressable onPress={onPress} style={({ pressed }) => [styles.row, !first && styles.rowDivider, pressed && styles.pressed]}>
       <View style={{ flex: 1 }}>
-        <AppText variant="bodyStrong">{title}</AppText>
-        {caption ? (
-          <AppText variant="caption" color={theme.color.textMuted} style={{ marginTop: 2 }}>
-            {caption}
-          </AppText>
-        ) : null}
+        <Text style={styles.rowTitle}>{title}</Text>
+        {caption ? <Text style={styles.rowSub}>{caption}</Text> : null}
       </View>
-      <Ionicons name="chevron-forward" size={16} color={theme.color.textMuted} />
+      <Ionicons name="chevron-forward" size={15} color={color.dim} />
     </Pressable>
+  );
+}
+
+/** A copper rule to the page's edges, then the label for what follows. */
+function Section({ label }: { label: string }) {
+  return (
+    <View style={styles.sectionHead}>
+      <View style={styles.sectionRule} />
+      <Micro>{label}</Micro>
+    </View>
+  );
+}
+
+/** An offer, not a row: a title in the serif and a sentence under it. */
+function Offer({ title, line, onPress }: { title: string; line: string; onPress: () => void }) {
+  return (
+    <Pressable onPress={onPress} style={({ pressed }) => [styles.offer, pressed && styles.pressed]}>
+      <View style={styles.sectionRule} />
+      <Serif size={27}>{title}</Serif>
+      <Sentence style={{ marginTop: space.x8 }}>{line}</Sentence>
+    </Pressable>
+  );
+}
+
+function Colophon() {
+  return (
+    <View style={styles.colophon}>
+      {colophonArt ? <Engraving data={colophonArt} size={34} color={color.dim} opacity={0.55} /> : null}
+      <Micro>
+        {`Open Season · Vol. ${Constants.expoConfig?.version ?? '?'} (${Constants.expoConfig?.ios?.buildNumber ?? '—'})`}
+      </Micro>
+    </View>
   );
 }
 
@@ -98,121 +128,101 @@ export default function Settings() {
   }
 
   // A guest has no profile to show: no name, no email, no join year, and every
-  // row under THE PURSUIT and THE WATCH writes to a user row that doesn't
+  // row under the pursuit and the watch writes to a user row that doesn't
   // exist. Rather than render a bookplate with a question mark in it and five
   // rows that bounce to sign-in, this is the one thing worth offering plus the
   // fine print, which is the same for everybody.
   if (isGuest) {
     return (
-      <Screen scroll contentStyle={{ paddingBottom: spacing.xxl }}>
-        <PageTitle lead="Your " accent="profile." />
+      <SafeAreaView style={styles.screen} edges={['top', 'left', 'right']}>
+        <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+          <Headline>Your profile.</Headline>
 
-        <Card onPress={() => router.push('/(auth)/sign-in')} style={{ marginTop: spacing.xl }}>
-          <AppText variant="h3">Sign in</AppText>
-          <AppText variant="body" color={theme.color.textSecondary}>
-            Reading dates needs no account. One gets you follows, opener reminders, draw deadlines
-            you can't miss, parties and your application history — on every device you carry.
-          </AppText>
-        </Card>
+          <Offer
+            title="Sign in"
+            line="Reading dates needs no account. One gets you follows, opener reminders, draw deadlines you can't miss, parties and your application history — on every device you carry."
+            onPress={() => router.push('/(auth)/sign-in')}
+          />
 
-        <SectionRule label="WHAT YOU'RE READING" />
-        <Card style={styles.group}>
+          <Section label="What you're reading" />
           <Row
             first
             title="State"
             caption={browseName ? `Browsing ${browseName}.` : 'Pick a state to browse.'}
             onPress={() => router.push('/pick-state')}
           />
-        </Card>
 
-        <SectionRule label="THE FINE PRINT" />
-        <Card style={styles.group}>
+          <Section label="The fine print" />
           <Row first title="How it works" onPress={() => router.push('/how-to')} />
           <Row title="Privacy policy" onPress={() => openExternalUrl(PRIVACY_POLICY_URL)} />
           <Row title="Terms of service" onPress={() => openExternalUrl(TERMS_URL)} />
-        </Card>
 
-        <View style={styles.colophon}>
-          {colophonArt ? <Engraving data={colophonArt} size={34} color={theme.color.textMuted} opacity={0.55} /> : null}
-          <AppText variant="caption" color={theme.color.textMuted} style={{ letterSpacing: 1.2 }}>
-            OPEN SEASON · VOL. {Constants.expoConfig?.version ?? '?'} ({Constants.expoConfig?.ios?.buildNumber ?? '—'})
-          </AppText>
-        </View>
-      </Screen>
+          <Colophon />
+        </ScrollView>
+      </SafeAreaView>
     );
   }
 
   return (
-    <Screen scroll contentStyle={{ paddingBottom: spacing.xxl }}>
-      <PageTitle lead="Your " accent="profile." />
+    <SafeAreaView style={styles.screen} edges={['top', 'left', 'right']}>
+      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+        <Headline>Your profile.</Headline>
 
-      {/* Identity as a bookplate: double-ring monogram, name in the display serif,
-          and the member line set like an edition note. Pencil toggles the editor. */}
-      <View style={styles.identity}>
-        <View style={styles.monogramRing}>
-          <View style={styles.monogram}>
-            <Text style={styles.monogramLetter}>{initial}</Text>
+        {/* Identity as a bookplate: a copper ring, the name in the display
+            serif, and the member line set like an edition note. The pencil
+            toggles the editor. */}
+        <View style={styles.identity}>
+          <View style={styles.monogramRing}>
+            <View style={styles.monogram}>
+              <Text style={styles.monogramLetter}>{initial}</Text>
+            </View>
           </View>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.identityName}>{displayName || 'Add your name'}</Text>
+            {residentStateName || isAdmin ? (
+              <Text style={styles.rowSub}>{[residentStateName, isAdmin ? 'Admin' : null].filter(Boolean).join(' · ')}</Text>
+            ) : null}
+            {fieldSince ? <Micro style={{ marginTop: 6 }}>{`In the field since ${fieldSince}`}</Micro> : null}
+          </View>
+          <Pressable onPress={() => setEditingName((v) => !v)} hitSlop={10} style={({ pressed }) => pressed && styles.pressed}>
+            <Ionicons name={editingName ? 'close' : 'pencil'} size={17} color={color.muted} />
+          </Pressable>
         </View>
-        <View style={{ flex: 1 }}>
-          <Text style={styles.identityName}>{displayName || 'Add your name'}</Text>
-          {residentStateName || isAdmin ? (
-            <AppText variant="caption" color={theme.color.textMuted} style={{ marginTop: 2 }}>
-              {[residentStateName, isAdmin ? 'Admin' : null].filter(Boolean).join(' · ')}
-            </AppText>
-          ) : null}
-          {fieldSince ? <Text style={styles.fieldSince}>IN THE FIELD SINCE {fieldSince}</Text> : null}
-        </View>
-        <Pressable onPress={() => setEditingName((v) => !v)} hitSlop={10} style={({ pressed }) => pressed && { opacity: 0.6 }}>
-          <Ionicons name={editingName ? 'close' : 'pencil'} size={17} color={theme.color.textSecondary} />
-        </Pressable>
-      </View>
 
-      {editingName ? (
-        <Card>
-          <AppText variant="caption" color={theme.color.textMuted}>
-            Used to greet you on the home screen.
-            {user?.email ? ` Signed in as ${user.email}.` : ''}
-          </AppText>
-          <TextInput
-            value={name}
-            onChangeText={setName}
-            placeholder="First name"
-            placeholderTextColor={theme.color.textMuted}
-            style={styles.input}
-            autoFocus
+        {editingName ? (
+          <View style={styles.editor}>
+            <Sentence>
+              {`Used to greet you on the home screen.${user?.email ? ` Signed in as ${user.email}.` : ''}`}
+            </Sentence>
+            <Input value={name} onChangeText={setName} placeholder="First name" autoFocus style={{ marginTop: space.x12 }} />
+            <Pill
+              label={savingName ? 'Saving…' : 'Save name'}
+              onPress={saveName}
+              disabled={savingName || trimmed === displayName}
+              style={{ marginTop: space.x16 }}
+            />
+          </View>
+        ) : null}
+
+        {isAdmin ? (
+          <Offer
+            title="Review queue"
+            line="Approve or reject extracted seasons, draws, and regs."
+            onPress={() => router.push('/(tabs)/admin')}
           />
-          <Button
-            title={savingName ? 'Saving…' : 'Save name'}
-            onPress={saveName}
-            loading={savingName}
-            disabled={trimmed === displayName}
+        ) : null}
+
+        {/* Onboarding is no longer forced on anyone, so it needs a door. This
+            is it, and it only appears until it has been walked through. */}
+        {!isOnboarded ? (
+          <Offer
+            title="Set up your hunts"
+            line="Pick your states and species once, and the app will track their dates for you."
+            onPress={() => router.push('/onboarding')}
           />
-        </Card>
-      ) : null}
+        ) : null}
 
-      {isAdmin && (
-        <Card onPress={() => router.push('/(tabs)/admin')}>
-          <AppText variant="h3">Review queue</AppText>
-          <AppText variant="body" color={theme.color.textSecondary}>
-            Approve or reject extracted seasons, draws, and regs.
-          </AppText>
-        </Card>
-      )}
-
-      {/* Onboarding is no longer forced on anyone, so it needs a door. This is
-          it, and it only appears until it has been walked through. */}
-      {!isOnboarded ? (
-        <Card onPress={() => router.push('/onboarding')}>
-          <AppText variant="h3">Set up your hunts</AppText>
-          <AppText variant="body" color={theme.color.textSecondary}>
-            Pick your states and species once, and the app will track their dates for you.
-          </AppText>
-        </Card>
-      ) : null}
-
-      <SectionRule label="THE PURSUIT" />
-      <Card style={styles.group}>
+        <Section label="The pursuit" />
         <Row first title="Manage your hunts" caption="Your states and species." onPress={() => router.push('/follows')} />
         <Row
           title="Home state"
@@ -222,94 +232,83 @@ export default function Settings() {
         <Row title="Hunting parties" caption="Apply for draws with your buddies." onPress={() => router.push('/parties')} />
         <Row title="My applications" caption="What you've applied for, and results." onPress={() => router.push('/tracker')} />
         <Row title="Preference points" caption="The points you're banking, draw by draw." onPress={() => router.push('/points')} />
-      </Card>
 
-      <SectionRule label="THE WATCH" />
-      <Card style={styles.group}>
+        <Section label="The watch" />
         <Row first title="Reminders" caption="How far ahead we give you a heads-up." onPress={() => router.push('/alerts')} />
+        <Row title="What arrives" caption="Every notice still to come, in order." onPress={() => router.push('/what-arrives')} />
         <Row title="Notification history" onPress={() => router.push('/notifications')} />
-      </Card>
 
-      <SectionRule label="THE FINE PRINT" />
-      <Card style={styles.group}>
+        <Section label="The fine print" />
         <Row first title="How it works" onPress={() => router.push('/how-to')} />
         <Row title="Privacy policy" onPress={() => openExternalUrl(PRIVACY_POLICY_URL)} />
         <Row title="Terms of service" onPress={() => openExternalUrl(TERMS_URL)} />
         <Row title="Update delivery" caption="Diagnostics" onPress={() => router.push('/updates-debug')} />
-      </Card>
 
-      <View style={{ marginTop: spacing.lg, gap: spacing.sm }}>
-        <Button variant="ghost" title="Sign out" onPress={signOut} />
-        <Pressable
-          onPress={confirmDeleteAccount}
-          disabled={deleting}
-          style={({ pressed }) => [styles.deleteBtn, pressed && { opacity: 0.7 }]}
-        >
-          <AppText variant="bodyStrong" color={theme.color.danger}>
-            {deleting ? 'Deleting…' : 'Delete account'}
-          </AppText>
-        </Pressable>
-        {/* Colophon: the app's printer's device — a small engraved deer — over the edition line. */}
-        <View style={styles.colophon}>
-          {colophonArt ? <Engraving data={colophonArt} size={34} color={theme.color.textMuted} opacity={0.55} /> : null}
-          <AppText variant="caption" color={theme.color.textMuted} style={{ letterSpacing: 1.2 }}>
-            OPEN SEASON · VOL. {Constants.expoConfig?.version ?? '?'} ({Constants.expoConfig?.ios?.buildNumber ?? '—'})
-          </AppText>
+        <View style={styles.exits}>
+          <LinkSentence onPress={signOut}>Sign out</LinkSentence>
+          <Pressable
+            onPress={confirmDeleteAccount}
+            disabled={deleting}
+            style={({ pressed }) => [styles.deleteBtn, pressed && styles.pressed]}
+          >
+            <Text style={styles.deleteLabel}>{deleting ? 'Deleting…' : 'Delete account'}</Text>
+          </Pressable>
         </View>
-      </View>
-    </Screen>
+
+        {/* Colophon: the app's printer's device — a small engraved deer — over
+            the edition line. */}
+        <Colophon />
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  identity: { flexDirection: 'row', alignItems: 'center', gap: spacing.lg, marginTop: spacing.xl },
+  screen: { flex: 1, backgroundColor: color.bg },
+  content: { paddingHorizontal: space.gutter, paddingTop: space.section, paddingBottom: 56 },
+
+  identity: { flexDirection: 'row', alignItems: 'center', gap: space.x16, marginTop: space.section },
   monogramRing: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: theme.color.accent,
+    borderColor: color.copper,
     alignItems: 'center',
     justifyContent: 'center',
   },
   monogram: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    backgroundColor: theme.color.accentFill,
+    width: 46,
+    height: 46,
+    borderRadius: 23,
+    backgroundColor: color.fill,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  monogramLetter: { fontFamily: fontFamily.serif, fontSize: 24, color: theme.color.accent },
-  identityName: { fontFamily: fontFamily.serif, fontSize: 26, color: theme.color.textPrimary },
-  fieldSince: {
-    fontFamily: fontFamily.sansSemiBold,
-    fontSize: 9,
-    letterSpacing: 1.6,
-    color: '#a68a6d',
-    marginTop: 6,
-  },
+  monogramLetter: { fontFamily: type.display, fontSize: 24, lineHeight: 29, color: color.copper },
+  identityName: { fontFamily: type.display, fontSize: 27, lineHeight: 32, color: color.bone },
 
-  colophon: { alignItems: 'center', gap: spacing.sm, marginTop: spacing.lg },
-  group: { paddingVertical: 0, paddingHorizontal: 0 },
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md + 2,
-  },
-  rowDivider: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: theme.color.border },
+  editor: { marginTop: space.section },
 
-  input: {
-    backgroundColor: theme.color.surfaceElevated,
-    borderRadius: radius.md,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
-    color: theme.color.textPrimary,
-    fontSize: 16,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: theme.color.border,
+  sectionHead: { marginTop: space.section },
+  sectionRule: {
+    height: 1,
+    backgroundColor: color.rule,
+    marginHorizontal: -space.gutter,
+    marginBottom: space.x12,
   },
-  deleteBtn: { minHeight: 44, alignItems: 'center', justifyContent: 'center' },
+  offer: { marginTop: space.section },
+
+  row: { flexDirection: 'row', alignItems: 'center', gap: space.x12, paddingVertical: space.x16 },
+  rowDivider: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: color.hair },
+  rowTitle: { fontFamily: type.uiMedium, fontSize: 15.5, color: color.bone },
+  rowSub: { fontFamily: type.ui, fontSize: 12.5, lineHeight: 18, color: color.muted, marginTop: 2 },
+
+  exits: { marginTop: space.x32, gap: space.x16 },
+  deleteBtn: { minHeight: 44, justifyContent: 'center' },
+  deleteLabel: { fontFamily: type.uiMedium, fontSize: 14, color: '#c96f5a' },
+
+  colophon: { alignItems: 'center', gap: space.x12, marginTop: space.x32 },
+
+  pressed: { opacity: 0.6 },
 });
