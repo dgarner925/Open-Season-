@@ -18,8 +18,13 @@ import { lang } from '@/theme/tokens';
 export function Watermark({
   species,
   size = 210,
-  /** 0.05 on #0A0A0A is just visible in daylight and invisible as a distraction. */
-  opacity = 0.05,
+  /**
+   * 0.07 on #0A0A0A — chosen against all eight plates at once, not just the
+   * deer (David, 2026-11-08). 0.05 read as texture on a laptop at night and
+   * vanished on the thinner plates in daylight; past ~0.10 it stops being
+   * paper and becomes a picture competing with the headline.
+   */
+  opacity = 0.07,
   tone = 'bone',
   style,
 }: {
