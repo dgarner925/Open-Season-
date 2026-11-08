@@ -73,11 +73,12 @@ export type CleanSweepResult = {
  * Apply every clean item in one pass.
  *
  * `quiet` is required, with no default. It used to default to true, and since
- * this is how a large queue actually gets worked, every sweep went out silent
- * and the date-change watchdog never fired once between shipping on 2026-11-01
- * and 2026-11-08 — three published openers moved in that window with nobody
- * told. A default either way is a decision made far from the screen that knows
- * the consequences, so the caller has to say.
+ * this is how a large queue actually gets worked, every sweep went out silent:
+ * the date-change watchdog did not fire once between shipping on 2026-11-01
+ * and 2026-11-08, and three published openers moved silently in that window
+ * (none of them reaching a follower, as it happened). A default either way is
+ * a decision made far from the screen that knows the consequences, so the
+ * caller has to say.
  *
  * See notifyCount() in ./notify for how the screen works out what a sweep
  * would actually announce before asking.

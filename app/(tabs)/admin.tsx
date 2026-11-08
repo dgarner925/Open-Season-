@@ -31,9 +31,11 @@ export default function Admin() {
   // Off was the safe choice while the number of pushes a sweep would send was
   // unknowable from this screen: approving 300 clean items might tell nobody
   // anything or might send 373 alerts about dates that never moved. So it was
-  // left off, every sweep went out silent, and on 2026-11-02 three published
-  // openers moved — one of them six days EARLIER — with nobody told. The app
-  // promises it watches so you don't have to. It wasn't.
+  // left off, and between 2026-11-01 and 11-08 the date-change watchdog did
+  // not fire once — the app promises it watches so you don't have to, and it
+  // wasn't. Three published openers moved silently in that window. Nobody was
+  // actually harmed (two had no followers, the third had already passed), so
+  // this is a fix to the mechanism, not a response to an incident.
   //
   // The switch is safe to leave on now because the count is no longer a
   // guess: notifyCount() applies the watchdog's own conditions to the pending
