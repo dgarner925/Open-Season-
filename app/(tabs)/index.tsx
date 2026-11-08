@@ -171,15 +171,28 @@ export default function Home() {
           </Pressable>
         </View>
 
-        <View style={styles.heroBlock}>
-          {/* The wordmark used to hold this space. It said the app's name to
-              someone who had already opened the app, which is the one reader
-              who does not need telling; the countdown is the thing only this
-              screen knows (David, 2026-11-08). Nothing else on Home moved.
+        {/* Greeting first, then the fact (David, 2026-11-08: "It should go
+            salutation and then information"). You say hello to someone before
+            you tell them something, and the date belongs with the hello — it
+            is scene-setting, not news. The countdown is the news, so it lands
+            last and largest, which is also where the eye stops.
 
-              The wordmark stays as the fallback: with no season ahead there
-              is no countdown to print, and a blank hero is worse than a
-              masthead. */}
+            The wordmark used to hold the top of this block. It said the app's
+            name to someone who had already opened the app, which is the one
+            reader who does not need telling. It stays only as the fallback:
+            with no season ahead there is no countdown to print, and a blank
+            hero is worse than a masthead. */}
+        <View style={styles.heroBlock}>
+          <AppText variant="overline" color={theme.color.textMuted}>
+            {WEEKDAYS[now.getDay()]}, {MONTHS[now.getMonth()]} {now.getDate()}
+          </AppText>
+          {firstName ? (
+            <Text style={styles.greeting}>
+              {partOfDay}, <Text style={styles.greetingName}>{firstName}</Text>
+            </Text>
+          ) : (
+            <Text style={styles.greeting}>{partOfDay}</Text>
+          )}
           {nextOpener ? (
             <Headline
               size={headlineSize(
@@ -191,16 +204,6 @@ export default function Home() {
             </Headline>
           ) : (
             <PageTitle lead={'Open\n'} accent="season." style={styles.hero} />
-          )}
-          <AppText variant="overline" color={theme.color.textMuted} style={styles.dateLine}>
-            {WEEKDAYS[now.getDay()]}, {MONTHS[now.getMonth()]} {now.getDate()}
-          </AppText>
-          {firstName ? (
-            <Text style={styles.greeting}>
-              {partOfDay}, <Text style={styles.greetingName}>{firstName}</Text>
-            </Text>
-          ) : (
-            <Text style={styles.greeting}>{partOfDay}</Text>
           )}
         </View>
 
@@ -589,11 +592,12 @@ const styles = StyleSheet.create({
   bellBtn: { width: 32, height: 32, alignItems: 'center', justifyContent: 'center' },
   
   heroBlock: { marginTop: spacing.xl },
-  hero: { fontSize: 62, lineHeight: 70, paddingTop: 4 },
+  hero: { fontSize: 62, lineHeight: 70, paddingTop: 4, marginTop: spacing.md },
   // Sits where the wordmark sat, so the date line and greeting below it
   // keep their spacing exactly as they were.
-  heroHeadline: { paddingTop: 4 },
-  dateLine: { marginTop: spacing.lg },
+  // Set off from the greeting above it: the salutation is one small block,
+  // the news is the next. Without this they read as one paragraph.
+  heroHeadline: { marginTop: spacing.md },
   outlookLight: { flexDirection: 'row', alignItems: 'baseline', gap: spacing.md, marginVertical: 2 },
   lightTimes: { fontFamily: fontFamily.serif, fontSize: 22, color: lang.color.bone },
   lightLabel: {
