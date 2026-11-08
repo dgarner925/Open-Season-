@@ -3,10 +3,9 @@ import { useRouter } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { AppText } from '@/components/ui';
 import { AlmanacCol, almanacStyles } from '@/components/AlmanacRow';
 import { LightRow, NextOpener, OpenerRow, type PromiseState } from '@/components/NextOpener';
-import { Micro, Monogram } from '@/components/system';
+import { Micro, Monogram, Sentence, Serif } from '@/components/system';
 import { armedFor, openerOffsetsFor, useAlertPreferences } from '@/features/alerts/queries';
 import { firingsFor } from '@/features/alerts/promise';
 import { dayAndDate } from '@/lib/date';
@@ -23,8 +22,6 @@ import type { SeasonWithRefs } from '@/features/reference/types';
 import { queryClient } from '@/lib/queryClient';
 import { maybeRequestReview } from '@/lib/rateApp';
 import { pushWidgetEvent, pushWidgetLight } from '@/lib/widget';
-import { fontFamily, radius, spacing, theme } from '@/theme';
-import { Serif } from '@/components/system';
 import { lang } from '@/theme/tokens';
 
 const WEEKDAYS = ['SUNDAY', 'MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY'];
@@ -184,7 +181,7 @@ export default function Home() {
       <ScrollView
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.color.accent} />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={lang.color.copper} />}
       >
         {/* The mark holds the corner the "Open season." masthead used to hold.
             The chip drops its own copper dot — two copper dots an inch apart
@@ -193,9 +190,9 @@ export default function Home() {
         <View style={styles.topRow}>
           <Monogram size={23} />
           <Pressable style={styles.locChip} onPress={() => router.push(browsing ? '/pick-state' : '/follows')}>
-            <AppText variant="caption" color={theme.color.textSecondary} numberOfLines={1}>
+            <Text style={styles.chipText} numberOfLines={1}>
               {locationLabel}
-            </AppText>
+            </Text>
             <Ionicons name="chevron-down" size={11} color={lang.color.muted} />
           </Pressable>
           <Pressable onPress={() => router.push('/search')} hitSlop={10} style={styles.bellBtn} accessibilityRole="button" accessibilityLabel="Search">
@@ -226,9 +223,9 @@ export default function Home() {
           /* Nothing ahead in these states — the masthead carries the screen. */
           <View style={styles.heroBlock}>
             <PageTitle lead={'Open\n'} accent="season." style={styles.hero} />
-            <AppText variant="overline" color={theme.color.textMuted} style={styles.dateLine}>
-              {WEEKDAYS[now.getDay()]}, {MONTHS[now.getMonth()]} {now.getDate()}
-            </AppText>
+            <Micro style={styles.dateLine}>
+              {`${WEEKDAYS[now.getDay()]}, ${MONTHS[now.getMonth()]} ${now.getDate()}`}
+            </Micro>
           </View>
         )}
 
@@ -283,8 +280,8 @@ export default function Home() {
 
         {permitFollows.length > 0 ? (
           <View style={styles.section}>
-            <Serif size={22}>Permit hunts</Serif>
-            <View style={styles.tileGroup}>
+            <View style={styles.sectionRule} />
+            <Micro>Permit hunts</Micro>
             {permitFollows
               .filter((f) => f.hunt)
               .sort((a, b) => (a.hunt!.name < b.hunt!.name ? -1 : 1))
@@ -295,29 +292,28 @@ export default function Home() {
                   style={({ pressed }) => [styles.row, i > 0 && styles.rowDivider, pressed && styles.pressed]}
                 >
                   <View style={styles.permitTile}>
-                    <Ionicons name="ribbon-outline" size={17} color={theme.color.textMuted} />
+                    <Ionicons name="ribbon-outline" size={16} color={lang.color.dim} />
                   </View>
                   <View style={{ flex: 1 }}>
-                    <AppText variant="bodyStrong" numberOfLines={1}>
+                    <Text style={styles.rowTitle} numberOfLines={1}>
                       {f.hunt!.name}
-                    </AppText>
-                    <AppText variant="caption" color={theme.color.textMuted} numberOfLines={1}>
+                    </Text>
+                    <Text style={styles.rowSub} numberOfLines={1}>
                       {[f.hunt!.agency, f.hunt!.state_code].filter(Boolean).join(' · ')}
-                    </AppText>
+                    </Text>
                   </View>
                   {(() => {
                     const seg = nextPermitSegment(f.hunt, iso);
                     if (!seg || seg.open_date <= iso) return null;
                     return (
-                      <Text style={[styles.rowMetric, { color: theme.color.accentSoft }]}>
+                      <Text style={[styles.rowMetric, { color: lang.color.copperDim }]}>
                         in {diffDays(iso, seg.open_date)}d
                       </Text>
                     );
                   })()}
-                  <Ionicons name="open-outline" size={13} color={theme.color.textMuted} />
+                  <Ionicons name="open-outline" size={12} color={lang.color.dim} />
                 </Pressable>
               ))}
-            </View>
           </View>
         ) : null}
 
@@ -326,40 +322,40 @@ export default function Home() {
         {isLoading ? null : followsError && !hasFollows ? (
           /* A failed fetch must never dress up as a fresh account — that
              looked like a wiped app on a Sunday morning (2026-09-06). */
-          <Pressable onPress={() => queryClient.invalidateQueries()} style={styles.emptyCard}>
-            <AppText variant="h3">Couldn't reach camp.</AppText>
-            <AppText variant="caption" color={theme.color.textSecondary}>
-              Your hunts are safe — the connection hiccuped. Tap to try again.
-            </AppText>
+          <Pressable onPress={() => queryClient.invalidateQueries()} style={styles.emptyBlock}>
+            <View style={styles.sectionRule} />
+            <Serif size={27}>Couldn't reach camp.</Serif>
+            <Sentence>Your hunts are safe — the connection hiccuped. Tap to try again.</Sentence>
           </Pressable>
         ) : !hasFollows ? (
           isGuest ? (
             /* A guest has nothing to follow -- there is no account to hang a
                follow on yet. So ask for the account, and be honest about what
                it is for: the dates stay free either way. */
-            <Pressable onPress={() => router.push('/(auth)/sign-in')} style={styles.emptyCard}>
-              <AppText variant="h3">Make it yours</AppText>
-              <AppText variant="caption" color={theme.color.textSecondary}>
+            <Pressable onPress={() => router.push('/(auth)/sign-in')} style={styles.emptyBlock}>
+              <View style={styles.sectionRule} />
+              <Serif size={27}>Make it yours</Serif>
+              <Sentence>
                 Reading dates is free, and stays free. Create an account to follow the species you
                 hunt and get told before each opener.
-              </AppText>
+              </Sentence>
             </Pressable>
           ) : (
-            <Pressable onPress={() => router.push('/follows')} style={styles.emptyCard}>
-              <AppText variant="h3">Choose your quarry</AppText>
-              <AppText variant="caption" color={theme.color.textSecondary}>
+            <Pressable onPress={() => router.push('/follows')} style={styles.emptyBlock}>
+              <View style={styles.sectionRule} />
+              <Serif size={27}>Choose your quarry</Serif>
+              <Sentence>
                 Add states and the species you hunt to start tracking seasons and tag deadlines.
-              </AppText>
+              </Sentence>
             </Pressable>
           )
         ) : (
           <View style={styles.section}>
-            <Serif size={22}>Your species</Serif>
-            <View style={styles.tileGroup}>
-              {roster.map((r, i) => (
-                <RosterRow key={r.speciesId} item={r} divider={i > 0} onPress={() => router.push({ pathname: '/species/[id]', params: { id: r.speciesId } })} />
-              ))}
-            </View>
+            <View style={styles.sectionRule} />
+            <Micro>Your species</Micro>
+            {roster.map((r, i) => (
+              <RosterRow key={r.speciesId} item={r} divider={i > 0} onPress={() => router.push({ pathname: '/species/[id]', params: { id: r.speciesId } })} />
+            ))}
           </View>
         )}
       </ScrollView>
@@ -465,16 +461,12 @@ function WeekendBriefCard({
   const range = fm === sm ? `${MON[fm - 1]} ${fd}–${sd}` : `${MON[fm - 1]} ${fd} – ${MON[sm - 1]} ${sd}`;
 
   return (
-    <Pressable onPress={onPress} style={({ pressed }) => [styles.briefCard, pressed && styles.pressed]}>
-      <View style={styles.briefHead}>
-        <AppText variant="overline" color={theme.color.accentSoft}>
-          THE WEEKEND BRIEF
-        </AppText>
-        <AppText variant="overline" color={theme.color.textMuted}>
-          {range}
-        </AppText>
+    <Pressable onPress={onPress} style={({ pressed }) => [styles.section, pressed && styles.pressed]}>
+      <View style={styles.sectionRule} />
+      <View style={styles.sectionHead}>
+        <Micro style={{ color: lang.color.copperDim }}>The weekend brief</Micro>
+        <Micro>{range}</Micro>
       </View>
-      <View style={styles.briefRule} />
       {shown.map((l, i) => (
         <Text key={i} style={styles.briefLine}>
           {l.text}
@@ -489,7 +481,7 @@ function WeekendBriefCard({
       ) : null}
       {dawn ? (
         <>
-          <View style={styles.briefRule} />
+          <View style={styles.hairRule} />
           <Text style={almanacStyles.head}>
             {dawn.dayName.toUpperCase()} DAWN{dawn.approx ? ' · ≈' : ''}
           </Text>
@@ -519,21 +511,21 @@ function WeekendBriefCard({
 
 function RosterRow({ item, divider, onPress }: { item: RosterItem; divider: boolean; onPress: () => void }) {
   const right = item.state === 'open' ? 'Open' : item.state === 'upcoming' ? `in ${Math.max(item.days ?? 0, 0)}d` : 'No dates yet';
-  const rightColor = item.state === 'open' ? theme.color.accent : item.state === 'upcoming' ? theme.color.accentSoft : theme.color.textMuted;
+  const rightColor = item.state === 'open' ? lang.color.copper : item.state === 'upcoming' ? lang.color.copperDim : lang.color.dim;
   return (
     <Pressable onPress={onPress} style={({ pressed }) => [styles.row, divider && styles.rowDivider, pressed && styles.pressed]}>
-      <SpeciesBadge name={item.name} size={40} muted={item.state !== 'open'} />
+      <SpeciesBadge name={item.name} size={34} muted={item.state !== 'open'} />
       <View style={{ flex: 1 }}>
-        <AppText variant="bodyStrong" numberOfLines={1}>
+        <Text style={styles.rowTitle} numberOfLines={1}>
           {item.name}
-        </AppText>
-        <AppText variant="caption" color={theme.color.textMuted} numberOfLines={1}>
+        </Text>
+        <Text style={styles.rowSub} numberOfLines={1}>
           {item.codes.length === 0
             ? 'Tracked'
             : item.codes.length <= 3
               ? item.codes.join(' · ')
               : `${item.codes.length} states`}
-        </AppText>
+        </Text>
       </View>
       <Text style={[styles.rowMetric, { color: rightColor }]}>{right}</Text>
     </Pressable>
@@ -542,22 +534,16 @@ function RosterRow({ item, divider, onPress }: { item: RosterItem; divider: bool
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: lang.color.bg },
-  content: { paddingHorizontal: lang.space.gutter, paddingTop: spacing.lg, paddingBottom: spacing.xxl },
-  sectionRule: {
-    height: StyleSheet.hairlineWidth,
-    backgroundColor: lang.color.hair,
-    marginHorizontal: -lang.space.gutter,
-    marginBottom: lang.space.x16,
-  },
+  content: { paddingHorizontal: lang.space.gutter, paddingTop: lang.space.x16, paddingBottom: 56 },
 
   topRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   locChip: { flexDirection: 'row', alignItems: 'center', gap: 6, flexShrink: 1, minHeight: 44 },
-  topRight: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
+  chipText: { fontFamily: lang.type.uiMedium, fontSize: 13, color: lang.color.muted },
   bellBtn: { width: 32, height: 32, alignItems: 'center', justifyContent: 'center' },
-  
-  heroBlock: { marginTop: spacing.xl },
+
+  heroBlock: { marginTop: lang.space.section },
   hero: { fontSize: 62, lineHeight: 70, paddingTop: 4 },
-  dateLine: { marginTop: spacing.lg },
+  dateLine: { marginTop: lang.space.x16 },
 
   // The openers beneath the hero: a plain hairline list, no card. The bell is
   // the only ornament it needs.
@@ -570,49 +556,57 @@ const styles = StyleSheet.create({
     marginBottom: lang.space.x4,
   },
 
-  // The 1.3.5 brief card — flat surface, copper spine as a left border so it
-  // follows the corner radius (David asked for this layout back, 2026-08-29).
-  briefCard: {
-    marginTop: spacing.lg,
-    padding: spacing.lg,
-    borderRadius: radius.lg,
-    backgroundColor: theme.color.surfaceFlat,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: theme.color.borderFlat,
-    borderLeftWidth: 2,
-    borderLeftColor: theme.color.accent,
-    gap: 6,
+  // Every section below the hero is the same object: a copper rule that bleeds
+  // to both edges, a micro label naming what follows, then entries separated
+  // by hairlines. No surfaces, no radii, no borders -- the flat cards with the
+  // copper spine were the last of the Midnight language on this screen
+  // (David, 2026-11-08: "I thought the color was going to change, the layout").
+  section: { marginTop: lang.space.section },
+  sectionRule: {
+    height: 1,
+    backgroundColor: lang.color.rule,
+    marginHorizontal: -lang.space.gutter,
+    marginBottom: lang.space.x12,
   },
-  briefHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  briefRule: { height: StyleSheet.hairlineWidth, backgroundColor: theme.color.borderFlat, marginVertical: 4 },
-  briefLine: { fontFamily: fontFamily.serifItalic, fontSize: 16.5, lineHeight: 24, color: lang.color.bone },
-  briefLight: { fontFamily: fontFamily.sansMedium, fontSize: 12.5, color: theme.color.textMuted, marginTop: 4 },
+  sectionHead: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    justifyContent: 'space-between',
+    gap: lang.space.x12,
+  },
+  hairRule: {
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: lang.color.hair,
+    marginTop: lang.space.x16,
+    marginRight: -lang.space.gutter,
+  },
 
-  section: { marginTop: spacing.xl, gap: spacing.sm },
-  emptyCard: { marginTop: spacing.lg, padding: spacing.xl, borderRadius: radius.lg, backgroundColor: theme.color.surfaceFlat, borderWidth: StyleSheet.hairlineWidth, borderColor: theme.color.borderFlat, gap: spacing.xs },
+  // The brief's sentences are the one place the italic serif runs at length --
+  // it is the app's own voice, so it is set as prose, not as card copy.
+  briefLine: {
+    fontFamily: lang.type.displayItalic,
+    fontSize: 19.5,
+    lineHeight: 28,
+    color: lang.color.bone,
+    marginTop: lang.space.x12,
+  },
+  briefLight: { fontFamily: lang.type.ui, fontSize: 13, lineHeight: 19, color: lang.color.muted, marginTop: lang.space.x12 },
 
-  tileGroup: {
-    marginTop: spacing.md,
-    backgroundColor: lang.color.surface,
-    borderRadius: lang.radius.card,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: lang.color.hair,
-    overflow: 'hidden',
-    paddingHorizontal: spacing.lg,
-  },
-  row: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, paddingVertical: spacing.md },
-  permitTile: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
-    backgroundColor: theme.color.surfaceFlat,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: theme.color.borderFlat,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
+  emptyBlock: { marginTop: lang.space.section, gap: lang.space.x8 },
+
+  row: { flexDirection: 'row', alignItems: 'center', gap: lang.space.x12, paddingVertical: lang.space.x16 },
+  rowTitle: { fontFamily: lang.type.uiMedium, fontSize: 15.5, color: lang.color.bone },
+  rowSub: { fontFamily: lang.type.ui, fontSize: 12.5, color: lang.color.muted, marginTop: 1 },
   rowDivider: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: lang.color.hair },
-  rowMetric: { fontFamily: fontFamily.sansSemiBold, fontSize: 13, marginLeft: spacing.md },
+  rowMetric: {
+    fontFamily: lang.type.uiMedium,
+    fontSize: 12.5,
+    marginLeft: lang.space.x12,
+    fontVariant: ['tabular-nums'],
+  },
+  // The ribbon sits in the text column's own margin -- a 40pt tile with its
+  // own border was a card inside a list.
+  permitTile: { width: 28, alignItems: 'center' },
 
-  pressed: { opacity: 0.85 },
+  pressed: { opacity: 0.6 },
 });

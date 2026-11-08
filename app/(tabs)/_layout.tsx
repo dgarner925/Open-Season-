@@ -5,7 +5,7 @@ import { ActivityIndicator, StyleSheet, View, type ColorValue } from 'react-nati
 import { useAuth } from '@/providers/AuthProvider';
 import { useBrowseStateCode } from '@/lib/browseState';
 import { registerForPushNotifications } from '@/lib/push';
-import { fontFamily, theme } from '@/theme';
+import { lang } from '@/theme/tokens';
 
 function icon(base: keyof typeof Ionicons.glyphMap) {
   return ({ color, focused }: { color: ColorValue; focused: boolean }) => (
@@ -26,7 +26,7 @@ export default function TabsLayout() {
   if (loading || browseLoading) {
     return (
       <View style={styles.gate}>
-        <ActivityIndicator color={theme.color.accent} size="large" />
+        <ActivityIndicator color={lang.color.copper} size="large" />
       </View>
     );
   }
@@ -50,8 +50,8 @@ export default function TabsLayout() {
       screenOptions={{
         headerShown: false,
         tabBarStyle: styles.bar,
-        tabBarActiveTintColor: theme.color.accent,
-        tabBarInactiveTintColor: theme.color.textMuted,
+        tabBarActiveTintColor: lang.color.copper,
+        tabBarInactiveTintColor: lang.color.dim,
         tabBarLabelStyle: styles.label,
         tabBarItemStyle: { paddingTop: 6 },
       }}
@@ -68,13 +68,20 @@ export default function TabsLayout() {
 }
 
 const styles = StyleSheet.create({
-  gate: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: theme.color.background },
+  gate: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: lang.color.bg },
+  // The bar sits on the page's own background with a single hairline above it
+  // — no raised surface. The language does not use cards for chrome.
   bar: {
-    backgroundColor: theme.color.surface,
-    borderTopColor: theme.color.hairline,
+    backgroundColor: lang.color.bg,
+    borderTopColor: lang.color.hair,
     borderTopWidth: StyleSheet.hairlineWidth,
     height: 88,
     paddingBottom: 30,
   },
-  label: { fontFamily: fontFamily.sansMedium, fontSize: 10, marginTop: 2 },
+  label: {
+    fontFamily: lang.type.uiSemiBold,
+    fontSize: 9.5,
+    letterSpacing: 0.8,
+    marginTop: 2,
+  },
 });
