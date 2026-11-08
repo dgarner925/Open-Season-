@@ -50,7 +50,29 @@ export default function Parties() {
         setCode('');
         router.push({ pathname: '/party/[id]', params: { id: partyId } });
       },
-      onError: () => Alert.alert('Invalid code', 'Double-check the invite code and try again.'),
+      // Every failure used to say "Invalid code", which is the one thing it
+      // usually was not. On 2026-11-08 a valid, working Smithgall code
+      // (someone joined with it 69 seconds after it was minted) was reported
+      // as invalid, and this alert is why: it sends people off to re-check a
+      // code that is fine while hiding the real cause. join_party raises
+      // 'not signed in' when the session has lapsed, and an offline device
+      // never reaches the function at all.
+      onError: (err: unknown) => {
+        const msg = (err as { message?: string } | null)?.message ?? '';
+        if (/not signed in|JWT|session/i.test(msg)) {
+          Alert.alert('Sign in again', 'Your session expired. Sign in and the code will work.');
+          return;
+        }
+        if (/network|fetch|timeout|offline/i.test(msg)) {
+          Alert.alert('No connection', 'The code could not be checked. Try again on a signal.');
+          return;
+        }
+        if (/invalid invite code/i.test(msg)) {
+          Alert.alert('Invalid code', 'Double-check the invite code and try again.');
+          return;
+        }
+        Alert.alert('Could not join', msg || 'Something went wrong joining that party.');
+      },
     });
   }
 
