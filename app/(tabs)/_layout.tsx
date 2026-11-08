@@ -4,6 +4,7 @@ import { useEffect } from 'react';
 import { ActivityIndicator, StyleSheet, View, type ColorValue } from 'react-native';
 import { useAuth } from '@/providers/AuthProvider';
 import { useBrowseStateCode } from '@/lib/browseState';
+import { useNeedsSetup } from '@/hooks/useNeedsSetup';
 import { registerForPushNotifications } from '@/lib/push';
 import { lang } from '@/theme/tokens';
 
@@ -16,6 +17,7 @@ function icon(base: keyof typeof Ionicons.glyphMap) {
 export default function TabsLayout() {
   const { loading, session } = useAuth();
   const { code: browseCode, loading: browseLoading } = useBrowseStateCode();
+  const { needsSetup, loading: setupLoading } = useNeedsSetup();
 
   const userId = session?.user.id;
   useEffect(() => {
@@ -23,7 +25,7 @@ export default function TabsLayout() {
     if (userId) registerForPushNotifications(userId);
   }, [userId]);
 
-  if (loading || browseLoading) {
+  if (loading || browseLoading || setupLoading) {
     return (
       <View style={styles.gate}>
         <ActivityIndicator color={lang.color.copper} size="large" />
@@ -44,6 +46,13 @@ export default function TabsLayout() {
   // It must not point back at the tabs, or this redirect bounces it straight
   // back to sign-in.
   if (!session && !browseCode) return <Redirect href="/(auth)/sign-in" />;
+
+  // A brand-new account goes through setup once, so the how-it-works steps
+  // are the first thing it meets rather than an empty Home (David,
+  // 2026-11-08). Only ever once, and only for an account made in the last
+  // day: see useNeedsSetup for why each condition is there, and why "Skip
+  // for now" does not land straight back here.
+  if (needsSetup) return <Redirect href="/onboarding" />;
 
   return (
     <Tabs

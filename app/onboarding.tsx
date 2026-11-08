@@ -4,10 +4,13 @@ import { useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Input, Pill, Sentence, Serif } from '@/components/system';
+import { HowItWorksList } from '@/components/HowItWorksList';
+import { HOW_IT_WORKS_LEDE } from '@/content/howItWorks';
 import { SpeciesBadge } from '@/components/midnight';
 import { useActiveStates, useStateSpeciesMulti } from '@/features/reference/queries';
 import { useCompleteOnboarding } from '@/features/follows/queries';
 import { supabase } from '@/lib/supabase';
+import { markOnboardingSeen } from '@/lib/onboardingSeen';
 import { useAuth } from '@/providers/AuthProvider';
 import { lang } from '@/theme/tokens';
 
@@ -30,10 +33,19 @@ export default function Onboarding() {
     if (isOnboarded) router.replace('/');
   }, [isOnboarded, router]);
 
+  // Showing it counts. Whatever happens next -- finished, skipped, or the app
+  // killed mid-way -- the tabs must not send this device back here.
+  useEffect(() => {
+    markOnboardingSeen();
+  }, []);
+
   const { data: states = [], isLoading: statesLoading } = useActiveStates();
   const completeOnboarding = useCompleteOnboarding();
 
-  const [step, setStep] = useState(0); // 0 states · 1 species · 2 confirm
+  // 0 how it works · 1 states · 2 species · 3 confirm. The explainer leads
+  // because a new account has no idea what it is setting up yet (David,
+  // 2026-11-08); it asks nothing, so it costs one tap to pass.
+  const [step, setStep] = useState(0);
   const [stateIds, setStateIds] = useState<Set<string>>(new Set());
   const [speciesIds, setSpeciesIds] = useState<Set<string>>(new Set());
   const [saving, setSaving] = useState(false);
@@ -112,35 +124,49 @@ export default function Onboarding() {
   // they hunt but not yet what they want to track could not finish setup at
   // all. States alone already give the app a usable picture -- the browse
   // feeds work off state, and species can be added any time from /follows.
-  const canAdvance = step === 0 ? stateIds.size > 0 : true;
+  const canAdvance = step === 1 ? stateIds.size > 0 : true;
   const primaryLabel =
     step === 0
-      ? stateIds.size === 0
-        ? 'Continue'
-        : `Continue with ${stateIds.size} ${stateIds.size === 1 ? 'state' : 'states'}`
+      ? 'Set it up'
       : step === 1
-        ? speciesIds.size === 0
+        ? stateIds.size === 0
           ? 'Continue'
-          : `Continue with ${speciesIds.size} species`
-        : 'Start hunting';
+          : `Continue with ${stateIds.size} ${stateIds.size === 1 ? 'state' : 'states'}`
+        : step === 2
+          ? speciesIds.size === 0
+            ? 'Continue'
+            : `Continue with ${speciesIds.size} species`
+          : 'Start hunting';
 
   return (
     <SafeAreaView style={styles.screen} edges={['top', 'left', 'right', 'bottom']}>
-      {/* Three steps narrate themselves — no progress dots, no step counter. */}
+      {/* The steps narrate themselves — no progress dots, no step counter. */}
       <View style={styles.head}>
         <Serif size={40} style={{ lineHeight: 46 }}>
-          {step === 0 ? 'Where do you hunt?' : step === 1 ? 'What do you hunt?' : 'Stay ahead.'}
+          {step === 0
+            ? 'How it works.'
+            : step === 1
+              ? 'Where do you hunt?'
+              : step === 2
+                ? 'What do you hunt?'
+                : 'Stay ahead.'}
         </Serif>
         <Sentence style={{ marginTop: space.x8, maxWidth: 310 }}>
           {step === 0
-            ? 'Pick the states you hunt.'
+            ? HOW_IT_WORKS_LEDE
             : step === 1
-              ? "Only what's legal in your states. Pick what you follow."
-              : "We'll remind you before every opener and application deadline — so you never miss a season."}
+              ? 'Pick the states you hunt.'
+              : step === 2
+                ? "Only what's legal in your states. Pick what you follow."
+                : "We'll remind you before every opener and application deadline — so you never miss a season."}
         </Sentence>
       </View>
 
-      {step === 2 ? (
+      {step === 0 ? (
+        <ScrollView contentContainerStyle={styles.list} showsVerticalScrollIndicator={false}>
+          <HowItWorksList />
+        </ScrollView>
+      ) : step === 3 ? (
         <ScrollView contentContainerStyle={styles.confirm} showsVerticalScrollIndicator={false}>
           <Serif size={44}>
             {stateIds.size} {stateIds.size === 1 ? 'state' : 'states'} · {speciesIds.size} species
@@ -187,7 +213,7 @@ export default function Onboarding() {
         </ScrollView>
       ) : (
         <ScrollView contentContainerStyle={styles.list} showsVerticalScrollIndicator={false}>
-          {step === 0 ? (
+          {step === 1 ? (
             statesLoading ? (
               <ActivityIndicator color={color.copper} />
             ) : (
@@ -237,7 +263,7 @@ export default function Onboarding() {
 
       {/* Nothing redirects anyone here any more, so there has to be a way
           back out of it that isn't the home button. */}
-      {step < 2 ? (
+      {step < 3 ? (
         <Pressable
           onPress={() => router.replace('/(tabs)')}
           hitSlop={10}
@@ -258,7 +284,7 @@ export default function Onboarding() {
         )}
         <Pill
           label={saving ? 'Saving…' : primaryLabel}
-          onPress={() => (step === 2 ? finish() : setStep((s) => s + 1))}
+          onPress={() => (step === 3 ? finish() : setStep((s) => s + 1))}
           disabled={!canAdvance || saving}
           style={{ flex: 1, maxWidth: 280 }}
         />
