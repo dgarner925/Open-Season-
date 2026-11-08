@@ -1,13 +1,15 @@
 import { useRouter } from 'expo-router';
-import { ActivityIndicator, FlatList, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { AppText, Card, Pill } from '@/components/ui';
+import { Headline, Micro, Sentence } from '@/components/system';
 import { Disclaimer } from '@/components/Provenance';
 import { useRegsFeed } from '@/features/reference/queries';
 import { BrowseStateChip, BrowseStatePrompt } from '@/components/BrowseStateChip';
 import { useRegulationChanges, type RegulationChange } from '@/features/changes/queries';
 import { verifiedAgo } from '@/lib/date';
-import { spacing, speciesColors, theme, type SpeciesKey } from '@/theme';
+import { lang } from '@/theme/tokens';
+
+const { color, space, type } = lang;
 
 export default function Regs() {
   const router = useRouter();
@@ -16,7 +18,7 @@ export default function Regs() {
   if (isLoading) {
     return (
       <SafeAreaView style={styles.center} edges={['top']}>
-        <ActivityIndicator color={theme.color.accent} />
+        <ActivityIndicator color={color.copper} />
       </SafeAreaView>
     );
   }
@@ -31,46 +33,50 @@ export default function Regs() {
         ListHeaderComponent={
           <View>
             <View style={styles.header}>
-              <AppText variant="h1">Regulations</AppText>
-              <AppText variant="body" color={theme.color.textSecondary}>
+              <Headline>What the rules{'\n'}say this year.</Headline>
+              <Sentence style={{ marginTop: space.x16 }}>
                 Plain-English summaries. Always confirm against the official source.
-              </AppText>
-              {browsing ? <BrowseStateChip stateCode={stateCode} /> : null}
+              </Sentence>
+              {browsing ? (
+                <View style={{ marginTop: space.x12 }}>
+                  <BrowseStateChip stateCode={stateCode} />
+                </View>
+              ) : null}
             </View>
             <WhatChanged />
             {regs.length > 0 ? (
-              <AppText variant="overline" color={theme.color.textMuted} style={{ marginBottom: spacing.md }}>
-                SUMMARIES
-              </AppText>
+              <View style={styles.sectionHead}>
+                <View style={styles.sectionRule} />
+                <Micro>Summaries</Micro>
+              </View>
             ) : null}
           </View>
         }
-        renderItem={({ item }) => {
-          const color = speciesColors[(item.species?.key ?? 'default') as SpeciesKey] ?? speciesColors.default;
-          return (
-            <Card onPress={() => router.push(`/regs/${item.id}`)} accentColor={color}>
-              <AppText variant="h3">
+        renderItem={({ item, index }) => (
+          <Pressable
+            onPress={() => router.push(`/regs/${item.id}`)}
+            style={({ pressed }) => [styles.row, index > 0 && styles.rowDivider, pressed && styles.pressed]}
+          >
+            <View style={{ flex: 1 }}>
+              <Text style={styles.rowTitle} numberOfLines={1}>
                 {item.state?.name} · {item.species?.name}
-              </AppText>
-              <AppText variant="caption" color={theme.color.textMuted}>
+              </Text>
+              <Text style={styles.rowSub} numberOfLines={1}>
                 {verifiedAgo(item.last_verified_at)}
-              </AppText>
-            </Card>
-          );
-        }}
-        ItemSeparatorComponent={() => <View style={{ height: spacing.md }} />}
+              </Text>
+            </View>
+          </Pressable>
+        )}
         ListEmptyComponent={
           needsState ? (
             <BrowseStatePrompt line="Regulation summaries are free to read. Choose where you hunt." />
           ) : (
-            <AppText color={theme.color.textMuted} style={{ marginTop: spacing.xl }}>
-              {browsing
-                ? 'No published summaries for this state yet.'
-                : 'No published summaries for your follows yet.'}
-            </AppText>
+            <Sentence style={{ marginTop: space.section }}>
+              {browsing ? 'No published summaries for this state yet.' : 'No published summaries for your follows yet.'}
+            </Sentence>
           )
         }
-        ListFooterComponent={regs.length ? <View style={{ marginTop: spacing.lg }}><Disclaimer /></View> : null}
+        ListFooterComponent={regs.length ? <View style={{ marginTop: space.section }}><Disclaimer /></View> : null}
       />
     </SafeAreaView>
   );
@@ -79,7 +85,8 @@ export default function Regs() {
 /**
  * What changed this year, for the states you follow. Each line is one
  * record-level difference against last year's regulations — moved openers,
- * seasons added or dropped, bag limits revised.
+ * seasons added or dropped, bag limits revised. The box around it is gone:
+ * hairlines carry the list, and the copper label is the one accent.
  */
 function WhatChanged() {
   const { data: changes = [], isLoading } = useRegulationChanges();
@@ -87,54 +94,53 @@ function WhatChanged() {
   const shown = changes.slice(0, 8);
 
   return (
-    <View style={styles.changesWrap}>
-      <AppText variant="overline" color={theme.color.accentSoft}>
-        WHAT CHANGED THIS YEAR
-      </AppText>
-      <View style={styles.changesBox}>
-        {shown.map((c, i) => (
-          <ChangeLine key={c.id} change={c} first={i === 0} />
-        ))}
-      </View>
+    <View style={styles.sectionHead}>
+      <View style={styles.sectionRule} />
+      <Micro style={{ color: color.copperDim }}>What changed this year</Micro>
+      {shown.map((c, i) => (
+        <ChangeLine key={c.id} change={c} first={i === 0} />
+      ))}
       {changes.length > shown.length ? (
-        <AppText variant="caption" color={theme.color.textMuted} style={{ marginTop: spacing.sm }}>
-          {changes.length - shown.length} more across your states.
-        </AppText>
+        <Sentence tone="dim" style={{ marginTop: space.x12 }}>
+          {`${changes.length - shown.length} more across your states.`}
+        </Sentence>
       ) : null}
     </View>
   );
 }
 
 function ChangeLine({ change, first }: { change: RegulationChange; first: boolean }) {
-  const mark =
-    change.change_type === 'added' ? 'New' : change.change_type === 'removed' ? 'Gone' : 'Moved';
+  const mark = change.change_type === 'added' ? 'New' : change.change_type === 'removed' ? 'Gone' : 'Moved';
   return (
-    <View style={[styles.changeRow, !first && styles.changeDivider]}>
-      <AppText variant="caption" color={theme.color.accentSoft} style={styles.changeMark}>
-        {mark}
-      </AppText>
-      <AppText variant="body" color={theme.color.textSecondary} style={{ flex: 1 }}>
-        {change.note}
-      </AppText>
+    <View style={[styles.changeRow, !first && styles.rowDivider]}>
+      <Text style={styles.changeMark}>{mark}</Text>
+      <Text style={styles.changeNote}>{change.note}</Text>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  changesWrap: { marginBottom: spacing.xl },
-  changesBox: {
-    marginTop: spacing.sm,
-    paddingHorizontal: spacing.lg,
-    borderRadius: 16,
-    backgroundColor: theme.color.surfaceFlat,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: theme.color.borderFlat,
+  screen: { flex: 1, backgroundColor: color.bg },
+  center: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: color.bg },
+  content: { paddingHorizontal: space.gutter, paddingTop: space.x16, paddingBottom: 56 },
+  header: { marginTop: space.x12 },
+
+  sectionHead: { marginTop: space.section },
+  sectionRule: {
+    height: 1,
+    backgroundColor: color.rule,
+    marginHorizontal: -space.gutter,
+    marginBottom: space.x12,
   },
-  changeRow: { flexDirection: 'row', gap: spacing.md, paddingVertical: spacing.md },
-  changeDivider: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: theme.color.borderFlat },
-  changeMark: { width: 42, paddingTop: 2 },
-  screen: { flex: 1, backgroundColor: theme.color.background },
-  center: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: theme.color.background },
-  content: { padding: spacing.lg },
-  header: { gap: spacing.xs, marginBottom: spacing.lg },
+
+  row: { flexDirection: 'row', alignItems: 'center', gap: space.x12, paddingVertical: space.x16 },
+  rowDivider: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: color.hair },
+  rowTitle: { fontFamily: type.uiMedium, fontSize: 15.5, color: color.bone },
+  rowSub: { fontFamily: type.ui, fontSize: 12.5, color: color.muted, marginTop: 1 },
+
+  changeRow: { flexDirection: 'row', gap: space.x12, paddingVertical: space.x12 },
+  changeMark: { width: 44, paddingTop: 2, fontFamily: type.uiMedium, fontSize: 12.5, color: color.copperDim },
+  changeNote: { flex: 1, fontFamily: type.ui, fontSize: 14.5, lineHeight: 21, color: color.bone },
+
+  pressed: { opacity: 0.6 },
 });
