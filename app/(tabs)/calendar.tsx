@@ -3,7 +3,7 @@ import { useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Headline, Micro, Sentence } from '@/components/system';
+import { Headline, Micro, Sentence, Tile } from '@/components/system';
 import { SpeciesBadge } from '@/components/midnight';
 import { useSeasonsFeed } from '@/features/reference/queries';
 import { BrowseStateChip, BrowseStatePrompt } from '@/components/BrowseStateChip';
@@ -129,15 +129,15 @@ export default function Seasons() {
           <>
             {open.length > 0 ? (
               <Section label="Open now">
-                {open.map((it, i) => (
-                  <SeasonRow key={it.season.id} item={it} divider={i > 0} onPress={() => router.push(`/season/${it.season.id}`)} />
+                {open.map((it) => (
+                  <SeasonRow key={it.season.id} item={it} onPress={() => router.push(`/season/${it.season.id}`)} />
                 ))}
               </Section>
             ) : null}
             {upcomingMonths.map((m) => (
               <Section key={m.key} label={m.label}>
-                {m.items.map((it, i) => (
-                  <SeasonRow key={it.season.id} item={it} divider={i > 0} onPress={() => router.push(`/season/${it.season.id}`)} />
+                {m.items.map((it) => (
+                  <SeasonRow key={it.season.id} item={it} onPress={() => router.push(`/season/${it.season.id}`)} />
                 ))}
               </Section>
             ))}
@@ -160,23 +160,22 @@ function FilterChip({ label, active, onPress }: { label: string; active: boolean
   );
 }
 
-/** A copper rule to the page's edges, a micro label, then hairline entries. */
+/** One translucent tile per group: a micro label, then its entries. */
 function Section({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <View style={styles.section}>
-      <View style={styles.sectionRule} />
+    <Tile style={styles.tile}>
       <Micro>{label}</Micro>
       {children}
-    </View>
+    </Tile>
   );
 }
 
-function SeasonRow({ item, divider, onPress }: { item: Item; divider: boolean; onPress: () => void }) {
+function SeasonRow({ item, onPress }: { item: Item; onPress: () => void }) {
   const s = item.season;
   const openNow = item.status === 'open';
   const days = Math.max(item.days ?? 0, 0);
   return (
-    <Pressable onPress={onPress} style={({ pressed }) => [styles.row, divider && styles.rowDivider, pressed && styles.pressed]}>
+    <Pressable onPress={onPress} style={({ pressed }) => [styles.row, pressed && styles.pressed]}>
       <SpeciesBadge name={s.species?.name} size={34} muted={!openNow} />
       <View style={{ flex: 1 }}>
         <Text style={styles.rowTitle} numberOfLines={1}>
@@ -207,16 +206,11 @@ const styles = StyleSheet.create({
   headRow: { flexDirection: 'row', alignItems: 'flex-start', gap: space.x12 },
   searchBtn: { width: 32, height: 32, alignItems: 'center', justifyContent: 'center', marginTop: 4 },
 
-  section: { marginTop: space.section },
-  sectionRule: {
-    height: 1,
-    backgroundColor: color.rule,
-    marginHorizontal: -space.gutter,
-    marginBottom: space.x12,
-  },
+  // Groups are tiles, set close together: the lift separates them, so there
+  // is no rule and no 24pt gap to add (David, 2026-11-08).
+  tile: { marginTop: space.x12 },
 
-  row: { flexDirection: 'row', alignItems: 'center', gap: space.x12, paddingVertical: space.x16 },
-  rowDivider: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: color.hair },
+  row: { flexDirection: 'row', alignItems: 'center', gap: space.x12, paddingVertical: 11 },
   rowTitle: { fontFamily: type.uiMedium, fontSize: 15.5, color: color.bone },
   rowSub: { fontFamily: type.ui, fontSize: 12.5, color: color.muted, marginTop: 1 },
   metric: { fontFamily: type.uiMedium, fontSize: 12.5, marginLeft: space.x8, fontVariant: ['tabular-nums'] },

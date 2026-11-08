@@ -1,7 +1,7 @@
 import { useRouter } from 'expo-router';
-import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Headline, LinkSentence, Micro, Sentence } from '@/components/system';
+import { Headline, LinkSentence, Micro, Sentence, Tile } from '@/components/system';
 import { SpeciesBadge } from '@/components/midnight';
 import { useWindowsFeed } from '@/features/reference/queries';
 import { BrowseStateChip, BrowseStatePrompt } from '@/components/BrowseStateChip';
@@ -32,52 +32,45 @@ export default function Applications() {
 
   return (
     <SafeAreaView style={styles.screen} edges={['top', 'left', 'right']}>
-      <FlatList
-        data={upcoming}
-        keyExtractor={(w) => w.id}
-        contentContainerStyle={styles.content}
-        showsVerticalScrollIndicator={false}
-        ListHeaderComponent={
-          <View style={styles.header}>
-            <Headline>Miss the deadline,{'\n'}miss the season.</Headline>
-            <Sentence style={{ marginTop: space.x16 }}>
-              Draw and application windows for everything you track, soonest first.
-            </Sentence>
-            {browsing ? (
-              <View style={{ marginTop: space.x12 }}>
-                <BrowseStateChip stateCode={stateCode} />
-              </View>
-            ) : null}
-            {upcoming.length > 0 ? (
-              <View style={styles.sectionHead}>
-                <View style={styles.sectionRule} />
-                <Micro>Closing next</Micro>
-              </View>
-            ) : null}
-          </View>
-        }
-        renderItem={({ item, index }) => (
-          <WindowRow window={item} divider={index > 0} onPress={() => router.push(`/window/${item.id}`)} />
+      {/* A ScrollView, not a FlatList: the deadlines all live in one tile, and
+          a list that renders its own rows cannot be wrapped in one. The feed
+          is bounded by what you follow, so there is nothing to virtualise. */}
+      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+        <View style={styles.header}>
+          <Headline>Miss the deadline,{'\n'}miss the season.</Headline>
+          <Sentence style={{ marginTop: space.x16 }}>
+            Draw and application windows for everything you track, soonest first.
+          </Sentence>
+          {browsing ? (
+            <View style={{ marginTop: space.x12 }}>
+              <BrowseStateChip stateCode={stateCode} />
+            </View>
+          ) : null}
+        </View>
+
+        {upcoming.length > 0 ? (
+          <Tile style={styles.tile}>
+            <Micro>Closing next</Micro>
+            {upcoming.map((w) => (
+              <WindowRow key={w.id} window={w} onPress={() => router.push(`/window/${w.id}`)} />
+            ))}
+          </Tile>
+        ) : needsState ? (
+          <BrowseStatePrompt line="Draw deadlines are free to read too. Choose where you hunt." />
+        ) : (
+          <Sentence style={{ marginTop: space.section }}>
+            {browsing
+              ? 'No upcoming draw deadlines in this state right now.'
+              : 'No upcoming tag deadlines for your follows right now.'}
+          </Sentence>
         )}
-        ListEmptyComponent={
-          needsState ? (
-            <BrowseStatePrompt line="Draw deadlines are free to read too. Choose where you hunt." />
-          ) : (
-            <Sentence style={{ marginTop: space.section }}>
-              {browsing
-                ? 'No upcoming draw deadlines in this state right now.'
-                : 'No upcoming tag deadlines for your follows right now.'}
-            </Sentence>
-          )
-        }
-        ListFooterComponent={
-          <View style={{ marginTop: space.section }}>
-            <LinkSentence onPress={() => router.push({ pathname: '/ledger' })}>
-              The ledger — your applications, costs, and results
-            </LinkSentence>
-          </View>
-        }
-      />
+
+        <View style={{ marginTop: space.section }}>
+          <LinkSentence onPress={() => router.push({ pathname: '/ledger' })}>
+            The ledger — your applications, costs, and results
+          </LinkSentence>
+        </View>
+      </ScrollView>
     </SafeAreaView>
   );
 }
@@ -89,17 +82,15 @@ export default function Applications() {
  */
 function WindowRow({
   window: w,
-  divider,
   onPress,
 }: {
   window: ApplicationWindowWithRefs;
-  divider: boolean;
   onPress: () => void;
 }) {
   const d = daysUntil(w.closes_at);
   const near = d !== null && d <= 14;
   return (
-    <Pressable onPress={onPress} style={({ pressed }) => [styles.row, divider && styles.rowDivider, pressed && styles.pressed]}>
+    <Pressable onPress={onPress} style={({ pressed }) => [styles.row, pressed && styles.pressed]}>
       <SpeciesBadge name={w.species?.name} size={34} muted={!near} />
       <View style={{ flex: 1 }}>
         <Text style={styles.rowTitle} numberOfLines={1}>
@@ -125,16 +116,9 @@ const styles = StyleSheet.create({
   content: { paddingHorizontal: space.gutter, paddingTop: space.x16, paddingBottom: 56 },
   header: { marginTop: space.x12 },
 
-  sectionHead: { marginTop: space.section },
-  sectionRule: {
-    height: 1,
-    backgroundColor: color.rule,
-    marginHorizontal: -space.gutter,
-    marginBottom: space.x12,
-  },
+  tile: { marginTop: space.x12 },
 
-  row: { flexDirection: 'row', alignItems: 'center', gap: space.x12, paddingVertical: space.x16 },
-  rowDivider: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: color.hair },
+  row: { flexDirection: 'row', alignItems: 'center', gap: space.x12, paddingVertical: 11 },
   rowTitle: { fontFamily: type.uiMedium, fontSize: 15.5, color: color.bone },
   rowSub: { fontFamily: type.ui, fontSize: 12.5, color: color.muted, marginTop: 1 },
   rowFee: { fontFamily: type.ui, fontSize: 12, lineHeight: 17, color: color.dim, marginTop: 3 },

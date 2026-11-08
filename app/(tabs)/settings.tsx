@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'expo-router';
 import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Headline, Input, LinkSentence, Micro, Pill, Sentence, Serif } from '@/components/system';
+import { Headline, Input, LinkSentence, Micro, Pill, Sentence, Serif, Tile, tileSurface } from '@/components/system';
 import { useAuth } from '@/providers/AuthProvider';
 import { useActiveStates } from '@/features/reference/queries';
 import { useBrowseStateCode } from '@/lib/browseState';
@@ -25,15 +25,13 @@ function Row({
   title,
   caption,
   onPress,
-  first = false,
 }: {
   title: string;
   caption?: string;
   onPress: () => void;
-  first?: boolean;
 }) {
   return (
-    <Pressable onPress={onPress} style={({ pressed }) => [styles.row, !first && styles.rowDivider, pressed && styles.pressed]}>
+    <Pressable onPress={onPress} style={({ pressed }) => [styles.row, pressed && styles.pressed]}>
       <View style={{ flex: 1 }}>
         <Text style={styles.rowTitle}>{title}</Text>
         {caption ? <Text style={styles.rowSub}>{caption}</Text> : null}
@@ -43,21 +41,20 @@ function Row({
   );
 }
 
-/** A copper rule to the page's edges, then the label for what follows. */
-function Section({ label }: { label: string }) {
+/** One tile per group of rows: a micro label, then the rows inside it. */
+function Group({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <View style={styles.sectionHead}>
-      <View style={styles.sectionRule} />
+    <Tile style={styles.tile}>
       <Micro>{label}</Micro>
-    </View>
+      {children}
+    </Tile>
   );
 }
 
 /** An offer, not a row: a title in the serif and a sentence under it. */
 function Offer({ title, line, onPress }: { title: string; line: string; onPress: () => void }) {
   return (
-    <Pressable onPress={onPress} style={({ pressed }) => [styles.offer, pressed && styles.pressed]}>
-      <View style={styles.sectionRule} />
+    <Pressable onPress={onPress} style={({ pressed }) => [tileSurface, styles.tile, pressed && styles.pressed]}>
       <Serif size={27}>{title}</Serif>
       <Sentence style={{ marginTop: space.x8 }}>{line}</Sentence>
     </Pressable>
@@ -144,18 +141,19 @@ export default function Settings() {
             onPress={() => router.push('/(auth)/sign-in')}
           />
 
-          <Section label="What you're reading" />
-          <Row
-            first
-            title="State"
-            caption={browseName ? `Browsing ${browseName}.` : 'Pick a state to browse.'}
-            onPress={() => router.push('/pick-state')}
-          />
+          <Group label="What you're reading">
+            <Row
+              title="State"
+              caption={browseName ? `Browsing ${browseName}.` : 'Pick a state to browse.'}
+              onPress={() => router.push('/pick-state')}
+            />
+          </Group>
 
-          <Section label="The fine print" />
-          <Row first title="How it works" onPress={() => router.push('/how-to')} />
-          <Row title="Privacy policy" onPress={() => openExternalUrl(PRIVACY_POLICY_URL)} />
-          <Row title="Terms of service" onPress={() => openExternalUrl(TERMS_URL)} />
+          <Group label="The fine print">
+            <Row title="How it works" onPress={() => router.push('/how-to')} />
+            <Row title="Privacy policy" onPress={() => openExternalUrl(PRIVACY_POLICY_URL)} />
+            <Row title="Terms of service" onPress={() => openExternalUrl(TERMS_URL)} />
+          </Group>
 
           <Colophon />
         </ScrollView>
@@ -222,27 +220,30 @@ export default function Settings() {
           />
         ) : null}
 
-        <Section label="The pursuit" />
-        <Row first title="Manage your hunts" caption="Your states and species." onPress={() => router.push('/follows')} />
-        <Row
-          title="Home state"
-          caption={residentStateName ? `Home state: ${residentStateName}.` : 'Set it — it drives resident rules and your legal light.'}
-          onPress={() => router.push('/residency')}
-        />
-        <Row title="Hunting parties" caption="Apply for draws with your buddies." onPress={() => router.push('/parties')} />
-        <Row title="My applications" caption="What you've applied for, and results." onPress={() => router.push('/tracker')} />
-        <Row title="Preference points" caption="The points you're banking, draw by draw." onPress={() => router.push('/points')} />
+        <Group label="The pursuit">
+          <Row title="Manage your hunts" caption="Your states and species." onPress={() => router.push('/follows')} />
+          <Row
+            title="Home state"
+            caption={residentStateName ? `Home state: ${residentStateName}.` : 'Set it — it drives resident rules and your legal light.'}
+            onPress={() => router.push('/residency')}
+          />
+          <Row title="Hunting parties" caption="Apply for draws with your buddies." onPress={() => router.push('/parties')} />
+          <Row title="My applications" caption="What you've applied for, and results." onPress={() => router.push('/tracker')} />
+          <Row title="Preference points" caption="The points you're banking, draw by draw." onPress={() => router.push('/points')} />
+        </Group>
 
-        <Section label="The watch" />
-        <Row first title="Reminders" caption="How far ahead we give you a heads-up." onPress={() => router.push('/alerts')} />
-        <Row title="What arrives" caption="Every notice still to come, in order." onPress={() => router.push('/what-arrives')} />
-        <Row title="Notification history" onPress={() => router.push('/notifications')} />
+        <Group label="The watch">
+          <Row title="Reminders" caption="How far ahead we give you a heads-up." onPress={() => router.push('/alerts')} />
+          <Row title="What arrives" caption="Every notice still to come, in order." onPress={() => router.push('/what-arrives')} />
+          <Row title="Notification history" onPress={() => router.push('/notifications')} />
+        </Group>
 
-        <Section label="The fine print" />
-        <Row first title="How it works" onPress={() => router.push('/how-to')} />
-        <Row title="Privacy policy" onPress={() => openExternalUrl(PRIVACY_POLICY_URL)} />
-        <Row title="Terms of service" onPress={() => openExternalUrl(TERMS_URL)} />
-        <Row title="Update delivery" caption="Diagnostics" onPress={() => router.push('/updates-debug')} />
+        <Group label="The fine print">
+          <Row title="How it works" onPress={() => router.push('/how-to')} />
+          <Row title="Privacy policy" onPress={() => openExternalUrl(PRIVACY_POLICY_URL)} />
+          <Row title="Terms of service" onPress={() => openExternalUrl(TERMS_URL)} />
+          <Row title="Update delivery" caption="Diagnostics" onPress={() => router.push('/updates-debug')} />
+        </Group>
 
         <View style={styles.exits}>
           <LinkSentence onPress={signOut}>Sign out</LinkSentence>
@@ -290,17 +291,10 @@ const styles = StyleSheet.create({
 
   editor: { marginTop: space.section },
 
-  sectionHead: { marginTop: space.section },
-  sectionRule: {
-    height: 1,
-    backgroundColor: color.rule,
-    marginHorizontal: -space.gutter,
-    marginBottom: space.x12,
-  },
-  offer: { marginTop: space.section },
+  // Groups are tiles, set close together: the lift is the separation.
+  tile: { marginTop: space.x12 },
 
-  row: { flexDirection: 'row', alignItems: 'center', gap: space.x12, paddingVertical: space.x16 },
-  rowDivider: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: color.hair },
+  row: { flexDirection: 'row', alignItems: 'center', gap: space.x12, paddingVertical: 11 },
   rowTitle: { fontFamily: type.uiMedium, fontSize: 15.5, color: color.bone },
   rowSub: { fontFamily: type.ui, fontSize: 12.5, lineHeight: 18, color: color.muted, marginTop: 2 },
 
