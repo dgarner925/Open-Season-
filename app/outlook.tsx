@@ -234,8 +234,8 @@ export default function Outlook() {
         <View style={styles.tile}>
           <Micro>The week at first light</Micro>
           <View style={{ marginTop: space.x8 }}>
-            {weekRows.map((r, i) => (
-              <View key={r.iso} style={[styles.weekRow, i > 0 && styles.weekRule]}>
+            {weekRows.map((r) => (
+              <View key={r.iso} style={styles.weekRow}>
                 <View style={styles.weekDayCell}>
                   <Text style={[styles.weekDay, r.opener && { color: color.copper, fontFamily: type.uiSemiBold }]}>{r.label}</Text>
                   {r.opener ? <Text style={styles.openerFlag}>{r.opener}</Text> : null}
@@ -261,17 +261,16 @@ export default function Outlook() {
 }
 
 const styles = StyleSheet.create({
+  // Each block of the outlook is a tile; the lift groups the days, so the
+  // rules between the week's rows are gone (David, 2026-11-08).
   tile: {
     marginTop: space.x16,
     padding: space.gutter,
-    borderRadius: lang.radius.card,
-    backgroundColor: 'rgba(255,255,255,0.04)',
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: color.hair,
+    borderRadius: lang.radius.tile,
+    backgroundColor: color.tile,
   },
   tickRow: { height: 16, marginTop: 2 },
   weekRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: space.x8, minHeight: 40, gap: space.x8 },
-  weekRule: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: color.hair },
   weekDayCell: { width: 118 },
   weekDay: { fontFamily: type.ui, fontSize: 14.5, color: color.bone },
   openerFlag: { fontFamily: type.uiSemiBold, fontSize: 9, letterSpacing: 1.2, color: color.copper, marginTop: 1 },

@@ -1,106 +1,135 @@
 import { Stack, useRouter } from 'expo-router';
-import { ActivityIndicator, StyleSheet, View } from 'react-native';
-import { AppText, Button, Card, Pill, Screen } from '@/components/ui';
+import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Headline, LinkSentence, Pill, Screen, Sentence, Serif, Tile, tileSurface } from '@/components/system';
 import { useApplications, type ApplicationWithRefs } from '@/features/applications/queries';
 import { useRequirePro } from '@/hooks/useRequirePro';
 import { useRequireAccount } from '@/hooks/useRequireAccount';
 import { formatDate } from '@/lib/date';
 import { openExternalUrl } from '@/lib/openUrl';
-import { spacing, theme } from '@/theme';
+import { lang } from '@/theme/tokens';
 import type { ApplicationStatus } from '@/lib/database.types';
 
+const { color, space } = lang;
+
+/**
+ * What each status is called, in the words a hunter would use. "successful"
+ * and "unsuccessful" are the database's words; nobody says them out loud.
+ */
 const STATUS_LABEL: Record<ApplicationStatus, string> = {
   planned: 'Planned',
   applied: 'Applied',
   successful: 'Drawn',
-  unsuccessful: 'Unsuccessful',
-  purchased: 'Purchased',
+  unsuccessful: 'Not drawn',
+  purchased: 'Bought',
 };
-function statusColor(s: ApplicationStatus): string {
-  if (s === 'successful' || s === 'purchased') return theme.color.success;
-  if (s === 'unsuccessful') return theme.color.danger;
-  if (s === 'applied') return theme.color.accent;
-  return theme.color.surfaceElevated;
+
+/**
+ * Copper is scarce — one per region. The only status that earns it is the one
+ * you have been waiting all year to read, so Drawn is copper and the other
+ * four are grey. The old screen gave every status its own colour chip, which
+ * made five equal shouts and told you nothing at a glance.
+ */
+function statusTone(s: ApplicationStatus): string {
+  if (s === 'successful') return color.copper;
+  if (s === 'unsuccessful') return color.dim;
+  return color.muted;
 }
 
-export default function Applications() {
+export default function Tracker() {
   const router = useRouter();
   const { data: apps = [], isLoading } = useApplications();
   const requirePro = useRequirePro();
   const requireAccount = useRequireAccount();
 
+  const add = () => requireAccount() && requirePro() && router.push('/application-edit');
+
   return (
     <Screen scroll>
-      <Stack.Screen options={{ headerShown: true, title: 'My Applications' }} />
-      <View style={{ gap: spacing.xs }}>
-        <AppText variant="h1">My Applications</AppText>
-        <AppText variant="body" color={theme.color.textSecondary}>
-          Your record of what you've applied for. Your password isn't stored here — keep it in your phone's password manager.
-        </AppText>
-      </View>
+      <Stack.Screen options={{ headerShown: true, title: 'My applications' }} />
 
-      <Button title="+ Add an application" onPress={() => requireAccount() && requirePro() && router.push('/application-edit')} />
+      <Headline style={{ marginTop: space.x16 }}>What you've put in for.</Headline>
+      <Sentence style={{ marginTop: space.x8 }}>
+        Your own record of every draw and tag. Keep your portal password in your phone's password
+        manager — it is never stored here.
+      </Sentence>
 
       {isLoading ? (
-        <ActivityIndicator color={theme.color.accent} style={{ marginTop: spacing.lg }} />
+        <ActivityIndicator color={color.copper} style={{ marginTop: space.section }} />
       ) : apps.length === 0 ? (
-        <Card>
-          <AppText variant="body" color={theme.color.textSecondary}>
-            Nothing tracked yet. Add one above, or tap "Track this application" on a tag deadline.
-          </AppText>
-        </Card>
+        <Tile style={{ marginTop: space.section }}>
+          <Sentence tone="bone">Nothing tracked yet.</Sentence>
+          <Sentence style={{ marginTop: 2 }}>
+            Add one below, or tap "Track this application" on any tag deadline.
+          </Sentence>
+        </Tile>
       ) : (
-        apps.map((a) => <AppRow key={a.id} app={a} onPress={() => router.push(`/application-edit?id=${a.id}`)} />)
+        apps.map((a) => (
+          <AppCard key={a.id} app={a} onPress={() => router.push(`/application-edit?id=${a.id}`)} />
+        ))
       )}
+
+      <Pill
+        label="Add an application"
+        variant="secondary"
+        onPress={add}
+        style={{ marginTop: space.section }}
+      />
     </Screen>
   );
 }
 
-function AppRow({ app, onPress }: { app: ApplicationWithRefs; onPress: () => void }) {
+function AppCard({ app, onPress }: { app: ApplicationWithRefs; onPress: () => void }) {
+  const where = [app.state?.name, app.species?.name].filter(Boolean).join(' · ');
+
   return (
-    <Card onPress={onPress}>
-      <View style={styles.header}>
-        <AppText variant="h3" numberOfLines={2} style={{ flex: 1 }}>
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="button"
+      style={({ pressed }) => [tileSurface, styles.tile, pressed && { opacity: 0.6 }]}
+    >
+      <View style={styles.head}>
+        <Serif size={22} style={{ flex: 1 }}>
           {app.title}
-        </AppText>
-        <Pill label={STATUS_LABEL[app.status]} color={statusColor(app.status)} textColor={theme.color.textPrimary} />
+        </Serif>
+        <Text style={[styles.status, { color: statusTone(app.status) }]}>
+          {STATUS_LABEL[app.status].toUpperCase()}
+        </Text>
       </View>
 
-      <AppText variant="caption" color={theme.color.textSecondary}>
-        {[app.state?.name, app.species?.name].filter(Boolean).join(' · ') || 'No state/species set'}
-      </AppText>
+      <Sentence style={{ marginTop: 2 }}>{where || 'No state or species set'}</Sentence>
 
-      <View style={styles.meta}>
-        {app.applied_on ? (
-          <AppText variant="caption" color={theme.color.textMuted}>
-            Applied {formatDate(app.applied_on)}
-          </AppText>
-        ) : null}
-        {app.results_on ? (
-          <AppText variant="caption" color={theme.color.textMuted}>
-            Results {formatDate(app.results_on)}
-          </AppText>
-        ) : null}
-        {app.portal_username ? (
-          <AppText variant="caption" color={theme.color.textMuted}>
-            @{app.portal_username}
-          </AppText>
-        ) : null}
-      </View>
+      {/* The dates read as sentences, not as fields — one line each, in the
+          order they happen. */}
+      {app.applied_on ? (
+        <Sentence tone="dim" style={styles.line}>
+          Applied {formatDate(app.applied_on)}.
+        </Sentence>
+      ) : null}
+      {app.results_on ? (
+        <Sentence tone="dim" style={styles.line}>
+          Results {formatDate(app.results_on)}.
+        </Sentence>
+      ) : null}
+      {app.portal_username ? (
+        <Sentence tone="dim" style={styles.line}>
+          Signed in as {app.portal_username}.
+        </Sentence>
+      ) : null}
 
       {app.application_url ? (
-        <Button
-          variant="secondary"
-          title="Open the portal"
-          onPress={() => openExternalUrl(app.application_url)}
-          style={{ marginTop: spacing.sm }}
-        />
+        <LinkSentence onPress={() => openExternalUrl(app.application_url)} style={{ marginTop: space.x12 }}>
+          Open the portal
+        </LinkSentence>
       ) : null}
-    </Card>
+    </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
-  header: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm },
-  meta: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.md, marginTop: spacing.xs },
+  tile: { marginTop: space.x12 },
+  head: { flexDirection: 'row', alignItems: 'flex-start', gap: space.x12 },
+  // The status sits on the baseline of the title, small and quiet, so the hunt
+  // is what you read first and the state is what you read second.
+  status: { fontFamily: lang.type.uiSemiBold, fontSize: 10.5, letterSpacing: 1.1, marginTop: 6 },
+  line: { marginTop: 2 },
 });

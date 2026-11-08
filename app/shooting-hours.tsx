@@ -129,8 +129,8 @@ export default function ShootingHours() {
               <Micro style={{ marginTop: space.x16, marginBottom: space.x4 }}>{m}</Micro>
               {rows
                 .filter((r) => r.month === m)
-                .map((r, i, arr) => (
-                  <View key={r.label + m} style={[styles.row, i !== arr.length - 1 && styles.rowRule]}>
+                .map((r) => (
+                  <View key={r.label + m} style={styles.row}>
                     <Text style={[styles.day, r.opener && { color: color.copper, fontFamily: type.uiSemiBold }]}>
                       {r.label}
                       {r.opener ? '  ·  opener' : ''}
@@ -171,17 +171,16 @@ export default function ShootingHours() {
 }
 
 const styles = StyleSheet.create({
+  // The week is one tile: the lift groups the days, so the rule under each
+  // row is gone (David, 2026-11-08).
   tile: {
     marginTop: space.x16,
     paddingHorizontal: space.gutter,
     paddingBottom: space.x16,
-    borderRadius: lang.radius.card,
-    backgroundColor: 'rgba(255,255,255,0.04)',
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: color.hair,
+    borderRadius: lang.radius.tile,
+    backgroundColor: color.tile,
   },
   row: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: space.x8, minHeight: 40 },
-  rowRule: { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: color.hair },
   day: { fontFamily: type.ui, fontSize: 14.5, color: color.bone, width: 132 },
   dur: { fontFamily: type.ui, fontSize: 12.5, color: color.dim, width: 64, textAlign: 'right' },
 });

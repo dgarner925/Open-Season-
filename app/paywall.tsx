@@ -2,13 +2,13 @@ import { Stack, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Alert, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import Purchases, { type PurchasesPackage } from 'react-native-purchases';
-import { Micro, Pill, Rule, Screen, Sentence, Serif } from '@/components/system';
+import { Micro, Pill, Screen, Sentence, Serif, Tile } from '@/components/system';
 import { RC_API_KEY, usePremium } from '@/providers/PremiumProvider';
 import { useAuth } from '@/providers/AuthProvider';
 import { openExternalUrl } from '@/lib/openUrl';
 import { lang } from '@/theme/tokens';
 
-const { color, space, radius } = lang;
+const { color, space } = lang;
 
 const PRIVACY_POLICY_URL = 'https://dgarner925.github.io/OpenSeason-Legal/';
 const TERMS_URL = 'https://dgarner925.github.io/OpenSeason-Legal/terms.html';
@@ -108,18 +108,17 @@ export default function Paywall() {
         Every date in the app is free. Pro remembers them for you.
       </Sentence>
 
-      {PITCH.map((p) => (
-        <View key={p.title}>
-          <Rule />
-          <Sentence tone="bone">{p.title}</Sentence>
-          <Sentence style={{ marginTop: 2 }}>{p.body}</Sentence>
-        </View>
-      ))}
+      <Tile style={{ marginTop: space.section }}>
+        {PITCH.map((p, i) => (
+          <View key={p.title} style={i > 0 ? { marginTop: space.x16 } : null}>
+            <Sentence tone="bone">{p.title}</Sentence>
+            <Sentence style={{ marginTop: 2 }}>{p.body}</Sentence>
+          </View>
+        ))}
+      </Tile>
 
-      <Rule />
-
-      {/* The plan — the one card this screen earns; the price is the only serif. */}
-      <View style={styles.plan}>
+      {/* The plan — the warm tile, the one lift on the screen; the price is the only serif. */}
+      <Tile warm style={styles.plan}>
         <Sentence>One plan. Everything above, all year.</Sentence>
         {trialLabel ? (
           <Serif italic copper size={22} style={{ marginTop: space.x8 }}>
@@ -136,7 +135,7 @@ export default function Paywall() {
           </Sentence>
         )}
         <Micro style={{ marginTop: space.x4 }}>{trialLabel ? 'Then per year · renews automatically' : 'Per year · renews automatically'}</Micro>
-      </View>
+      </Tile>
 
       <Pill
         label={busy === 'buy' ? 'Opening App Store…' : trialLabel ? 'Start your free week' : 'Go Pro'}
@@ -170,13 +169,9 @@ export default function Paywall() {
 }
 
 const styles = StyleSheet.create({
-  plan: {
-    backgroundColor: color.surface,
-    borderRadius: radius.card,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: color.hair,
-    padding: space.gutter,
-  },
+  // The plan is the only warm tile here, so the pitch above it reads as the
+  // list and this reads as the offer. No border: the lift does that work.
+  plan: { marginTop: space.section, padding: space.gutter },
   legalLinks: { flexDirection: 'row', marginTop: space.x12 },
   legalLink: { fontFamily: lang.type.ui, fontSize: 13, color: color.dim, textDecorationLine: 'underline' },
   legalDot: { fontFamily: lang.type.ui, fontSize: 13, color: color.dim },

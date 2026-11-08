@@ -153,7 +153,7 @@ export default function Search() {
           keyExtractor={(r) => `${r.type}:${r.id}`}
           keyboardShouldPersistTaps="handled"
           contentContainerStyle={{ paddingTop: space.x16, paddingBottom: space.x38 }}
-          ItemSeparatorComponent={() => <View style={styles.sep} />}
+          ItemSeparatorComponent={() => <View style={{ height: space.x8 }} />}
           ListFooterComponent={
             results.length > shown.length ? (
               <Sentence tone="dim" style={{ textAlign: 'center', marginTop: space.x16, fontSize: 13 }}>
@@ -269,13 +269,13 @@ const styles = StyleSheet.create({
   askWord: { fontFamily: type.uiMedium, fontSize: 14.5, color: color.copper },
   askChev: { fontFamily: type.ui, fontSize: 15, color: 'rgba(224,164,128,0.6)' },
 
+  // The answer is the warm tile, and the copper edge is this screen's one
+  // copper: it marks the thing the app wrote rather than looked up.
   answerCard: {
     marginTop: space.x16,
     padding: space.x16,
-    borderRadius: radius.card,
-    backgroundColor: 'rgba(255,255,255,0.04)',
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: color.hair,
+    borderRadius: radius.tile,
+    backgroundColor: color.tileWarm,
     borderLeftWidth: 2,
     borderLeftColor: color.copper,
   },
@@ -285,8 +285,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: space.x12,
     paddingVertical: 6,
     borderRadius: radius.pill,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: color.hair,
+    backgroundColor: 'rgba(255,255,255,0.07)',
     maxWidth: 240,
   },
   chipText: { fontFamily: type.ui, fontSize: 12.5, color: color.muted },
@@ -297,17 +296,26 @@ const styles = StyleSheet.create({
   filterWord: { fontFamily: type.uiMedium, fontSize: 14, color: color.dim },
   filterWordOn: { color: color.copper },
 
-  row: { flexDirection: 'row', alignItems: 'center', gap: space.x12, paddingVertical: space.x12, minHeight: 44 },
+  // One tile per result: the lift is what separates them now, so the
+  // hairline between rows is gone (David, 2026-11-08).
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space.x12,
+    paddingVertical: space.x12,
+    paddingHorizontal: space.x16,
+    minHeight: 44,
+    borderRadius: radius.tile,
+    backgroundColor: color.tile,
+  },
   rowTitle: { fontFamily: type.ui, fontSize: type.size.body + 0.5, color: color.bone },
   rowSub: { fontFamily: type.ui, fontSize: 13, color: color.muted, marginTop: 2 },
-  sep: { height: StyleSheet.hairlineWidth, backgroundColor: color.hair, marginHorizontal: -space.gutter },
+
   permitTile: {
     width: 38,
     height: 38,
     borderRadius: 12,
-    backgroundColor: color.surface,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: color.hair,
+    backgroundColor: 'rgba(255,255,255,0.06)',
     alignItems: 'center',
     justifyContent: 'center',
   },

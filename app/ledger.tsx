@@ -72,7 +72,7 @@ export default function Ledger() {
                 <Pressable
                   key={a.id}
                   onPress={() => router.push({ pathname: '/application-edit', params: { id: a.id } })}
-                  style={[styles.row, i !== apps.length - 1 && styles.rowRule]}
+                  style={({ pressed }) => [styles.row, pressed && { opacity: 0.6 }]}
                   accessibilityRole="button"
                 >
                   <View style={{ flex: 1, paddingRight: space.x12 }}>
@@ -104,7 +104,7 @@ export default function Ledger() {
           </View>
 
           {riding > 0 || heldPoints > 0 ? (
-            <View style={styles.totalRow}>
+            <View style={[styles.total, styles.totalRow]}>
               {riding > 0 ? (
                 <Serif size={28} copper>
                   ${riding.toLocaleString()}
@@ -126,18 +126,25 @@ export default function Ledger() {
 }
 
 const styles = StyleSheet.create({
+  // One tile holds every draw: the lift is what groups them, so the rules
+  // between the rows are gone (David, 2026-11-08).
   tile: {
     marginTop: space.x16,
     paddingHorizontal: space.gutter,
-    borderRadius: lang.radius.card,
-    backgroundColor: 'rgba(255,255,255,0.04)',
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: color.hair,
+    borderRadius: lang.radius.tile,
+    backgroundColor: color.tile,
   },
   row: { flexDirection: 'row', alignItems: 'center', paddingVertical: space.x12, minHeight: 56 },
-  rowRule: { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: color.hair },
   name: { fontFamily: type.uiSemiBold, fontSize: type.size.body, color: color.bone },
   sub: { fontFamily: type.ui, fontSize: 12.5, color: color.dim, marginTop: 2 },
   right: { fontFamily: type.ui, fontSize: 12.5, color: color.muted, marginTop: 2 },
-  totalRow: { flexDirection: 'row', alignItems: 'baseline', gap: space.x12, marginTop: space.x16 },
+  // What's riding is the one number this screen is for, so it gets the warm
+  // tile and the list above it stays cool.
+  total: {
+    marginTop: space.x12,
+    padding: space.x16 + 2,
+    borderRadius: lang.radius.tile,
+    backgroundColor: color.tileWarm,
+  },
+  totalRow: { flexDirection: 'row', alignItems: 'baseline', gap: space.x12 },
 });

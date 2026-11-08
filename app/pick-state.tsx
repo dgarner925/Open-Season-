@@ -71,21 +71,25 @@ export default function PickState() {
           <ActivityIndicator color={color.copper} style={{ marginTop: space.x32 }} />
         ) : (
           <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.list} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
-            {shown.map((s, i) => (
-              <Pressable
-                key={s.id}
-                onPress={() => choose(s.code)}
-                accessibilityRole="button"
-                style={({ pressed }) => [styles.row, pressed && { opacity: 0.6 }]}
-              >
-                <Text style={styles.rowLabel} numberOfLines={1}>
-                  {s.name}
-                </Text>
-                <Ionicons name="chevron-forward" size={16} color={color.copper} />
-                {i < shown.length - 1 ? <View style={styles.rowRule} /> : null}
-              </Pressable>
-            ))}
-            {shown.length === 0 ? <Sentence tone="dim">No state by that name.</Sentence> : null}
+            {shown.length > 0 ? (
+              <View style={styles.tile}>
+                {shown.map((s) => (
+                  <Pressable
+                    key={s.id}
+                    onPress={() => choose(s.code)}
+                    accessibilityRole="button"
+                    style={({ pressed }) => [styles.row, pressed && { opacity: 0.6 }]}
+                  >
+                    <Text style={styles.rowLabel} numberOfLines={1}>
+                      {s.name}
+                    </Text>
+                    <Ionicons name="chevron-forward" size={16} color={color.copper} />
+                  </Pressable>
+                ))}
+              </View>
+            ) : (
+              <Sentence tone="dim">No state by that name.</Sentence>
+            )}
           </ScrollView>
         )}
 
@@ -116,15 +120,14 @@ const styles = StyleSheet.create({
   },
   search: { flex: 1, fontFamily: type.ui, fontSize: 16, color: color.bone, padding: 0 },
   list: { paddingHorizontal: space.gutter, paddingTop: space.x8, paddingBottom: space.x32 },
+  // The fifty states are one list, so they sit on one tile and the rule
+  // between each pair is gone (David, 2026-11-08).
+  tile: {
+    paddingHorizontal: space.x16,
+    borderRadius: lang.radius.tile,
+    backgroundColor: color.tile,
+  },
   row: { flexDirection: 'row', alignItems: 'center', paddingVertical: space.x12, minHeight: 44 },
   rowLabel: { flex: 1, fontFamily: type.ui, fontSize: type.size.body + 0.5, color: color.bone },
-  rowRule: {
-    position: 'absolute',
-    left: 0,
-    right: -space.gutter,
-    bottom: 0,
-    height: StyleSheet.hairlineWidth,
-    backgroundColor: color.hair,
-  },
   footer: { paddingHorizontal: space.gutter, paddingVertical: space.x16, alignItems: 'center' },
 });

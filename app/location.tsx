@@ -55,11 +55,11 @@ export default function LocationScreen() {
         {/* Saved locations to switch between */}
         {locations.length > 0 ? (
           <>
-            <View style={styles.rule} />
-            <Serif size={22} style={{ marginBottom: space.x4 }}>
+            <Serif size={22} style={{ marginTop: space.section, marginBottom: space.x8 }}>
               Your locations
             </Serif>
-            {locations.map((loc, i) => {
+            <View style={styles.tile}>
+            {locations.map((loc) => {
               const active = loc.id === activeId;
               return (
                 <View key={loc.id} style={styles.row}>
@@ -73,15 +73,14 @@ export default function LocationScreen() {
                   <Pressable hitSlop={10} onPress={() => removeLocation.mutate(loc.id)} accessibilityLabel="Remove location">
                     <Ionicons name="close" size={15} color={color.dim} />
                   </Pressable>
-                  {i !== locations.length - 1 ? <View style={styles.rowRule} /> : null}
                 </View>
               );
             })}
+            </View>
           </>
         ) : null}
 
-        <View style={styles.rule} />
-        <Serif size={22} style={{ marginBottom: space.x8 }}>
+        <Serif size={22} style={{ marginTop: space.section, marginBottom: space.x8 }}>
           Add a location
         </Serif>
         <View style={styles.searchRow}>
@@ -95,7 +94,8 @@ export default function LocationScreen() {
           />
         </View>
 
-        {filtered.map((s, i) => {
+        <View style={styles.tile}>
+        {filtered.map((s) => {
           const selected = s.id === stateId;
           return (
             <Pressable
@@ -109,28 +109,29 @@ export default function LocationScreen() {
             >
               <Text style={[styles.rowText, { flex: 1, color: selected ? color.bone : color.muted }]}>{s.name}</Text>
               {check(selected)}
-              {i !== filtered.length - 1 ? <View style={styles.rowRule} /> : null}
             </Pressable>
           );
         })}
+        </View>
 
         {/* Units — a list with a copper check, "Statewide" as an explicit first row. */}
         {stateId ? (
           <>
-            <View style={styles.rule} />
-            <Sentence style={{ marginBottom: space.x8 }}>Narrow it to a unit, or keep the whole state.</Sentence>
+            <Sentence style={{ marginTop: space.section, marginBottom: space.x8 }}>
+              Narrow it to a unit, or keep the whole state.
+            </Sentence>
+            <View style={styles.tile}>
             <Pressable style={styles.row} onPress={() => setZoneId(null)} accessibilityRole="button">
               <Text style={[styles.rowText, { flex: 1, color: zoneId === null ? color.bone : color.muted }]}>Statewide</Text>
               {check(zoneId === null)}
-              <View style={styles.rowRule} />
             </Pressable>
-            {units.map((u, i) => (
+            {units.map((u) => (
               <Pressable key={u.id} style={styles.row} onPress={() => setZoneId(u.id)} accessibilityRole="button">
                 <Text style={[styles.rowText, { flex: 1, color: zoneId === u.id ? color.bone : color.muted }]}>{u.name}</Text>
                 {check(zoneId === u.id)}
-                {i !== units.length - 1 ? <View style={styles.rowRule} /> : null}
               </Pressable>
             ))}
+            </View>
             {units.length === 0 ? (
               <Sentence tone="dim" style={{ fontSize: 13, marginTop: space.x8 }}>
                 No units sourced for this state yet — we'll add them as they're verified.
@@ -141,7 +142,7 @@ export default function LocationScreen() {
       </ScrollView>
 
       <View style={styles.footer}>
-        <View style={styles.rule} />
+        <View style={styles.footerRule} />
         <Pill label="Save location" onPress={save} disabled={!stateId || addLocation.isPending} />
       </View>
     </SafeAreaView>
@@ -151,17 +152,17 @@ export default function LocationScreen() {
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: color.bg },
   content: { paddingHorizontal: space.gutter, paddingTop: space.x16, paddingBottom: space.x32 },
-  rule: { height: StyleSheet.hairlineWidth, backgroundColor: color.hair, marginHorizontal: -space.gutter, marginVertical: space.section },
-  row: { flexDirection: 'row', alignItems: 'center', gap: space.x12, paddingVertical: space.x12, minHeight: 44 },
-  rowMain: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: space.x12 },
-  rowRule: {
-    position: 'absolute',
-    left: 0,
-    right: -space.gutter,
-    bottom: 0,
+  footerRule: {
     height: StyleSheet.hairlineWidth,
     backgroundColor: color.hair,
+    marginHorizontal: -space.gutter,
+    marginBottom: space.x16,
   },
+  // Each list sits on its own tile; the lift is what groups the rows, so the
+  // rule under each one is gone (David, 2026-11-08).
+  tile: { paddingHorizontal: space.x16, borderRadius: lang.radius.tile, backgroundColor: color.tile },
+  row: { flexDirection: 'row', alignItems: 'center', gap: space.x12, paddingVertical: space.x12, minHeight: 44 },
+  rowMain: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: space.x12 },
   rowText: { fontFamily: type.ui, fontSize: type.size.body + 0.5 },
   searchRow: {
     flexDirection: 'row',
