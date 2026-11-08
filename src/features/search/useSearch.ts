@@ -1,6 +1,6 @@
 /**
- * All-states search: one lightweight fetch of every published season, draw
- * window, and federal permit hunt (~1,700 rows total), indexed in memory.
+ * All-states search: one paged fetch of every published season, draw window,
+ * and federal permit hunt (~2,760 rows as of 2026-11-07), indexed in memory.
  * The query understands species (fuzzy — "whitetail" finds White-tailed
  * deer), states (name or code), months, and "open now". No per-keystroke
  * network; results are instant after the first load.
@@ -76,30 +76,90 @@ function fmt(d: string | null): string {
   return `${MONTHS[m - 1].slice(0, 3).replace(/^./, (c) => c.toUpperCase())} ${day}`;
 }
 
+/**
+ * PostgREST caps every response at 1,000 rows and says nothing about it. The
+ * old `.limit(3000)` on seasons returned exactly 1,000 rows and looked like a
+ * complete answer; on 2026-11-07 there were 2,348 published seasons, so the one
+ * all-states screen in the app — the only place that delivers on "every date
+ * is free" — was missing 57% of the calendar. Searching a late-season opener
+ * found nothing at all, with no error anywhere to say why.
+ *
+ * The same ceiling silently truncated the marketing site's state pages at
+ * 2026-09-15 for months (fixed in scripts/gen_state_pages.py, 2026-11-06). If
+ * you are adding another bulk read: 1,000 is the ceiling, always, and a `limit`
+ * above it is not an error, just a lie.
+ *
+ * So page explicitly. Order by id — unique and stable — so the window cannot
+ * shift between requests and drop or double a row. Read the exact count off the
+ * first page, then fetch the remainder in parallel: three round trips' worth of
+ * data in two round trips' worth of time, once every 30 minutes.
+ */
+const PAGE = 1000;
+
+type PageResult = { data: unknown[] | null; error: unknown; count?: number | null };
+
+async function fetchAllPages(
+  fetchPage: (from: number, to: number, exact: boolean) => PromiseLike<PageResult>,
+): Promise<unknown[]> {
+  const first = await fetchPage(0, PAGE - 1, true);
+  if (first.error) throw first.error;
+  const rows = [...(first.data ?? [])];
+  const total = first.count ?? rows.length;
+  if (total <= PAGE) return rows;
+
+  const rest = await Promise.all(
+    Array.from({ length: Math.ceil(total / PAGE) - 1 }, (_, i) =>
+      fetchPage((i + 1) * PAGE, (i + 2) * PAGE - 1, false)),
+  );
+  for (const r of rest) {
+    if (r.error) throw r.error;
+    rows.push(...(r.data ?? []));
+  }
+  return rows;
+}
+
 export function useSearchCorpus() {
   return useQuery({
     queryKey: ['search-corpus'],
     staleTime: 30 * 60 * 1000,
     queryFn: async (): Promise<{ results: SearchResult[]; states: { code: string; name: string }[] }> => {
-      const [seasons, windows, permits, states] = await Promise.all([
-        supabase
-          .from('seasons')
-          .select('id,label,method,open_date,close_date,state:states(code,name),species:species(name)')
-          .eq('status', 'published')
-          .limit(3000),
-        supabase
-          .from('application_windows')
-          .select('id,name,closes_at,state:states(code,name),species:species(name)')
-          .eq('status', 'published')
-          .limit(1000),
-        supabase.from('federal_permit_hunts').select('*, dates:federal_permit_hunt_dates(label,open_date,close_date)').limit(500),
+      const [seasonRows, windowRows, permitRows, states] = await Promise.all([
+        fetchAllPages((from, to, exact) =>
+          supabase
+            .from('seasons')
+            .select(
+              'id,label,method,open_date,close_date,state:states(code,name),species:species(name)',
+              exact ? { count: 'exact' } : undefined,
+            )
+            .eq('status', 'published')
+            .order('id', { ascending: true })
+            .range(from, to)),
+        fetchAllPages((from, to, exact) =>
+          supabase
+            .from('application_windows')
+            .select(
+              'id,name,closes_at,state:states(code,name),species:species(name)',
+              exact ? { count: 'exact' } : undefined,
+            )
+            .eq('status', 'published')
+            .order('id', { ascending: true })
+            .range(from, to)),
+        fetchAllPages((from, to, exact) =>
+          supabase
+            .from('federal_permit_hunts')
+            .select(
+              '*, dates:federal_permit_hunt_dates(label,open_date,close_date)',
+              exact ? { count: 'exact' } : undefined,
+            )
+            .order('id', { ascending: true })
+            .range(from, to)),
+        // ~50 rows, fixed by the map of the United States. No paging needed.
         supabase.from('states').select('code,name').eq('is_active', true),
       ]);
-      const err = seasons.error ?? windows.error ?? permits.error ?? states.error;
-      if (err) throw err;
+      if (states.error) throw states.error;
 
       const out: SearchResult[] = [];
-      for (const s of (seasons.data ?? []) as any[]) {
+      for (const s of seasonRows as any[]) {
         const label = s.label ?? s.method.charAt(0).toUpperCase() + s.method.slice(1);
         out.push({
           type: 'season',
@@ -113,7 +173,7 @@ export function useSearchCorpus() {
           hay: norm(`${s.species?.name} ${label} ${s.method} ${s.state?.name} ${s.state?.code} ${aliasTermsFor(s.species?.name)}`),
         });
       }
-      for (const w of (windows.data ?? []) as any[]) {
+      for (const w of windowRows as any[]) {
         out.push({
           type: 'deadline',
           id: w.id,
@@ -129,7 +189,7 @@ export function useSearchCorpus() {
       const stateByName = new Map((states.data ?? []).map((st: any) => [st.name, st.code]));
       const today = new Date();
       const todayISO = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
-      for (const p of (permits.data ?? []) as (FederalPermitHuntRow & { dates?: { label: string | null; open_date: string; close_date: string | null }[] })[]) {
+      for (const p of permitRows as (FederalPermitHuntRow & { dates?: { label: string | null; open_date: string; close_date: string | null }[] })[]) {
         const code = p.state_code ? (stateByName.get(p.state_code) ?? p.state_code) : null;
         // Parsed hunt dates (freshness-gated at ingest): surface the next
         // upcoming segment so permits sort and filter like real seasons.
