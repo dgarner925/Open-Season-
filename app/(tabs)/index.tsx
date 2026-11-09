@@ -591,13 +591,18 @@ const styles = StyleSheet.create({
   topRight: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
   bellBtn: { width: 32, height: 32, alignItems: 'center', justifyContent: 'center' },
   
-  heroBlock: { marginTop: spacing.xl },
+  // marginBottom sets the gap to the Daily Outlook beneath, rather than
+  // touching briefCard's own marginTop, which the Weekend Brief shares.
+  // 16 here + the card's 16 = 32, so the headline is given room to land.
+  heroBlock: { marginTop: spacing.xl, marginBottom: spacing.lg },
   hero: { fontSize: 62, lineHeight: 70, paddingTop: 4, marginTop: spacing.md },
   // Sits where the wordmark sat, so the date line and greeting below it
   // keep their spacing exactly as they were.
   // Set off from the greeting above it: the salutation is one small block,
-  // the news is the next. Without this they read as one paragraph.
-  heroHeadline: { marginTop: spacing.md },
+  // the news is the next. At 12 they still read as one paragraph, so this is
+  // the 24 section rhythm (David, 2026-11-08) -- the headline is the thing
+  // the screen is for and it earns the air on both sides.
+  heroHeadline: { marginTop: spacing.xl },
   outlookLight: { flexDirection: 'row', alignItems: 'baseline', gap: spacing.md, marginVertical: 2 },
   lightTimes: { fontFamily: fontFamily.serif, fontSize: 22, color: lang.color.bone },
   lightLabel: {
