@@ -1,0 +1,9 @@
+The whole app, redrawn.
+
+Every screen is rebuilt on one set of materials — translucent plates, a warmer palette, and a serif kept for the things worth reading slowly: species, dates, times, counts. Home leads with what's open and what opens next, instead of the app's own name.
+
+New: the Logbook, which reads your hunting years back to you as a record. And the Season Card — every opener ahead of you on one plate, ready to send to whoever needs to see it.
+
+Setup now reads as one sequence, and a fresh install opens where you'd expect it to.
+
+Also fixed: buttons tell a screen reader what they are. Following a hunt no longer replays old date changes at you. And a good party invite code is no longer reported as invalid.

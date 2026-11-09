@@ -84,7 +84,9 @@ async function api(path, init = {}) {
 
 async function state() {
   const v = await api(
-    `/v1/apps/${APP_ID}/appStoreVersions?limit=8&fields[appStoreVersions]=versionString,appStoreState,platform,createdDate,releaseType&include=build`,
+    // `build` must be listed in fields[] or the relationship is not serialised
+    // and every version reads as "(none attached)" -- including live ones.
+    `/v1/apps/${APP_ID}/appStoreVersions?limit=8&fields[appStoreVersions]=versionString,appStoreState,platform,createdDate,releaseType,build&include=build`,
   );
   if (!v) return;
   console.log('\nApp Store versions (newest first):');
@@ -155,6 +157,161 @@ async function shots() {
   }
 }
 
+async function patch(path, body) {
+  return api(path, { method: 'PATCH', body: JSON.stringify(body) });
+}
+async function post(path, body) {
+  return api(path, { method: 'POST', body: JSON.stringify(body) });
+}
+
+/**
+ * Create the version record if missing, set its release notes, attach the
+ * build, and submit it for review.
+ *
+ * Prints every step and changes nothing unless --go is passed.
+ */
+async function submit(versionString, buildNumber, go) {
+  const say = (s) => console.log(`  ${go ? '' : '[dry-run] '}${s}`);
+  console.log(`\nSubmitting ${versionString} / build ${buildNumber}${go ? '' : '  (DRY RUN)'}`);
+
+  // 1. The build must exist and have cleared Apple's processing.
+  const b = await api(
+    `/v1/builds?filter[app]=${APP_ID}&filter[version]=${buildNumber}&limit=1` +
+      `&fields[builds]=version,processingState`,
+  );
+  if (!b) return;
+  if (!b.data.length) {
+    console.error(`  build ${buildNumber} is not in App Store Connect yet`);
+    process.exitCode = 1;
+    return;
+  }
+  const build = b.data[0];
+  if (build.attributes.processingState !== 'VALID') {
+    console.error(
+      `  build ${buildNumber} is ${build.attributes.processingState}, not VALID -- ` +
+        `Apple is still processing it. Try again shortly.`,
+    );
+    process.exitCode = 1;
+    return;
+  }
+  say(`build ${buildNumber} is VALID (${build.id})`);
+
+  // 2. Find or create the version record.
+  const existing = await api(
+    `/v1/apps/${APP_ID}/appStoreVersions?filter[versionString]=${versionString}` +
+      `&limit=1&fields[appStoreVersions]=versionString,appStoreState`,
+  );
+  if (!existing) return;
+  let versionId = existing.data.length ? existing.data[0].id : null;
+  if (versionId) {
+    say(`version ${versionString} exists (${existing.data[0].attributes.appStoreState})`);
+  } else {
+    say(`create version ${versionString}, releaseType AFTER_APPROVAL`);
+    if (go) {
+      const made = await post('/v1/appStoreVersions', {
+        data: {
+          type: 'appStoreVersions',
+          attributes: {
+            platform: 'IOS',
+            versionString,
+            releaseType: 'AFTER_APPROVAL',
+          },
+          relationships: { app: { data: { type: 'apps', id: APP_ID } } },
+        },
+      });
+      if (!made) return;
+      versionId = made.data.id;
+      say(`created ${versionId}`);
+    }
+  }
+  if (!versionId) {
+    say('(cannot continue in dry run without a version record)');
+    return;
+  }
+
+  // 3. Release notes, from the file in store/ so they are reviewable in git.
+  const notes = fs
+    .readFileSync(`${__dirname}/../store/whatsnew-${versionString}.txt`, 'utf8')
+    .trim();
+  const locs = await api(
+    `/v1/appStoreVersions/${versionId}/appStoreVersionLocalizations` +
+      `?fields[appStoreVersionLocalizations]=locale`,
+  );
+  if (!locs) return;
+  const en = locs.data.find((l) => l.attributes.locale === 'en-US');
+  say(`set "What's New" on en-US (${notes.length} chars)`);
+  if (go) {
+    if (en) {
+      const r = await patch(`/v1/appStoreVersionLocalizations/${en.id}`, {
+        data: { type: 'appStoreVersionLocalizations', id: en.id, attributes: { whatsNew: notes } },
+      });
+      if (!r) return;
+    } else {
+      const r = await post('/v1/appStoreVersionLocalizations', {
+        data: {
+          type: 'appStoreVersionLocalizations',
+          attributes: { locale: 'en-US', whatsNew: notes },
+          relationships: {
+            appStoreVersion: { data: { type: 'appStoreVersions', id: versionId } },
+          },
+        },
+      });
+      if (!r) return;
+    }
+  }
+
+  // 4. Attach the build.
+  say(`attach build ${buildNumber}`);
+  if (go) {
+    const r = await patch(`/v1/appStoreVersions/${versionId}/relationships/build`, {
+      data: { type: 'builds', id: build.id },
+    });
+    if (r === null && process.exitCode === 1) return;
+  }
+
+  // 5. Submit for review. Apple allows one open submission at a time.
+  const open = await api(
+    `/v1/reviewSubmissions?filter[app]=${APP_ID}` +
+      `&filter[state]=READY_FOR_REVIEW,WAITING_FOR_REVIEW,IN_REVIEW,UNRESOLVED_ISSUES` +
+      `&fields[reviewSubmissions]=state&limit=5`,
+  );
+  if (open && open.data.length) {
+    console.error(
+      `  an open review submission already exists (${open.data
+        .map((r) => r.attributes.state)
+        .join(', ')}) -- resolve or cancel it in App Store Connect first`,
+    );
+    process.exitCode = 1;
+    return;
+  }
+  say('create review submission, add this version to it, mark it submitted');
+  if (go) {
+    const rs = await post('/v1/reviewSubmissions', {
+      data: {
+        type: 'reviewSubmissions',
+        attributes: { platform: 'IOS' },
+        relationships: { app: { data: { type: 'apps', id: APP_ID } } },
+      },
+    });
+    if (!rs) return;
+    const item = await post('/v1/reviewSubmissionItems', {
+      data: {
+        type: 'reviewSubmissionItems',
+        relationships: {
+          reviewSubmission: { data: { type: 'reviewSubmissions', id: rs.data.id } },
+          appStoreVersion: { data: { type: 'appStoreVersions', id: versionId } },
+        },
+      },
+    });
+    if (!item) return;
+    const done = await patch(`/v1/reviewSubmissions/${rs.data.id}`, {
+      data: { type: 'reviewSubmissions', id: rs.data.id, attributes: { submitted: true } },
+    });
+    if (!done) return;
+    console.log(`\n  SUBMITTED. state: ${done.data.attributes.state}`);
+  }
+}
+
 async function main() {
   const cmd = process.argv[2] || 'state';
   if (cmd === 'state') {
@@ -164,9 +321,17 @@ async function main() {
     await builds();
   } else if (cmd === 'shots') {
     await shots();
+  } else if (cmd === 'submit') {
+    const version = process.argv[3];
+    const build = process.argv[4];
+    if (!version || !build) {
+      console.error('Usage: node scripts/asc.js submit <version> <buildNumber> [--go]');
+      process.exit(2);
+    }
+    await submit(version, build, process.argv.includes('--go'));
   } else {
     console.error(`Unknown command: ${cmd}`);
-    console.error('Commands: state, builds');
+    console.error('Commands: state, builds, shots, submit');
     process.exit(2);
   }
   console.log('');
