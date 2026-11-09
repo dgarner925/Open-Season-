@@ -80,7 +80,22 @@ Deno.serve(async (req) => {
     }
 
     // --- facts first ------------------------------------------------------
-    const { data: factsRaw, error: factsErr } = await admin.rpc('daily_brief_facts', { p_user_id: user.id });
+    // The device's own day, when it sent one. Only a plain YYYY-MM-DD is
+    // accepted; anything else falls back to the server's date, which is what
+    // the cron callers rely on.
+    let clientToday: string | null = null;
+    try {
+      const body = await req.json();
+      const t = typeof body?.today === 'string' ? body.today.trim() : '';
+      if (/^\d{4}-\d{2}-\d{2}$/.test(t) && !Number.isNaN(Date.parse(t))) clientToday = t;
+    } catch {
+      // no body, or not JSON -- the server's date is the right fallback
+    }
+
+    const { data: factsRaw, error: factsErr } = await admin.rpc('daily_brief_facts', {
+      p_user_id: user.id,
+      p_today: clientToday,
+    });
     if (factsErr) throw factsErr;
     const facts = factsRaw as BriefFacts | null;
     if (!hasSomethingToSay(facts)) return json({ brief: null });

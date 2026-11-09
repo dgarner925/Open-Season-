@@ -31,7 +31,11 @@ export function useDailyBrief(enabled = true) {
     gcTime: 24 * 60 * 60 * 1000,
     retry: 1,
     queryFn: async (): Promise<DailyBrief> => {
-      const { data, error } = await supabase.functions.invoke('daily-brief', { body: {} });
+      // Send the day the user is actually having. The database runs in UTC,
+      // so after 19:00 Eastern its current_date is already tomorrow and the
+      // brief slipped a day against the rest of the app -- announcing a season
+      // that opens tomorrow as opening today (David's phone, 2026-11-08).
+      const { data, error } = await supabase.functions.invoke('daily-brief', { body: { today: day } });
       if (error) throw error;
       return (data ?? { brief: null }) as DailyBrief;
     },

@@ -9,7 +9,7 @@ import { LightCountdown } from '@/components/LightCountdown';
 import { useDailyBrief } from '@/features/brief/queries';
 import { PageTitle, SpeciesBadge } from '@/components/midnight';
 import { Headline } from '@/components/system';
-import { headlineSize, nextOpenerSentence } from '@/features/home/sentences';
+import { headlineSize, nextOpenerSentence, zoneNote } from '@/features/home/sentences';
 import { NotificationsOffBanner } from '@/components/NotificationsOffBanner';
 import { ProUpsellCard } from '@/components/ProUpsellCard';
 import { useAuth } from '@/providers/AuthProvider';
@@ -194,14 +194,25 @@ export default function Home() {
             <Text style={styles.greeting}>{partOfDay}</Text>
           )}
           {nextOpener ? (
-            <Headline
-              size={headlineSize(
-                nextOpenerSentence(nextOpener.species?.name ?? 'The next season', diffDays(iso, nextOpener.open_date!)),
-              )}
-              style={styles.heroHeadline}
-            >
-              {nextOpenerSentence(nextOpener.species?.name ?? 'The next season', diffDays(iso, nextOpener.open_date!))}
-            </Headline>
+            <>
+              <Headline
+                size={headlineSize(
+                  nextOpenerSentence(nextOpener.species?.name ?? 'The next season', diffDays(iso, nextOpener.open_date!)),
+                )}
+                style={styles.heroHeadline}
+              >
+                {nextOpenerSentence(nextOpener.species?.name ?? 'The next season', diffDays(iso, nextOpener.open_date!))}
+              </Headline>
+              {/* Where, when the opener is one property or one unit rather
+                  than the whole state. Adding the Smithgall hunts made the
+                  headline read as a statewide bear opener while statewide
+                  bear was already open (David, 2026-11-08). */}
+              {zoneNote(nextOpener.zone?.name, nextOpener.zone?.type) ? (
+                <Text style={styles.heroWhere}>
+                  {zoneNote(nextOpener.zone?.name, nextOpener.zone?.type)}
+                </Text>
+              ) : null}
+            </>
           ) : (
             <PageTitle lead={'Open\n'} accent="season." style={styles.hero} />
           )}
@@ -603,6 +614,14 @@ const styles = StyleSheet.create({
   // the 24 section rhythm (David, 2026-11-08) -- the headline is the thing
   // the screen is for and it earns the air on both sides.
   heroHeadline: { marginTop: spacing.xl },
+  // The quiet qualifier under the headline: present only when the season is
+  // narrower than the state, so it must not compete with the serif above it.
+  heroWhere: {
+    fontFamily: fontFamily.sans,
+    fontSize: 14,
+    color: theme.color.textMuted,
+    marginTop: spacing.sm,
+  },
   outlookLight: { flexDirection: 'row', alignItems: 'baseline', gap: spacing.md, marginVertical: 2 },
   lightTimes: { fontFamily: fontFamily.serif, fontSize: 22, color: lang.color.bone },
   lightLabel: {

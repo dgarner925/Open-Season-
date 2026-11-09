@@ -12,8 +12,14 @@
 
 export type BriefFacts = {
   today: string;
-  open_now: { species: string; state: string; method?: string }[];
-  opening_soon: { species: string; state: string; open_date: string; in_days: number }[];
+  open_now: { species: string; state: string; method?: string; zone?: string | null }[];
+  opening_soon: {
+    species: string;
+    state: string;
+    open_date: string;
+    in_days: number;
+    zone?: string | null;
+  }[];
   next_deadline: { species: string; state: string; closes_at: string; in_days: number } | null;
   counts: { open_now: number; opening_soon: number };
 };
@@ -33,6 +39,18 @@ function list(names: string[]): string {
   if (uniq.length === 1) return uniq[0];
   if (uniq.length === 2) return `${uniq[0]} and ${uniq[1]}`;
   return `${uniq.slice(0, -1).join(', ')}, and ${uniq[uniq.length - 1]}`;
+}
+
+/**
+ * Where, when "where" is narrower than the state. NULL means statewide, so
+ * most seasons add nothing and the sentence is unchanged. Without this the
+ * card could say "Black bear open in Georgia" and "Black bear opens in 2
+ * days" in consecutive sentences -- both true, since statewide bear is open
+ * while a state-park hunt is still ahead, and nonsense side by side.
+ */
+function at(zone?: string | null): string {
+  const z = (zone ?? '').trim();
+  return z ? ` at ${z}` : '';
 }
 
 function days(n: number): string {
@@ -64,8 +82,8 @@ export function composeBrief(f: BriefFacts): string {
     const also = f.opening_soon.length - 1;
     parts.push(
       also > 0
-        ? `${next.species} opens ${days(next.in_days)} in ${next.state}, with ${also} more inside a week.`
-        : `${next.species} opens ${days(next.in_days)} in ${next.state}.`,
+        ? `${next.species} opens ${days(next.in_days)} in ${next.state}${at(next.zone)}, with ${also} more inside a week.`
+        : `${next.species} opens ${days(next.in_days)} in ${next.state}${at(next.zone)}.`,
     );
   }
 

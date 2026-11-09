@@ -6,6 +6,7 @@ import {
   openVerb,
   todaySentence,
   whenPhrase,
+  zoneNote,
 } from './sentences';
 
 describe('todaySentence', () => {
@@ -103,5 +104,28 @@ describe('lightRuleNote', () => {
 
   it('states an asymmetric rule in full rather than rounding it to one number', () => {
     expect(lightRuleNote(30, 20)).toBe('30 min before sunrise, 20 after sunset');
+  });
+});
+
+describe('zoneNote', () => {
+  // David, 2026-11-08: the Smithgall hunts made the headline read as a
+  // statewide bear opener while statewide Northern Zone bear was already
+  // open. The headline keeps its sentence; this is the line beneath it.
+  it('names a property, a county group or a unit list', () => {
+    expect(zoneNote('Smithgall Woods State Park (Dukes Creek)', 'county_group')).toBe(
+      'at Smithgall Woods State Park (Dukes Creek)',
+    );
+    expect(zoneNote('Northern Zone', 'gmu')).toBe('at Northern Zone');
+  });
+
+  it('says nothing for a statewide season, whatever the zone is called', () => {
+    expect(zoneNote('Statewide', 'statewide')).toBe('');
+    expect(zoneNote('Anything at all', 'statewide')).toBe('');
+  });
+
+  it('says nothing when there is no zone to name', () => {
+    expect(zoneNote(null, 'county_group')).toBe('');
+    expect(zoneNote(undefined, undefined)).toBe('');
+    expect(zoneNote('   ', 'county_group')).toBe('');
   });
 });

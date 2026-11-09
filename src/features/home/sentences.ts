@@ -51,6 +51,22 @@ export function nextOpenerSentence(speciesName: string, days: number): string {
  * the screen. Thresholds are character counts because the headline is tightly
  * tracked and close to even-width at this weight.
  */
+/**
+ * Where the next opener actually is, when that is narrower than the state.
+ *
+ * The headline says what opens and when; it does not have room for a park
+ * name, and a 40pt serif is the wrong place for one anyway. This is the quiet
+ * line underneath. Statewide seasons get nothing, which is most of them.
+ *
+ * Keyed on zone_type rather than the zone's name: a zone called "Statewide"
+ * is not what decides it.
+ */
+export function zoneNote(zoneName?: string | null, zoneType?: string | null): string {
+  if (zoneType === 'statewide') return '';
+  const z = (zoneName ?? '').trim();
+  return z ? `at ${z}` : '';
+}
+
 export function headlineSize(sentence: string): number {
   if (sentence.length <= 24) return 40;
   if (sentence.length <= 42) return 34;

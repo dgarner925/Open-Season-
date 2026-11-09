@@ -87,3 +87,61 @@ describe('checkBriefNumbers', () => {
     expect(checkBriefNumbers('Deer and Ducks are open in Georgia.', FULL).ok).toBe(true);
   });
 });
+
+describe('composeBrief names the zone', () => {
+  // David, 2026-11-08: adding the Smithgall Woods state-park hunts made the
+  // card contradict itself -- "Black bear ... open in Georgia" immediately
+  // followed by "Black bear opens in 2 days in Georgia". Both true: statewide
+  // Northern Zone bear is open while the park hunt is still ahead. The next
+  // opener now says where, so the two sentences stop arguing.
+  const zoned: BriefFacts = {
+    today: '2026-11-08',
+    open_now: [],
+    opening_soon: [
+      {
+        species: 'Black bear',
+        state: 'Georgia',
+        open_date: '2026-11-11',
+        in_days: 3,
+        zone: 'Smithgall Woods State Park (Dukes Creek)',
+      },
+    ],
+    next_deadline: null,
+    counts: { open_now: 0, opening_soon: 1 },
+  };
+
+  it('says where, when the season is narrower than the state', () => {
+    expect(composeBrief(zoned)).toBe(
+      'Black bear opens in 3 days in Georgia at Smithgall Woods State Park (Dukes Creek).',
+    );
+  });
+
+  it('says nothing extra when the season really is statewide', () => {
+    const statewide = {
+      ...zoned,
+      opening_soon: [{ ...zoned.opening_soon[0], zone: null }],
+    };
+    expect(composeBrief(statewide)).toBe('Black bear opens in 3 days in Georgia.');
+  });
+
+  it('treats a missing zone and a blank one the same as statewide', () => {
+    for (const zone of [undefined, '', '   ']) {
+      const f = { ...zoned, opening_soon: [{ ...zoned.opening_soon[0], zone }] };
+      expect(composeBrief(f)).toBe('Black bear opens in 3 days in Georgia.');
+    }
+  });
+
+  it('keeps the zone alongside the "more inside a week" tail', () => {
+    const two: BriefFacts = {
+      ...zoned,
+      opening_soon: [
+        zoned.opening_soon[0],
+        { species: 'Deer', state: 'Georgia', open_date: '2026-11-11', in_days: 3, zone: null },
+      ],
+      counts: { open_now: 0, opening_soon: 2 },
+    };
+    expect(composeBrief(two)).toBe(
+      'Black bear opens in 3 days in Georgia at Smithgall Woods State Park (Dukes Creek), with 1 more inside a week.',
+    );
+  });
+});
