@@ -41,9 +41,23 @@ export type PartyMemberRow = {
 export type PartyRosterEntry = {
   user_id: string;
   display_name: string;
+  /** Null until they set one; the roster falls back to a lettered medallion. */
+  avatar_url: string | null;
   joined_at: string;
   applied_at: string | null;
   is_owner: boolean;
+  /** Days of a season party this member has said they are coming. */
+  days: string[];
+};
+
+export type PartyMessage = {
+  id: string;
+  user_id: string;
+  display_name: string;
+  avatar_url: string | null;
+  body: string;
+  created_at: string;
+  mine: boolean;
 };
 
 export type DateChangeRow = {
@@ -200,6 +214,8 @@ export type ProfileRow = Timestamps & {
   grandfathered: boolean;
   /** Friday-morning Weekend Brief push (Pro). Default true. */
   weekend_brief?: boolean;
+  /** Public URL in the avatars bucket; null until they set one. */
+  avatar_url?: string | null;
 };
 
 export type DateReportRow = {
@@ -363,6 +379,13 @@ export type Database = {
       set_party_applied: { Args: { p_party_id: string; p_applied: boolean }; Returns: undefined };
       leave_party: { Args: { p_party_id: string }; Returns: undefined };
       party_roster: { Args: { p_party_id: string }; Returns: PartyRosterEntry[] };
+      party_thread: { Args: { p_party_id: string; p_limit?: number }; Returns: PartyMessage[] };
+      post_party_message: { Args: { p_party_id: string; p_body: string }; Returns: string };
+      report_party_message: { Args: { p_message_id: string; p_reason?: string | null }; Returns: void };
+      delete_party_message: { Args: { p_message_id: string }; Returns: void };
+      block_user: { Args: { p_user_id: string; p_blocked?: boolean }; Returns: void };
+      set_party_day: { Args: { p_party_id: string; p_day: string; p_going: boolean }; Returns: void };
+      set_avatar_url: { Args: { p_url: string | null }; Returns: void };
       is_party_member: { Args: { p_party_id: string }; Returns: boolean };
     };
     Enums: {

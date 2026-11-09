@@ -2,6 +2,9 @@ import { Stack, useFocusEffect, useLocalSearchParams, useRouter } from 'expo-rou
 import { useCallback } from 'react';
 import { ActivityIndicator, Alert, Pressable, Share, StyleSheet, Text, View } from 'react-native';
 import { LinkSentence, Pill, Rule, Screen, Sentence, Serif, Thread } from '@/components/system';
+import { Avatar } from '@/components/Avatar';
+import { PartyDays } from '@/features/parties/PartyDays';
+import { PartyThread } from '@/features/parties/PartyThread';
 import {
   usePartyById,
   usePartyRoster,
@@ -185,6 +188,7 @@ export default function Party() {
         const applied = Boolean(m.applied_at);
         return (
           <View key={m.user_id} style={styles.memberRow}>
+            <Avatar name={m.display_name} url={m.avatar_url} size={36} />
             <View style={{ flex: 1 }}>
               <Text style={styles.memberName}>
                 {m.display_name}
@@ -214,6 +218,20 @@ export default function Party() {
           </View>
         );
       })}
+
+      {/* Who is coming which days -- season parties only; a draw has an
+          application deadline, not days in camp. */}
+      {!isDraw && s?.open_date ? (
+        <PartyDays
+          partyId={party.id}
+          roster={roster}
+          myUserId={user?.id}
+          openDate={s.open_date}
+          closeDate={s.close_date}
+        />
+      ) : null}
+
+      <PartyThread partyId={party.id} />
 
       <Rule />
 

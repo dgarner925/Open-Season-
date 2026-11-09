@@ -2,7 +2,7 @@ import Constants from 'expo-constants';
 import { Ionicons } from '@expo/vector-icons';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'expo-router';
-import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Headline, Input, LinkSentence, Micro, Pill, Sentence, Serif, Tile, tileSurface } from '@/components/system';
 import { useAuth } from '@/providers/AuthProvider';
@@ -11,6 +11,7 @@ import { useBrowseStateCode } from '@/lib/browseState';
 import { supabase } from '@/lib/supabase';
 import { openExternalUrl } from '@/lib/openUrl';
 import { Engraving, engravingFor } from '@/components/Engraving';
+import { useClearAvatar, useSetAvatar } from '@/features/profile/avatar';
 import { lang } from '@/theme/tokens';
 
 const { color, space, type } = lang;
@@ -95,6 +96,47 @@ export default function Settings() {
   const [deleting, setDeleting] = useState(false);
   useEffect(() => setName(profile?.display_name ?? ''), [profile?.display_name]);
 
+  const setAvatar = useSetAvatar();
+  const clearAvatar = useClearAvatar();
+  const avatarUrl = profile?.avatar_url ?? null;
+
+  function onAvatar() {
+    const pick = () =>
+      setAvatar.mutate(undefined, {
+        onSuccess: async (r) => {
+          if (r.ok) {
+            await refreshProfile();
+            return;
+          }
+          if (r.reason === 'cancelled') return;
+          if (r.reason === 'denied') {
+            Alert.alert(
+              'Photos are off',
+              'Open Season needs access to your photo library to set a picture. You can turn it on in Settings.',
+            );
+            return;
+          }
+          Alert.alert('Could not set your picture', r.reason);
+        },
+        onError: (e: unknown) =>
+          Alert.alert('Could not set your picture', (e as { message?: string })?.message ?? ''),
+      });
+
+    if (!avatarUrl) {
+      pick();
+      return;
+    }
+    Alert.alert('Your picture', undefined, [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Choose a new one', onPress: pick },
+      {
+        text: 'Remove',
+        style: 'destructive',
+        onPress: () => clearAvatar.mutate(undefined, { onSuccess: () => refreshProfile() }),
+      },
+    ]);
+  }
+
   const trimmed = name.trim();
   const displayName = (profile?.display_name ?? '').trim();
   const initial = (displayName || user?.email || '?').trim().charAt(0).toUpperCase();
@@ -178,11 +220,29 @@ export default function Settings() {
             serif, and the member line set like an edition note. The pencil
             toggles the editor. */}
         <View style={styles.identity}>
-          <View style={styles.monogramRing}>
+          {/* The bookplate ring holds a photo when there is one, and the
+              monogram when there is not -- the fallback is the common case,
+              so it stays the designed state rather than an empty slot. */}
+          <Pressable
+            onPress={onAvatar}
+            accessibilityRole="button"
+            accessibilityLabel={avatarUrl ? 'Change your picture' : 'Add a picture'}
+            style={styles.monogramRing}
+          >
             <View style={styles.monogram}>
-              <Text style={styles.monogramLetter}>{initial}</Text>
+              {setAvatar.isPending ? (
+                <ActivityIndicator color={lang.color.copper} />
+              ) : avatarUrl ? (
+                <Image
+                  source={{ uri: avatarUrl }}
+                  style={styles.monogramPhoto}
+                  accessibilityIgnoresInvertColors
+                />
+              ) : (
+                <Text style={styles.monogramLetter}>{initial}</Text>
+              )}
             </View>
-          </View>
+          </Pressable>
           <View style={{ flex: 1 }}>
             <Text style={styles.identityName}>{displayName || 'Add your name'}</Text>
             {residentStateName || isAdmin ? (
@@ -304,6 +364,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  monogramPhoto: { width: '100%', height: '100%', borderRadius: 999 },
   monogramLetter: { fontFamily: type.display, fontSize: 24, lineHeight: 29, color: color.copper },
   identityName: { fontFamily: type.display, fontSize: 27, lineHeight: 32, color: color.bone },
 

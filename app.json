@@ -2,7 +2,7 @@
   "expo": {
     "name": "Open Season",
     "slug": "openseason",
-    "version": "1.4.5",
+    "version": "1.4.6",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "scheme": "openseason",
@@ -77,6 +77,14 @@
         "@react-native-google-signin/google-signin",
         {
           "iosUrlScheme": "com.googleusercontent.apps.82659984820-sapcn4c71tocngfevm1pafkrqtrqv8e7"
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Open Season opens your photo library only when you tap your initials to set a profile picture, so your hunting party sees a face instead of a letter. Nothing else in your library is read, and the photo is squared and stripped of its location data on your phone before it is uploaded.",
+          "cameraPermission": false,
+          "microphonePermission": false
         }
       ],
       [

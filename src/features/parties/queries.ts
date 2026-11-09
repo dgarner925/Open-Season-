@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/providers/AuthProvider';
-import type { PartyRosterEntry, PartyRow } from '@/lib/database.types';
+import type { PartyMessage, PartyRosterEntry, PartyRow } from '@/lib/database.types';
 
 export type PartyWithWindow = PartyRow & {
   window: {
@@ -122,5 +122,104 @@ export function useLeaveParty() {
       if (error) throw error;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['parties'] }),
+  });
+}
+
+// ---------------------------------------------------------------------------
+// The thread
+// ---------------------------------------------------------------------------
+
+/**
+ * Messages in a party. Polled rather than subscribed: a camp thread is four
+ * people planning a weekend, not a chat room, and a 10s poll costs far less
+ * than holding a realtime socket open on a phone in the woods.
+ */
+export function usePartyThread(partyId: string | undefined) {
+  const { user } = useAuth();
+  return useQuery({
+    queryKey: ['party_thread', partyId],
+    enabled: Boolean(user && partyId),
+    refetchInterval: 10_000,
+    queryFn: async (): Promise<PartyMessage[]> => {
+      const { data, error } = await supabase.rpc('party_thread', { p_party_id: partyId! });
+      if (error) throw error;
+      return (data ?? []) as PartyMessage[];
+    },
+  });
+}
+
+export function usePostPartyMessage(partyId: string | undefined) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (body: string) => {
+      const { error } = await supabase.rpc('post_party_message', {
+        p_party_id: partyId!,
+        p_body: body,
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['party_thread', partyId] }),
+  });
+}
+
+export function useReportPartyMessage(partyId: string | undefined) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, reason }: { id: string; reason?: string }) => {
+      const { error } = await supabase.rpc('report_party_message', {
+        p_message_id: id,
+        p_reason: reason ?? null,
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['party_thread', partyId] }),
+  });
+}
+
+export function useDeletePartyMessage(partyId: string | undefined) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.rpc('delete_party_message', { p_message_id: id });
+      if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['party_thread', partyId] }),
+  });
+}
+
+/** Blocking is mutual in party_thread: neither of you sees the other again. */
+export function useBlockUser(partyId: string | undefined) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ userId, blocked = true }: { userId: string; blocked?: boolean }) => {
+      const { error } = await supabase.rpc('block_user', {
+        p_user_id: userId,
+        p_blocked: blocked,
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['party_thread', partyId] });
+      qc.invalidateQueries({ queryKey: ['party_roster', partyId] });
+    },
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Who is coming which days
+// ---------------------------------------------------------------------------
+
+export function useSetPartyDay(partyId: string | undefined) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ day, going }: { day: string; going: boolean }) => {
+      const { error } = await supabase.rpc('set_party_day', {
+        p_party_id: partyId!,
+        p_day: day,
+        p_going: going,
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['party_roster', partyId] }),
   });
 }
