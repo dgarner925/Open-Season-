@@ -82,6 +82,28 @@ begin
 end $$;
 
 -- ---------------------------------------------------------------------------
+-- What a source is FOR
+-- ---------------------------------------------------------------------------
+--
+-- refresh-sources-daily walks `sources` ordered by last_extracted_at and hands
+-- each one to the season/application/regulation extractor. Registering a
+-- leftover-tag page as a source without this column would therefore feed an
+-- agency's licence-sale page to the season extractor, which would dutifully
+-- propose nonsense into review_queue every night.
+--
+-- Existing rows all default to 'seasons', which is what they are.
+
+alter table public.sources add column if not exists purpose text not null default 'seasons';
+
+alter table public.sources drop constraint if exists sources_purpose_known;
+alter table public.sources
+  add constraint sources_purpose_known
+  check (purpose in ('seasons', 'leftover_tags'));
+
+create index if not exists sources_purpose_stalest
+  on public.sources (purpose, last_extracted_at nulls first);
+
+-- ---------------------------------------------------------------------------
 -- Types
 -- ---------------------------------------------------------------------------
 

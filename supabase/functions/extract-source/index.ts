@@ -580,8 +580,14 @@ Deno.serve(async (req) => {
       }
     } else {
       // Round-robin: the stalest sources first, so hourly cron cycles through all.
+      //
+      // purpose='seasons' matters: `sources` also holds the agencies' leftover
+      // and over-the-counter tag pages, which ingest-leftover-tags owns. Without
+      // this filter the round-robin would hand a licence-sale page to the season
+      // extractor and it would propose nonsense into review_queue every night.
       const { data } = await admin.from('sources').select('*')
         .not('state_id', 'is', null)
+        .eq('purpose', 'seasons')
         .order('last_extracted_at', { ascending: true, nullsFirst: true })
         .limit(Math.min(Math.max(max ?? 1, 1), 25));
       sources = data ?? [];
