@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { REGISTRY, liveEntries, pendingStates } from './registry';
+import { REGISTRY, fixedSalesFor, liveEntries, pendingStates, ruleDrivenStates } from './registry';
 
 describe('the leftover registry', () => {
   it('names no state twice', () => {
@@ -57,5 +57,54 @@ describe('the leftover registry', () => {
     // Not a goal to drive to zero silently: this is the honest measure of how
     // finished "all states" is.
     expect(pendingStates().length).toBeGreaterThan(0);
+  });
+});
+
+describe('rule-driven sale dates', () => {
+  const or = REGISTRY.find((e) => e.state_code === 'OR')!;
+
+  it('knows Oregon without fetching anything', () => {
+    // The point of the whole mechanism: this answer survives the agency's
+    // site being down, redesigned or bot-blocked.
+    const sales = fixedSalesFor(or, 2027);
+    expect(sales.map((s) => s.date)).toEqual(['2027-07-01', '2027-03-15']);
+  });
+
+  it('carries the hour and the zone the rule is written in', () => {
+    const [bigGame] = fixedSalesFor(or, 2027);
+    expect(bigGame.time).toBe('10:00:00');
+    expect(bigGame.zone).toBe('America/Los_Angeles');
+  });
+
+  it('keeps a species-specific rule to its own species', () => {
+    const bear = fixedSalesFor(or, 2027).find((s) => s.date.endsWith('03-15'))!;
+    expect(bear.species).toEqual(['black_bear']);
+  });
+
+  it('gives a general rule the whole entry\u2019s species', () => {
+    const bigGame = fixedSalesFor(or, 2027).find((s) => s.date.endsWith('07-01'))!;
+    expect(bigGame.species).toEqual(or.species);
+  });
+
+  it('pads single-digit months and days', () => {
+    expect(fixedSalesFor(or, 2028).every((s) => /^\d{4}-\d{2}-\d{2}$/.test(s.date))).toBe(true);
+  });
+
+  it('returns ISO days, never instants', () => {
+    // Converting here would bake today's daylight-saving offset into a date
+    // months away. The database trigger resolves it against the sale's own
+    // date, which is the only thing that stays right across the switch.
+    for (const s of fixedSalesFor(or, 2027)) {
+      expect(s.date).not.toMatch(/T|Z|\+/);
+    }
+  });
+
+  it('is empty for a state with no standing rule', () => {
+    const mt = REGISTRY.find((e) => e.state_code === 'MT')!;
+    expect(fixedSalesFor(mt, 2027)).toEqual([]);
+  });
+
+  it('names which states are rule-driven', () => {
+    expect(ruleDrivenStates()).toContain('OR');
   });
 });

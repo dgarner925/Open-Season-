@@ -63,6 +63,32 @@ export type SourceRole =
 
 export type SaleShape = 'first_come' | 'application_window' | 'recurring' | 'unknown';
 
+/**
+ * A sale date fixed by regulation rather than announced each year.
+ *
+ * Oregon is the case that proved this worth having: its leftover tags go on
+ * sale at 10 a.m. Pacific on July 1 every year, and black bear on March 15,
+ * stated as a standing rule rather than a 2026 date. A rule does not need
+ * scraping -- it needs confirming once a year. That is strictly more reliable
+ * than parsing a date out of prose, and it is the only mechanism here that
+ * still works when an agency's page is down, paywalled or bot-blocked.
+ *
+ * A fixed schedule still produces a PROPOSAL, not a published row: if the
+ * regulation changes and nobody notices, a human seeing the review item is
+ * the thing that catches it.
+ */
+export type FixedSchedule = {
+  month: number; // 1-12
+  day: number;
+  /** HH:MM:SS local, or null when the rule names a day but no hour. */
+  time: string | null;
+  /** IANA zone the rule is written in. */
+  zone: string;
+  /** species.key values this rule covers; omitted means every species the entry lists. */
+  species?: string[];
+  note: string;
+};
+
 export type RegistrySource = {
   url: string;
   role: SourceRole;
@@ -77,6 +103,8 @@ export type StateEntry = {
   sources: RegistrySource[];
   /** Species the programme covers, as species.key, when the state is specific about it. */
   species?: string[];
+  /** Sale dates set by regulation. Preferred over scraping when they exist. */
+  fixed?: FixedSchedule[];
   notes?: string;
 };
 
@@ -180,6 +208,40 @@ export const REGISTRY: StateEntry[] = [
       'should not be faked: better no Wyoming row than a wrong one.',
   },
 
+  {
+    state_code: 'OR',
+    verified: '2026-11-10',
+    shape: 'first_come',
+    species: ['mule_deer', 'elk', 'pronghorn', 'black_bear'],
+    sources: [
+      {
+        url: 'https://myodfw.com/articles/how-check-and-earn-preference-points',
+        role: 'dates',
+        note:
+          'An odd home for it -- the page is mostly about preference points -- but this ' +
+          'is where ODFW states the leftover rule, with an hour and an explicit zone. ' +
+          'If a better page is found, replace this; do not add a blog in the meantime.',
+      },
+    ],
+    fixed: [
+      {
+        month: 7, day: 1, time: '10:00:00', zone: 'America/Los_Angeles',
+        note: 'Big game leftover tags, online only, first come first served. Standing rule, not a 2026 date.',
+      },
+      {
+        month: 3, day: 15, time: '10:00:00', zone: 'America/Los_Angeles',
+        species: ['black_bear'],
+        note: 'Spring black bear runs on its own fixed date.',
+      },
+    ],
+    notes:
+      'The best case in the registry: the date is set by rule, so it needs confirming ' +
+      'once a year rather than scraping. Online only -- not at ODFW offices or vendors -- ' +
+      'one tag per person per hunt series, and it must be bought by the day before the ' +
+      'hunt opens, which is a second deadline worth surfacing. Sheep (500) and mountain ' +
+      'goat (900) series are excluded and must never appear in a proposal.',
+  },
+
   // -------------------------------------------------------------------------
   // LEADS, NOT SOURCES. These states are believed to run a leftover, surplus,
   // second-draw or OTC programme, but nobody has opened the page and confirmed
@@ -187,14 +249,13 @@ export const REGISTRY: StateEntry[] = [
   // whose `verified` is null, so adding a state here is safe and changes
   // nothing until someone does the looking.
   // -------------------------------------------------------------------------
-  { state_code: 'AZ', verified: null, shape: 'unknown', sources: [], notes: 'Leftover hunt permit-tags, sold by mail then OTC. AZ is America/Phoenix -- see zoneFromAbbrev.' },
-  { state_code: 'NM', verified: null, shape: 'unknown', sources: [], notes: 'Second draw / leftover list.' },
-  { state_code: 'NV', verified: null, shape: 'unknown', sources: [], notes: 'Second draw rather than a leftover list; confirm it is the same thing before modelling it.' },
-  { state_code: 'OR', verified: null, shape: 'unknown', sources: [], notes: 'Leftover tags after the controlled hunt draw.' },
+  { state_code: 'AZ', verified: null, shape: 'unknown', sources: [], notes: 'Leftover hunt permit-tags, sold by mail then OTC. CHECKED 2026-11-10: azgfd.com returns 403 to an automated fetch, so this state may be unscrapable without an agreement with the agency -- the fetch log will record it as blocked rather than failing silently. AZ is America/Phoenix; see zoneFromAbbrev.' },
+  { state_code: 'NM', verified: null, shape: 'unknown', sources: [], notes: 'CHECKED 2026-11-10: like Wyoming, the dates live in press releases, not on a stable page. Also the hardest residency case found -- the sale is RESIDENT ONLY for its first 24 hours, then opens to everyone. That is two sale rows a day apart, not one row with two residency values, and the schema already separates them because start_date is part of the identity.' },
+  { state_code: 'NV', verified: null, shape: 'unknown', sources: [], notes: 'CHECKED 2026-11-10: no official NDOW page located -- every result was a hunting blog, which is exactly what the registry test forbids. NV runs a second draw (application window) AND a separate first-come queue for what is left. Two programmes, neither sourced yet.' },
   { state_code: 'WA', verified: null, shape: 'unknown', sources: [], notes: 'Second draw; smaller programme.' },
   { state_code: 'AK', verified: null, shape: 'unknown', sources: [], notes: 'Mostly OTC registration hunts rather than leftovers.' },
-  { state_code: 'SD', verified: null, shape: 'unknown', sources: [], notes: 'Multiple drawing rounds then first-come leftovers; nonresidents only after the fourth drawing. Likely several rows per species.' },
-  { state_code: 'ND', verified: null, shape: 'unknown', sources: [], notes: 'Leftover licence rounds.' },
+  { state_code: 'SD', verified: null, shape: 'unknown', sources: [], notes: 'CHECKED 2026-11-10: no stable leftover page found; the facts live in per-season application PDFs that are replaced each year. Several drawing rounds then first-come leftovers, and nonresidents are locked out until after the fourth drawing -- so SD yields several rows per species with different residency.' },
+  { state_code: 'ND', verified: null, shape: 'unknown', sources: [], notes: 'CHECKED 2026-11-10: gf.nd.gov/buy-apply/help/lottery explains the mechanism (FCFS licences after each lottery) but carries no dates, and availability sits behind a signed-in My Account page. Not scrapable as it stands.' },
   { state_code: 'NE', verified: null, shape: 'unknown', sources: [], notes: 'Remaining/leftover permits.' },
   { state_code: 'KS', verified: null, shape: 'unknown', sources: [], notes: 'Leftover deer permits.' },
   { state_code: 'OK', verified: null, shape: 'unknown', sources: [], notes: 'Controlled hunt leftovers; confirm a programme exists before adding.' },
@@ -215,4 +276,36 @@ export function liveEntries(registry: StateEntry[] = REGISTRY): StateEntry[] {
 /** States named as leads but not yet verified -- what is left to research. */
 export function pendingStates(registry: StateEntry[] = REGISTRY): string[] {
   return registry.filter((e) => e.verified === null || e.sources.length === 0).map((e) => e.state_code);
+}
+
+/**
+ * The sales a state's standing rules imply for a given licence year.
+ *
+ * Returns ISO days, not instants: the zone travels alongside so the database
+ * trigger resolves the instant, exactly as it does for a scraped sale. Doing
+ * the conversion here would bake today's daylight-saving offset into a date
+ * months away.
+ *
+ * A rule is still only a proposal. If a state quietly moves its statutory
+ * date, this keeps confidently producing the old one -- which is precisely
+ * why these go through review_queue like everything else, and why the entry
+ * should be re-confirmed each year.
+ */
+export function fixedSalesFor(
+  entry: StateEntry,
+  year: number,
+): { date: string; time: string | null; zone: string; species: string[]; note: string }[] {
+  if (!entry.fixed?.length) return [];
+  return entry.fixed.map((f) => ({
+    date: `${year}-${String(f.month).padStart(2, '0')}-${String(f.day).padStart(2, '0')}`,
+    time: f.time,
+    zone: f.zone,
+    species: f.species ?? entry.species ?? [],
+    note: f.note,
+  }));
+}
+
+/** States whose dates are known from regulation rather than scraped. */
+export function ruleDrivenStates(registry: StateEntry[] = REGISTRY): string[] {
+  return registry.filter((e) => (e.fixed?.length ?? 0) > 0).map((e) => e.state_code);
 }
