@@ -260,6 +260,45 @@ async function submit(versionString, buildNumber, go) {
     }
   }
 
+  // 3b. Notes to the reviewer, if the release has any. Optional: a version
+  // with nothing unusual in it does not need to explain itself. A version that
+  // adds user-generated content does -- Guideline 1.2 wants the moderation
+  // story stated, not discovered.
+  const notesPath = `${__dirname}/../store/review-notes-${versionString}.txt`;
+  if (fs.existsSync(notesPath)) {
+    const reviewNotes = fs.readFileSync(notesPath, 'utf8').trim();
+    say(`set App Review notes (${reviewNotes.length} chars)`);
+    if (go) {
+      const detail = await api(
+        `/v1/appStoreVersions/${versionId}/appStoreReviewDetail?fields[appStoreReviewDetails]=notes`,
+      );
+      // A version created moments ago has no review detail yet, and Apple
+      // answers 404 rather than an empty document.
+      if (detail && detail.data && detail.data.id) {
+        const r = await patch(`/v1/appStoreReviewDetails/${detail.data.id}`, {
+          data: {
+            type: 'appStoreReviewDetails',
+            id: detail.data.id,
+            attributes: { notes: reviewNotes },
+          },
+        });
+        if (!r) return;
+      } else {
+        process.exitCode = 0; // the 404 above is expected, not a failure
+        const r = await post('/v1/appStoreReviewDetails', {
+          data: {
+            type: 'appStoreReviewDetails',
+            attributes: { notes: reviewNotes },
+            relationships: {
+              appStoreVersion: { data: { type: 'appStoreVersions', id: versionId } },
+            },
+          },
+        });
+        if (!r) return;
+      }
+    }
+  }
+
   // 4. Attach the build.
   say(`attach build ${buildNumber}`);
   if (go) {
@@ -312,6 +351,42 @@ async function submit(versionString, buildNumber, go) {
   }
 }
 
+/**
+ * Pull the open review submission back out of Apple's queue.
+ *
+ * Apple allows exactly one open submission per app, so a newer version cannot
+ * be submitted while an older one is waiting. Cancelling is a one-way door for
+ * that submission's place in the queue -- the version record survives and can
+ * be resubmitted, but it goes to the back of the line -- so this prints what it
+ * would cancel and does nothing without --go.
+ */
+async function withdraw(go) {
+  const open = await api(
+    `/v1/reviewSubmissions?filter[app]=${APP_ID}` +
+      `&filter[state]=READY_FOR_REVIEW,WAITING_FOR_REVIEW,IN_REVIEW,UNRESOLVED_ISSUES` +
+      `&fields[reviewSubmissions]=state,submittedDate&include=items&limit=5`,
+  );
+  if (!open) return false;
+  if (!open.data.length) {
+    console.log('\n  nothing is open in review; nothing to withdraw');
+    return true;
+  }
+  for (const rs of open.data) {
+    console.log(
+      `\n${go ? '' : '[dry-run] '}cancel review submission ${rs.id} (${rs.attributes.state})`,
+    );
+    if (!go) continue;
+    // `canceled` is the documented way out: DELETE is refused once a
+    // submission has been submitted.
+    const done = await patch(`/v1/reviewSubmissions/${rs.id}`, {
+      data: { type: 'reviewSubmissions', id: rs.id, attributes: { canceled: true } },
+    });
+    if (!done) return false;
+    console.log(`  cancelled. state: ${done.data.attributes.state}`);
+  }
+  return true;
+}
+
 async function main() {
   const cmd = process.argv[2] || 'state';
   if (cmd === 'state') {
@@ -321,6 +396,8 @@ async function main() {
     await builds();
   } else if (cmd === 'shots') {
     await shots();
+  } else if (cmd === 'withdraw') {
+    await withdraw(process.argv.includes('--go'));
   } else if (cmd === 'submit') {
     const version = process.argv[3];
     const build = process.argv[4];
@@ -331,7 +408,7 @@ async function main() {
     await submit(version, build, process.argv.includes('--go'));
   } else {
     console.error(`Unknown command: ${cmd}`);
-    console.error('Commands: state, builds, shots, submit');
+    console.error('Commands: state, builds, shots, withdraw, submit');
     process.exit(2);
   }
   console.log('');

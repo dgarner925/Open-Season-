@@ -1,0 +1,25 @@
+This release adds messaging inside a hunting party, and profile photos.
+
+HOW TO REACH IT -- PLEASE READ, THE FEATURE IS BEHIND THE SUBSCRIPTION
+Hunting parties are part of the paid tier, so creating or joining one requires an active subscription. In the sandbox environment the subscription can be purchased without charge, and that is the only way to reach the messaging feature.
+
+  1. Sign in with Apple (no demo account needed).
+  2. Profile tab > "Hunting parties".
+  3. Creating or joining a party prompts the paywall. Complete the sandbox purchase.
+  4. Create a party, or join one with an invite code.
+  5. The party screen holds the roster, a "Who's coming" list of the season's days, and the message thread ("Camp talk") beneath it.
+
+Reading season dates needs neither an account nor a subscription.
+
+USER-GENERATED CONTENT (Guideline 1.2)
+- Filtering: every message passes a filter before it is stored. The check runs inside the database function that posts the message, not in the app, so no build of the client can bypass it.
+- Reporting: long-press any message another member wrote for "Report this message". Reports are written to a table the developer reviews.
+- Blocking: the same long-press offers "Block [name]". A block takes effect immediately and is mutual -- neither person sees the other's messages anywhere in the app.
+- Deleting: a member can delete their own messages; the developer can delete any message.
+- Scope: a party is private and invite-code only. Messages are visible solely to its members. There is no public feed, no user discovery, and no way to message someone who is not in your party.
+
+PROFILE PHOTOS
+Chosen from the photo library only -- the app requests no camera access. The image is cropped square and reduced to 512px on the device, and its EXIF data (including location) is discarded before it is uploaded. It is visible only to members of the user's own parties. Profile tab > tap the monogram circle to set or replace it.
+
+ACCOUNT DELETION
+Profile tab > "Delete account", at the bottom. It removes the account, its messages and its photo.
