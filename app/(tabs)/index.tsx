@@ -15,6 +15,8 @@ import { ProUpsellCard } from '@/components/ProUpsellCard';
 import { useAuth } from '@/providers/AuthProvider';
 import { nextPermitSegment, useFollows, usePermitFollows } from '@/features/follows/queries';
 import { useLegalLight } from '@/features/legalLight/useLegalLight';
+import { useSalesFeed } from '@/features/leftover/queries';
+import { saleClock, saleStatus } from '@/features/leftover/format';
 import { useDawnConditions } from '@/features/weather/useDawnConditions';
 import { openExternalUrl } from '@/lib/openUrl';
 import { useActiveStates, useSeasonsFeed, useSpecies, useUpcomingCountdown, useWeekendStateOpeners, useWindowsFeed } from '@/features/reference/queries';
@@ -56,6 +58,14 @@ export default function Home() {
   const { profile, isGuest } = useAuth();
   const { data: follows = [], isError: followsError } = useFollows();
   const { data: permitFollows = [] } = usePermitFollows();
+  // Leftover sales, but only the ones close enough to act on. A sale in June
+  // belongs on the Leftovers screen; a sale on Friday belongs on the screen
+  // you open with your coffee.
+  const { data: leftoverSales = [] } = useSalesFeed();
+  const soonSales = useMemo(
+    () => leftoverSales.filter((sale) => !saleStatus(sale).past).slice(0, 3),
+    [leftoverSales],
+  );
   // Follows when there are any, otherwise the state being browsed -- so the
   // stat tiles, the weekend brief and the daily outlook all have something to
   // say to someone who hasn't made an account yet.
@@ -251,6 +261,46 @@ export default function Home() {
           <StatTile value={openerCount} label="Openers" onPress={() => router.push('/calendar')} />
           <StatTile value={deadlineCount} label="Deadlines" onPress={() => router.push('/applications')} />
         </View>
+
+        {/* Tags nobody drew. Shown only when one is actually coming: a
+            permanent "no leftover sales" card eleven months a year is how a
+            real feature teaches people to ignore it. The Leftovers screen is
+            the permanent home; this is the nudge. */}
+        {soonSales.length > 0 ? (
+          <View style={styles.section}>
+            <Serif size={22}>Leftover tags</Serif>
+            <View style={styles.tileGroup}>
+              {soonSales.map((sale, i) => {
+                const status = saleStatus(sale);
+                return (
+                  <Pressable
+                    key={sale.id}
+                    onPress={() => router.push({ pathname: '/leftover/[id]', params: { id: sale.id } })}
+                    style={({ pressed }) => [styles.row, i > 0 && styles.rowDivider, pressed && styles.pressed]}
+                  >
+                    <SpeciesBadge name={sale.species?.name} size={34} muted={!status.urgent} />
+                    <View style={{ flex: 1 }}>
+                      <AppText variant="bodyStrong" numberOfLines={1}>
+                        {sale.state?.code} {sale.name}
+                      </AppText>
+                      <AppText variant="caption" color={theme.color.textMuted} numberOfLines={1}>
+                        {saleClock(sale)}
+                      </AppText>
+                    </View>
+                    <Text
+                      style={[
+                        styles.rowMetric,
+                        { color: status.urgent ? theme.color.accent : theme.color.textMuted },
+                      ]}
+                    >
+                      {status.label}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          </View>
+        ) : null}
 
         {permitFollows.length > 0 ? (
           <View style={styles.section}>

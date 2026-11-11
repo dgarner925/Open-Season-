@@ -73,9 +73,11 @@ export default function Applications() {
           </Sentence>
         )}
 
-        {/* Didn't draw? The shelf only exists when there is something on it.
-            An empty "no leftover tags" tile every month of the year would
-            teach people to scroll past the one month it matters. */}
+        {/* Didn't draw? The tile still only exists when there is something on
+            it -- an empty "no leftover tags" card eleven months a year teaches
+            people to scroll past it the one month it matters. What changed is
+            that the way in no longer depends on it: Leftovers is its own
+            screen now, and the link below is always there. */}
         {sales.length > 0 ? (
           <Tile style={styles.tile}>
             <Micro>Didn't draw?</Micro>
@@ -86,7 +88,15 @@ export default function Applications() {
         ) : null}
 
         <View style={{ marginTop: space.section }}>
-          <LinkSentence onPress={() => router.push({ pathname: '/ledger' })}>
+          <LinkSentence onPress={() => router.push({ pathname: '/leftover' })}>
+            {sales.length > 0
+              ? 'Leftover tags — what happens in every state, and when'
+              : "Leftover tags — the tags nobody drew, and when they come back"}
+          </LinkSentence>
+          <LinkSentence
+            onPress={() => router.push({ pathname: '/ledger' })}
+            style={{ marginTop: space.x12 }}
+          >
             The ledger — your applications, costs, and results
           </LinkSentence>
         </View>
