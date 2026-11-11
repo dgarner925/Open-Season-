@@ -12,7 +12,12 @@ type AppRouter = ReturnType<typeof useRouter>;
  *   - season_opener        -> the season detail
  *   - application_deadline  -> the draw/window detail
  *   - application_results   -> the draw/window detail
+ *   - leftover_sale         -> the tag sale detail
  * so the user opens straight onto the exact hunt the alert was about.
+ *
+ * Leftover availability pushes route to the sale too, not to the unit that
+ * came back in stock: the thing you have to act on is the sale, and the
+ * screen lists the units anyway.
  */
 export type NotificationData = { subjectType?: string; subjectId?: string };
 
@@ -24,6 +29,10 @@ export function routeForNotification(router: AppRouter, data: NotificationData):
   }
   if (data.subjectType === 'application_deadline' || data.subjectType === 'application_results') {
     router.push({ pathname: '/window/[id]', params: { id: data.subjectId } });
+    return true;
+  }
+  if (data.subjectType === 'leftover_sale') {
+    router.push({ pathname: '/leftover/[id]', params: { id: data.subjectId } });
     return true;
   }
   return false;

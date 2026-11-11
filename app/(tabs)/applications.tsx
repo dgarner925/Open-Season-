@@ -5,6 +5,9 @@ import { Unreachable } from '@/components/GapNote';
 import { Headline, LinkSentence, Micro, ScreenMark, Sentence, Tile } from '@/components/system';
 import { SpeciesBadge } from '@/components/midnight';
 import { useWindowsFeed } from '@/features/reference/queries';
+import { useSalesFeed } from '@/features/leftover/queries';
+import { saleClock, saleStatus, saleTypeLabel } from '@/features/leftover/format';
+import type { LeftoverSale } from '@/features/leftover/queries';
 import { BrowseStateChip, BrowseStatePrompt } from '@/components/BrowseStateChip';
 import type { ApplicationWindowWithRefs } from '@/features/reference/types';
 import { countdownLabel, daysUntil, formatDate } from '@/lib/date';
@@ -16,6 +19,7 @@ const { color, space, type } = lang;
 export default function Applications() {
   const router = useRouter();
   const { data: windows, isLoading, isError, browsing, stateCode, needsState } = useWindowsFeed();
+  const { data: sales } = useSalesFeed();
 
   if (isLoading) {
     return (
@@ -69,6 +73,18 @@ export default function Applications() {
           </Sentence>
         )}
 
+        {/* Didn't draw? The shelf only exists when there is something on it.
+            An empty "no leftover tags" tile every month of the year would
+            teach people to scroll past the one month it matters. */}
+        {sales.length > 0 ? (
+          <Tile style={styles.tile}>
+            <Micro>Didn't draw?</Micro>
+            {sales.map((s) => (
+              <SaleRow key={s.id} sale={s} onPress={() => router.push(`/leftover/${s.id}`)} />
+            ))}
+          </Tile>
+        ) : null}
+
         <View style={{ marginTop: space.section }}>
           <LinkSentence onPress={() => router.push({ pathname: '/ledger' })}>
             The ledger — your applications, costs, and results
@@ -114,6 +130,35 @@ function WindowRow({
         ) : null}
       </View>
       <Text style={[styles.metric, { color: near ? color.copper : color.muted }]}>{countdownLabel(d)}</Text>
+    </Pressable>
+  );
+}
+
+/**
+ * One tag sale. The metric is the countdown like every other row in the app,
+ * but the subtitle carries the HOUR, which no other row needs: a first-come
+ * sale is the one date where knowing the day is not enough.
+ */
+function SaleRow({ sale, onPress }: { sale: LeftoverSale; onPress: () => void }) {
+  const status = saleStatus(sale);
+  return (
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="button"
+      style={({ pressed }) => [styles.row, pressed && styles.pressed]}
+    >
+      <SpeciesBadge name={sale.species?.name} size={34} muted={!status.urgent} />
+      <View style={{ flex: 1 }}>
+        <Text style={styles.rowTitle} numberOfLines={1}>
+          {sale.state?.code} {sale.name}
+        </Text>
+        <Text style={styles.rowSub} numberOfLines={1}>
+          {saleTypeLabel(sale.sale_type)} · {saleClock(sale)}
+        </Text>
+      </View>
+      <Text style={[styles.metric, { color: status.urgent ? color.copper : color.muted }]}>
+        {status.label}
+      </Text>
     </Pressable>
   );
 }

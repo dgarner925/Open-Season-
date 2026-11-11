@@ -253,6 +253,54 @@ export type AlertPreferenceRow = Timestamps & {
   results_offsets: number[];
   /** null = all methods (legacy default), [] = none, ['archery'] = only those. */
   methods?: string[] | null;
+  /** Coarser than the rest on purpose: a leftover sale is a short-fuse event. */
+  leftover_offsets?: number[];
+};
+
+export type LeftoverSaleType = 'leftover' | 'otc' | 'reissue';
+export type LeftoverAvailabilityStatus = 'available' | 'sold_out' | 'unknown';
+
+/**
+ * A leftover, over-the-counter or reissued tag sale.
+ *
+ * sale_start_date is NOT NULL and sale_start_time IS nullable, and that
+ * asymmetry is the whole point: "Tuesday" and "9:00 AM Tuesday" are different
+ * facts, and the second is the rarer one on an agency page. sale_start_at is
+ * maintained by a trigger from the date, the time and the zone -- never
+ * written by hand.
+ */
+export type LeftoverTagSaleRow = Timestamps & {
+  id: string;
+  state_id: string;
+  species_id: string;
+  zone_id: string | null;
+  season_year: number;
+  sale_type: LeftoverSaleType;
+  name: string;
+  sale_start_date: string;
+  sale_start_time: string | null;
+  sale_end_date: string | null;
+  sale_end_time: string | null;
+  time_zone: string | null;
+  sale_start_at: string | null;
+  sale_end_at: string | null;
+  residency: string[] | null;
+  purchase_url: string | null;
+  source_url: string | null;
+  notes: string | null;
+  status: string;
+  last_verified_at: string | null;
+};
+
+export type LeftoverTagAvailabilityRow = Timestamps & {
+  id: string;
+  sale_id: string;
+  unit_code: string | null;
+  weapon_type: string | null;
+  /** Null is not zero: most agencies list units with tags left and no counts. */
+  quantity_remaining: number | null;
+  status: LeftoverAvailabilityStatus;
+  last_checked_at: string;
 };
 
 export type FederalPermitHuntRow = {
@@ -355,6 +403,8 @@ export type Database = {
       date_changes: Table<DateChangeRow, Omit<DateChangeRow, 'id' | 'created_at'> & { id?: string }>;
       regulation_changes: Table<RegulationChangeRow, Omit<RegulationChangeRow, Gen> & { id?: string }>;
       parties: Table<PartyRow, Omit<PartyRow, 'id' | 'created_at'> & { id?: string }>;
+      leftover_tag_sales: Table<LeftoverTagSaleRow, Omit<LeftoverTagSaleRow, Gen> & { id?: string }>;
+      leftover_tag_availability: Table<LeftoverTagAvailabilityRow, Omit<LeftoverTagAvailabilityRow, Gen> & { id?: string }>;
       party_members: Table<PartyMemberRow, Omit<PartyMemberRow, 'joined_at'> & { joined_at?: string }>;
     };
     Views: Record<string, never>;

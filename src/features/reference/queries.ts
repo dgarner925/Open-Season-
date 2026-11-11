@@ -81,14 +81,14 @@ export function useStateSpeciesMulti(stateIds: string[]) {
 }
 
 /** Filter a list of rows to the exact (state, species) pairs the user follows. */
-function keepFollowed<T extends { state_id: string; species_id: string }>(
+export function keepFollowed<T extends { state_id: string; species_id: string }>(
   rows: T[],
   pairs: Set<string>,
 ): T[] {
   return rows.filter((r) => pairs.has(`${r.state_id}:${r.species_id}`));
 }
 
-function followPairs(follows: { state_id: string; species_id: string }[]): {
+export function followPairs(follows: { state_id: string; species_id: string }[]): {
   pairs: Set<string>;
   stateIds: string[];
   speciesIds: string[];
