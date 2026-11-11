@@ -86,6 +86,8 @@ export type FixedSchedule = {
   zone: string;
   /** species.key values this rule covers; omitted means every species the entry lists. */
   species?: string[];
+  /** What the sale is called on the review card. A label, not prose -- `note` is the prose. */
+  name: string;
   note: string;
 };
 
@@ -101,7 +103,15 @@ export type StateEntry = {
   verified: string | null;
   shape: SaleShape;
   sources: RegistrySource[];
-  /** Species the programme covers, as species.key, when the state is specific about it. */
+  /**
+   * Species the programme covers, and these are the DATABASE's keys, not
+   * taxonomy. Every entry here once said mule_deer and black_bear; neither
+   * exists in `species`, whose big-game keys are deer, bear, elk, pronghorn
+   * and turkey. Nothing caught it because the only consumer was the
+   * unimplemented fixed-rule path, and because the model is prompted with the
+   * real keys read from the database rather than with these. A registry test
+   * now pins them.
+   */
   species?: string[];
   /** Sale dates set by regulation. Preferred over scraping when they exist. */
   fixed?: FixedSchedule[];
@@ -113,7 +123,7 @@ export const REGISTRY: StateEntry[] = [
     state_code: 'CO',
     verified: '2026-11-10',
     shape: 'first_come',
-    species: ['elk', 'mule_deer', 'pronghorn', 'black_bear', 'turkey'],
+    species: ['elk', 'deer', 'pronghorn', 'bear', 'turkey'],
     sources: [
       {
         url: 'https://cpw.state.co.us/hunting/big-game/leftover-remaining-and-reissued-licenses',
@@ -134,7 +144,7 @@ export const REGISTRY: StateEntry[] = [
     state_code: 'UT',
     verified: '2026-11-10',
     shape: 'first_come',
-    species: ['mule_deer', 'elk'],
+    species: ['deer', 'elk'],
     sources: [
       {
         url: 'https://wildlife.utah.gov/remainingpermits',
@@ -152,7 +162,7 @@ export const REGISTRY: StateEntry[] = [
     state_code: 'MT',
     verified: '2026-11-10',
     shape: 'application_window',
-    species: ['mule_deer', 'elk'],
+    species: ['deer', 'elk'],
     sources: [
       {
         url: 'https://fwp.mt.gov/buyandapply/hunting-licenses/surplus-licenses',
@@ -170,7 +180,7 @@ export const REGISTRY: StateEntry[] = [
     state_code: 'ID',
     verified: '2026-11-10',
     shape: 'application_window',
-    species: ['mule_deer', 'elk', 'pronghorn', 'black_bear'],
+    species: ['deer', 'elk', 'pronghorn', 'bear'],
     sources: [
       {
         url: 'https://idfg.idaho.gov/licenses/tag/unsold-controlled-hunts',
@@ -185,9 +195,13 @@ export const REGISTRY: StateEntry[] = [
   },
   {
     state_code: 'WY',
-    verified: '2026-11-10',
+    // A lead, not a source. Both pages were fetched on 2026-11-10 and again
+    // on 2026-11-11 and the extractor found nothing on either -- correctly,
+    // because WGFD announces these dates in news releases. `verified` claims
+    // the date is on the page; here it is not, so the claim comes off.
+    verified: null,
     shape: 'unknown',
-    species: ['pronghorn', 'mule_deer', 'elk'],
+    species: ['pronghorn', 'deer', 'elk'],
     sources: [
       {
         url: 'https://wgfd.wyo.gov/licenses-applications/leftover-licenses',
@@ -212,7 +226,7 @@ export const REGISTRY: StateEntry[] = [
     state_code: 'OR',
     verified: '2026-11-10',
     shape: 'first_come',
-    species: ['mule_deer', 'elk', 'pronghorn', 'black_bear'],
+    species: ['deer', 'elk', 'pronghorn', 'bear'],
     sources: [
       {
         url: 'https://myodfw.com/articles/how-check-and-earn-preference-points',
@@ -226,11 +240,13 @@ export const REGISTRY: StateEntry[] = [
     fixed: [
       {
         month: 7, day: 1, time: '10:00:00', zone: 'America/Los_Angeles',
+        name: 'Leftover controlled deer, elk and pronghorn tags',
         note: 'Big game leftover tags, online only, first come first served. Standing rule, not a 2026 date.',
       },
       {
         month: 3, day: 15, time: '10:00:00', zone: 'America/Los_Angeles',
-        species: ['black_bear'],
+        species: ['bear'],
+        name: 'Leftover controlled spring bear tags',
         note: 'Spring black bear runs on its own fixed date.',
       },
     ],
@@ -294,11 +310,12 @@ export function pendingStates(registry: StateEntry[] = REGISTRY): string[] {
 export function fixedSalesFor(
   entry: StateEntry,
   year: number,
-): { date: string; time: string | null; zone: string; species: string[]; note: string }[] {
+): { date: string; time: string | null; zone: string; species: string[]; name: string; note: string }[] {
   if (!entry.fixed?.length) return [];
   return entry.fixed.map((f) => ({
     date: `${year}-${String(f.month).padStart(2, '0')}-${String(f.day).padStart(2, '0')}`,
     time: f.time,
+    name: f.name,
     zone: f.zone,
     species: f.species ?? entry.species ?? [],
     note: f.note,
@@ -308,4 +325,23 @@ export function fixedSalesFor(
 /** States whose dates are known from regulation rather than scraped. */
 export function ruleDrivenStates(registry: StateEntry[] = REGISTRY): string[] {
   return registry.filter((e) => (e.fixed?.length ?? 0) > 0).map((e) => e.state_code);
+}
+
+/**
+ * The next time each of a state's fixed rules comes round, on or after `today`.
+ *
+ * The call site used to ask for `fixedSalesFor(entry, thisYear + 1)`, which
+ * looks harmless and skips a March sale for the whole of January and February
+ * of the year it falls in -- the one stretch when a hunter most wants the
+ * warning, and the only stretch when the alert offsets could still fire.
+ */
+export function dueFixedSales(
+  entry: StateEntry,
+  today: string,
+): ReturnType<typeof fixedSalesFor> {
+  const thisYear = Number(today.slice(0, 4));
+  if (!Number.isInteger(thisYear)) return [];
+  const current = fixedSalesFor(entry, thisYear);
+  const next = fixedSalesFor(entry, thisYear + 1);
+  return current.map((s, i) => (s.date >= today ? s : next[i])).filter(Boolean);
 }

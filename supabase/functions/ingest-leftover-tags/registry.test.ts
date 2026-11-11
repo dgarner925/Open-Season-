@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { REGISTRY, fixedSalesFor, liveEntries, pendingStates, ruleDrivenStates } from './registry';
+import { REGISTRY, dueFixedSales, fixedSalesFor, liveEntries, pendingStates, ruleDrivenStates } from './registry';
 
 describe('the leftover registry', () => {
   it('names no state twice', () => {
@@ -51,6 +51,11 @@ describe('the leftover registry', () => {
     expect(wy).toBeDefined();
     expect(wy!.shape).toBe('unknown');
     expect(wy!.notes ?? '').toMatch(/news/i);
+    // This test said all of the above and never checked the one field that
+    // decides whether we fetch. WY sat at verified: '2026-11-10' and was read
+    // twice a night, finding nothing both times, because `verified` means "the
+    // date is on this page" and for Wyoming it is not.
+    expect(wy!.verified).toBeNull();
   });
 
   it('still has states left to research, and says which', () => {
@@ -78,7 +83,7 @@ describe('rule-driven sale dates', () => {
 
   it('keeps a species-specific rule to its own species', () => {
     const bear = fixedSalesFor(or, 2027).find((s) => s.date.endsWith('03-15'))!;
-    expect(bear.species).toEqual(['black_bear']);
+    expect(bear.species).toEqual(['bear']);
   });
 
   it('gives a general rule the whole entry\u2019s species', () => {
@@ -106,5 +111,90 @@ describe('rule-driven sale dates', () => {
 
   it('names which states are rule-driven', () => {
     expect(ruleDrivenStates()).toContain('OR');
+  });
+});
+
+describe('registry species keys', () => {
+  /**
+   * The keys `species` actually holds in production, read on 2026-11-10:
+   *
+   *   select key from species order by key;
+   *
+   * The big-game ones are all this registry needs. Every entry once said
+   * mule_deer and black_bear instead, which are not keys and never were --
+   * the first live run would have discarded half of Oregon's rule as
+   * "unknown species" if that path had been implemented. The test is here
+   * because nothing else checks it: these strings are only resolved at
+   * runtime, against a database the test suite cannot see.
+   */
+  const REAL_KEYS = new Set([
+    'deer',
+    'elk',
+    'bear',
+    'brown-bear',
+    'pronghorn',
+    'turkey',
+    'moose',
+    'sheep',
+    'goat',
+    'bison',
+  ]);
+
+  it('names only species that exist', () => {
+    const bad: string[] = [];
+    for (const e of REGISTRY) {
+      for (const k of e.species ?? []) if (!REAL_KEYS.has(k)) bad.push(`${e.state_code}: ${k}`);
+      for (const f of e.fixed ?? []) {
+        for (const k of f.species ?? []) if (!REAL_KEYS.has(k)) bad.push(`${e.state_code} rule: ${k}`);
+      }
+    }
+    expect(bad).toEqual([]);
+  });
+
+  it('gives every verified entry at least one species to propose', () => {
+    for (const e of REGISTRY.filter((x) => x.verified)) {
+      expect((e.species ?? []).length, `${e.state_code} has no species`).toBeGreaterThan(0);
+    }
+  });
+});
+
+describe('dueFixedSales', () => {
+  const or = REGISTRY.find((e) => e.state_code === 'OR')!;
+
+  it('gives next year once this year has gone by', () => {
+    // November: both Oregon dates are behind us.
+    const dates = dueFixedSales(or, '2026-11-11').map((s) => s.date).sort();
+    expect(dates).toEqual(['2027-03-15', '2027-07-01']);
+  });
+
+  it('keeps a date still ahead of us this year', () => {
+    // February: March is weeks away and July is months away. Asking for
+    // year + 1, as the call site did, would have hidden the March sale until
+    // the day after it happened.
+    const dates = dueFixedSales(or, '2027-02-01').map((s) => s.date).sort();
+    expect(dates).toEqual(['2027-03-15', '2027-07-01']);
+  });
+
+  it('treats the sale day itself as still ahead', () => {
+    expect(dueFixedSales(or, '2027-03-15').map((s) => s.date)).toContain('2027-03-15');
+  });
+
+  it('rolls one rule without rolling the other', () => {
+    // April: March is gone, July is not.
+    const dates = dueFixedSales(or, '2027-04-01').map((s) => s.date).sort();
+    expect(dates).toEqual(['2027-07-01', '2028-03-15']);
+  });
+
+  it('is empty for a state with no rule', () => {
+    const mt = REGISTRY.find((e) => e.state_code === 'MT')!;
+    expect(dueFixedSales(mt, '2026-11-11')).toEqual([]);
+  });
+
+  it('carries the hour, zone and name each rule was written with', () => {
+    const bear = dueFixedSales(or, '2026-11-11').find((s) => s.date.endsWith('03-15'))!;
+    expect(bear.time).toBe('10:00:00');
+    expect(bear.zone).toBe('America/Los_Angeles');
+    expect(bear.species).toEqual(['bear']);
+    expect(bear.name).toMatch(/bear/i);
   });
 });

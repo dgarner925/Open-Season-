@@ -101,6 +101,24 @@ considers authoritative. A fixed schedule still produces proposals through
 
 Prefer a rule over a page wherever a state has one.
 
+Three things about a rule that are easy to get wrong, and were:
+
+- **A rule proposes the next occurrence, not next year's.** `dueFixedSales`
+  picks this year's date while it is still ahead of us and next year's once it
+  has gone by. Asking for `year + 1` hides a March sale through January and
+  February — the exact weeks when the 7-, 1- and 0-day alerts would fire.
+- **A rule is capped below the auto-approval sweep.** It has an hour and a
+  zone and no unit, so `confidenceFor` scores it highly, and that is the
+  problem: if a state quietly moves its statutory date, a rule keeps
+  confidently producing the old one. A human reading the card is the only
+  thing that catches that, so the cap is 0.8 against a sweep at 0.85.
+- **A rule runs on every invocation**, hash or no hash, because no page is
+  fetched. Without the pending-identity check it would add the same card every
+  night.
+
+Rule and page can both describe the same sale — Oregon's do — and whichever is
+seen first wins; `saleIdentity` makes them the same row.
+
 ### 5. Run it dry
 
 ```bash
@@ -117,6 +135,18 @@ real problems:
 - `quote not found on the page` — the model invented it. The extractor checks
   every proposal's supporting quote against the fetched text, which is what
   catches a confident invention.
+- `the quote does not name M/D` — the quote is real, on the page, and about
+  something else. Oregon's first four proposals all cited "Leftover tags for
+  hunts with fewer applicants than there are tags will be sold on a
+  first-come, first-served basis", which is true, is on the page, and says
+  nothing whatever about the first of July. A citation that does not name the
+  date is not evidence for the date.
+- `already waiting in the queue` — an identical proposal is already pending.
+  Not a problem; it is how the rule path stays quiet on the nights nothing
+  changed.
+- `queue rejected it — ...` — the database refused the insert, and says why.
+  The first live run hit this nine times out of nine, against a CHECK
+  constraint that did not yet list `leftover_tag_sales`.
 - `unknown species "..."` — the page uses a name the database does not. Fix the
   species keys you pass, not the database.
 - `no supporting quote` — the model proposed a sale without pointing at the

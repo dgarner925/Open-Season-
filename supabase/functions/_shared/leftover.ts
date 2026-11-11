@@ -454,3 +454,53 @@ function matchesRobotsPattern(path: string, pattern: string): boolean {
 /** How this project identifies itself to an agency's server. */
 export const USER_AGENT =
   'OpenSeasonBot/1.0 (+https://osdatesanddraws.com/bot; hunting season dates for hunters)';
+
+/**
+ * Does this quote actually support the date it was cited for?
+ *
+ * The grounding check used to ask only whether the quote appeared on the page.
+ * Oregon slipped straight through it: all four proposals cited "Leftover tags
+ * for hunts with fewer applicants than there are tags will be sold on a
+ * first-come, first-served basis", which is on the page, is about the
+ * mechanism, and says nothing whatever about the first of July.
+ *
+ * A quote that does not name the date is not evidence for the date. It is a
+ * citation that looks like one, which the registry already warns is worse than
+ * saying nothing.
+ *
+ * Accepted: a month by name or abbreviation with the day beside it ("March 3",
+ * "August 11th", "Jul 1"), or a numeric form ("7/1", "07-01", "2027-07-01").
+ */
+const MONTH_PATTERNS = [
+  'jan(uary)?',
+  'feb(ruary)?',
+  'mar(ch)?',
+  'apr(il)?',
+  'may',
+  'jun(e)?',
+  'jul(y)?',
+  'aug(ust)?',
+  'sep(t|tember)?',
+  'oct(ober)?',
+  'nov(ember)?',
+  'dec(ember)?',
+];
+
+export function quoteSupportsDate(quote: string, month: number, day: number): boolean {
+  if (!quote) return false;
+  if (!Number.isInteger(month) || month < 1 || month > 12) return false;
+  if (!Number.isInteger(day) || day < 1 || day > 31) return false;
+  const q = quote.toLowerCase();
+
+  // "7/1", "07-01", "2027-07-01". The separator does the work, so a bare
+  // "1" in a sentence about July cannot pass as a numeric date.
+  const numeric = new RegExp(`(^|[^0-9])0?${month}\\s?[/.-]\\s?0?${day}([^0-9]|$)`);
+  if (numeric.test(q)) return true;
+
+  // A month by name needs its day nearby. "sold in July" is the mechanism
+  // again; "July 1" is the date.
+  const named = new RegExp(`\\b${MONTH_PATTERNS[month - 1]}\\b`);
+  if (!named.test(q)) return false;
+  const dayShown = new RegExp(`(^|[^0-9])0?${day}(st|nd|rd|th)?([^0-9]|$)`);
+  return dayShown.test(q);
+}

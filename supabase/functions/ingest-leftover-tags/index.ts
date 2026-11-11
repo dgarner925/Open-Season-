@@ -35,14 +35,16 @@ import {
   normaliseForHash,
   normaliseForQuote,
   parseResidency,
+  quoteSupportsDate,
   resolveSaleYear,
+  saleIdentity,
   parseSaleTime,
   seasonYearFor,
   textForReading,
   USER_AGENT,
   type ProposedSale,
 } from '../_shared/leftover.ts';
-import { REGISTRY, fixedSalesFor, liveEntries, type StateEntry } from './registry.ts';
+import { REGISTRY, dueFixedSales, liveEntries, type StateEntry } from './registry.ts';
 
 const ANTHROPIC_API_KEY = Deno.env.get('ANTHROPIC_API_KEY')!;
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
@@ -263,6 +265,167 @@ function tryParse(s: string): any | null {
 }
 
 // ---------------------------------------------------------------------------
+// Queueing a proposal
+// ---------------------------------------------------------------------------
+
+type Proposal = { payload: ProposedSale; confidence: number; evidence: unknown };
+
+type QueueCtx = {
+  stateId: string;
+  speciesByKey: Record<string, string>;
+  zonesByCode: Record<string, string>;
+  runId: string;
+  /**
+   * Identities already waiting for a human, so a second run does not ask the
+   * same question twice. Oregon makes this necessary rather than tidy: its
+   * July sale is proposed both by its regulation and by the page that
+   * restates it, and the rule is proposed on every run whether or not any
+   * page changed.
+   */
+  pending: Set<string>;
+  /** The page a proposal came from, or null when a regulation is the source. */
+  sourceUrl: string | null;
+};
+
+/**
+ * Both paths -- a page the model read, and a date set by regulation -- end
+ * here, because the decisions are the same either way: is this already
+ * published and unchanged, is it already queued, and did the insert work.
+ */
+async function queueProposals(
+  proposals: Proposal[],
+  ctx: QueueCtx,
+): Promise<{ queued: number; skipped: string[] }> {
+  let queued = 0;
+  const skipped: string[] = [];
+
+  for (const p of proposals) {
+    const identity = saleIdentity(p.payload);
+    if (ctx.pending.has(identity)) {
+      skipped.push(`${p.payload.species_key} ${p.payload.sale_start_date}: already waiting in the queue`);
+      continue;
+    }
+
+    const { data: current, error: currentErr } = await admin
+      .from('leftover_tag_sales')
+      .select('id, name, sale_start_date, sale_start_time, sale_end_date, sale_end_time, time_zone, purchase_url')
+      .eq('state_id', ctx.stateId)
+      .eq('species_id', ctx.speciesByKey[p.payload.species_key])
+      .eq('sale_type', p.payload.sale_type)
+      .eq('season_year', p.payload.season_year)
+      .limit(1);
+    // A failed lookup is not "nothing is published yet". Read before writing,
+    // or a dropped connection silently reproposes a row that already exists.
+    if (currentErr) {
+      skipped.push(`${p.payload.species_key} ${p.payload.sale_start_date}: could not read what is published -- ${currentErr.message}`);
+      continue;
+    }
+    const existing = current?.[0] ?? null;
+    const changed = diffSale(existing ?? {}, p.payload);
+    if (existing && changed.length === 0) continue;
+
+    const ins = await admin.from('review_queue').insert({
+      target_table: 'leftover_tag_sales',
+      target_id: existing?.id ?? null,
+      change_type: existing ? 'update' : 'create',
+      proposed_payload: {
+        ...p.payload,
+        state_id: ctx.stateId,
+        species_id: ctx.speciesByKey[p.payload.species_key],
+        zone_id: p.payload.zone_code ? ctx.zonesByCode[p.payload.zone_code] ?? null : null,
+        source_url: ctx.sourceUrl,
+      },
+      current_snapshot: existing,
+      diff: { changed },
+      confidence: p.confidence,
+      evidence: p.evidence,
+      extraction_run_id: ctx.runId,
+    });
+    // The fourth swallowed failure in this feature, and the most embarrassing:
+    // the run reported nine rows queued and the queue held none. review_queue
+    // has a CHECK on target_table, the migration taught apply_review_item
+    // about leftover_tag_sales but never opened that gate, and an unchecked
+    // insert counted every rejection as a success. Never count a write you
+    // have not looked at.
+    if (ins.error) {
+      skipped.push(`${p.payload.species_key} ${p.payload.sale_start_date}: queue rejected it -- ${ins.error.message}`);
+      continue;
+    }
+    ctx.pending.add(identity);
+    queued += 1;
+  }
+
+  return { queued, skipped };
+}
+
+/**
+ * Sales a regulation fixes, for the next time each one comes round.
+ *
+ * This used to be four lines that computed the dates, reported them, and
+ * queued nothing -- under a comment claiming they were "proposed even when
+ * the agency's site is unreachable". The README calls a rule strictly better
+ * than scraping, and it is; it just was not implemented.
+ *
+ * Confidence is capped below the auto-approval sweep on purpose. The registry
+ * says it plainly: a rule keeps confidently producing last year's date if a
+ * state quietly moves it, and the human looking at the review card is the
+ * only thing that catches that.
+ */
+function ruleProposals(
+  entry: StateEntry,
+  today: string,
+  speciesByKey: Record<string, string>,
+  runId: string,
+): { proposals: Proposal[]; unknown: string[]; dates: string[] } {
+  // The next time each rule comes round. The arithmetic lives in the registry,
+  // where it is tested: asking for year + 1, as this did, skips a March sale
+  // all the way through January and February of the year it falls in -- the
+  // one stretch where a hunter most wants the warning.
+  const due = dueFixedSales(entry, today);
+
+  const proposals: Proposal[] = [];
+  const unknown: string[] = [];
+  for (const f of due) {
+    for (const key of f.species) {
+      if (!speciesByKey[key]) {
+        unknown.push(`${entry.state_code} rule ${f.date}: unknown species "${key}"`);
+        continue;
+      }
+      const payload: ProposedSale = {
+        state_code: entry.state_code,
+        species_key: key,
+        zone_code: null,
+        season_year: seasonYearFor(f.date),
+        sale_type: 'leftover',
+        name: f.name,
+        sale_start_date: f.date,
+        sale_start_time: f.time,
+        sale_end_date: null,
+        time_zone: f.zone,
+        residency: parseResidency(null),
+        purchase_url: null,
+        notes: f.note,
+      };
+      proposals.push({
+        payload,
+        confidence: Math.min(
+          confidenceFor(payload, { zoneMatched: true, yearInferred: false }),
+          0.8,
+        ),
+        evidence: {
+          source: 'regulation',
+          rule: f.note,
+          state_notes: entry.notes ?? null,
+          verified_in_registry: entry.verified,
+          run: runId,
+        },
+      });
+    }
+  }
+  return { proposals, unknown, dates: due.map((f) => f.date) };
+}
+
+// ---------------------------------------------------------------------------
 // One source
 // ---------------------------------------------------------------------------
 
@@ -278,6 +441,8 @@ async function processSource(
     runId: string;
     /** Today, once, so every source in a run agrees on what "past" means. */
     today: string;
+    /** Identities already waiting for review; see queueProposals. */
+    pending: Set<string>;
   },
 ) {
   const started = Date.now();
@@ -399,6 +564,15 @@ async function processSource(
       discarded.push(`${s.name}: quote not found on the page`);
       continue;
     }
+    // On the page is not the same as about the date. Oregon's four proposals
+    // all cited a sentence explaining that leftover tags are sold first come,
+    // first served -- true, on the page, and silent about the first of July.
+    if (!quoteSupportsDate(s.quote, s.start_month, s.start_day)) {
+      discarded.push(
+        `${s.name}: the quote does not name ${s.start_month}/${s.start_day} -- "${s.quote.slice(0, 70)}"`,
+      );
+      continue;
+    }
     if (end && end.date < ctx.today) {
       discarded.push(`${s.name}: closed on ${end.date}`);
       continue;
@@ -482,50 +656,16 @@ async function processSource(
     };
   }
 
-  // 6. Only what actually differs from what we publish today.
-  let queued = 0;
-  for (const p of proposals) {
-    const { data: current } = await admin
-      .from('leftover_tag_sales')
-      .select('id, name, sale_start_date, sale_start_time, sale_end_date, sale_end_time, time_zone, purchase_url')
-      .eq('state_id', ctx.stateId)
-      .eq('species_id', ctx.speciesByKey[p.payload.species_key])
-      .eq('sale_type', p.payload.sale_type)
-      .eq('season_year', p.payload.season_year)
-      .limit(1);
-    const existing = current?.[0] ?? null;
-    const changed = diffSale(existing ?? {}, p.payload);
-    if (existing && changed.length === 0) continue;
-
-    const ins = await admin.from('review_queue').insert({
-      target_table: 'leftover_tag_sales',
-      target_id: existing?.id ?? null,
-      change_type: existing ? 'update' : 'create',
-      proposed_payload: {
-        ...p.payload,
-        state_id: ctx.stateId,
-        species_id: ctx.speciesByKey[p.payload.species_key],
-        zone_id: p.payload.zone_code ? ctx.zonesByCode[p.payload.zone_code] ?? null : null,
-        source_url: url,
-      },
-      current_snapshot: existing,
-      diff: { changed },
-      confidence: p.confidence,
-      evidence: p.evidence,
-      extraction_run_id: ctx.runId,
-    });
-    // The fourth swallowed failure in this feature, and the most embarrassing:
-    // the run reported nine rows queued and the queue held none. review_queue
-    // has a CHECK on target_table, the migration taught apply_review_item
-    // about leftover_tag_sales but never opened that gate, and an unchecked
-    // insert counted every rejection as a success. Never count a write you
-    // have not looked at.
-    if (ins.error) {
-      discarded.push(`${p.payload.species_key} ${p.payload.name}: queue rejected it -- ${ins.error.message}`);
-      continue;
-    }
-    queued += 1;
-  }
+  // 6. Hand them to the shared queue step, which decides what is new.
+  const { queued, skipped } = await queueProposals(proposals, {
+    stateId: ctx.stateId,
+    speciesByKey: ctx.speciesByKey,
+    zonesByCode: ctx.zonesByCode,
+    runId: ctx.runId,
+    pending: ctx.pending,
+    sourceUrl: url,
+  });
+  discarded.push(...skipped);
 
   await log({ status: 'ok', http_status: httpStatus, content_hash: hash, bytes: text.length });
   return { state: entry.state_code, url, status: 'ok' as const, proposals: proposals.length, queued, discarded };
@@ -591,6 +731,23 @@ Deno.serve(async (req) => {
         503,
       );
     }
+    // What is already waiting for a human. Loaded once: the rule path proposes
+    // on every run regardless of whether any page changed, so without this the
+    // queue would grow a duplicate Oregon card every night.
+    const pendingRes = await admin
+      .from('review_queue')
+      .select('proposed_payload')
+      .eq('target_table', 'leftover_tag_sales')
+      .eq('status', 'pending');
+    if (pendingRes.error) {
+      return json({ error: `review queue unavailable: ${pendingRes.error.message}` }, 503);
+    }
+    const pending = new Set(
+      (pendingRes.data ?? [])
+        .map((r: any) => (r?.proposed_payload ? saleIdentity(r.proposed_payload) : null))
+        .filter((x: string | null): x is string => Boolean(x)),
+    );
+
     const stateIdByCode = Object.fromEntries(states.map((s: any) => [s.code, s.id]));
     const speciesByKey = Object.fromEntries(species.map((s: any) => [s.key, s.id]));
 
@@ -612,9 +769,26 @@ Deno.serve(async (req) => {
       );
 
       // Rule-driven dates need no page, so they are proposed even when the
-      // agency's site is unreachable.
-      for (const f of fixedSalesFor(entry, new Date().getUTCFullYear() + 1)) {
-        results.push({ state: entry.state_code, status: 'rule', date: f.date, species: f.species.length });
+      // agency's site is unreachable -- which is what this said while queueing
+      // nothing at all.
+      const rules = ruleProposals(entry, today, speciesByKey, runId);
+      if (rules.proposals.length || rules.unknown.length) {
+        const ruleQueue = await queueProposals(rules.proposals, {
+          stateId,
+          speciesByKey,
+          zonesByCode,
+          runId,
+          pending,
+          sourceUrl: null,
+        });
+        results.push({
+          state: entry.state_code,
+          status: 'rule',
+          dates: rules.dates,
+          proposals: rules.proposals.length,
+          queued: ruleQueue.queued,
+          discarded: [...rules.unknown, ...ruleQueue.skipped],
+        });
       }
 
       for (const src of entry.sources) {
@@ -628,6 +802,7 @@ Deno.serve(async (req) => {
             zonesByCode,
             runId,
             today,
+            pending,
           }),
         );
         await sleep(POLITE_PAUSE_MS);

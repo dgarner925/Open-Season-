@@ -7,6 +7,7 @@ import {
   normaliseForQuote,
   parseResidency,
   parseSaleTime,
+  quoteSupportsDate,
   resolveSaleYear,
   saleIdentity,
   seasonYearFor,
@@ -500,5 +501,51 @@ describe('confidenceFor, with an inferred year', () => {
     const withYear = confidenceFor(sale, { yearInferred: false });
     const inferred = confidenceFor(sale, { yearInferred: true });
     expect(withYear - inferred).toBeCloseTo(0.2, 5);
+  });
+});
+
+describe('quoteSupportsDate', () => {
+  // The quote that got four Oregon proposals past the grounding check. It is
+  // genuinely on the page. It is not evidence for the first of July.
+  const oregon =
+    'Leftover tags for hunts with fewer applicants than there are tags will be ' +
+    'sold on a first-come, first-served basis';
+
+  it('rejects a quote about the mechanism rather than the date', () => {
+    expect(quoteSupportsDate(oregon, 7, 1)).toBe(false);
+    expect(quoteSupportsDate(oregon, 3, 15)).toBe(false);
+  });
+
+  it('accepts a month named with its day', () => {
+    expect(quoteSupportsDate('March 3: Spring turkey licenses', 3, 3)).toBe(true);
+    expect(quoteSupportsDate('available August 11th at 11 a.m. MT', 8, 11)).toBe(true);
+    expect(quoteSupportsDate('Leftover tags go on sale Jul 1 at 10 a.m.', 7, 1)).toBe(true);
+    expect(quoteSupportsDate('Tuesday, March 3', 3, 3)).toBe(true);
+  });
+
+  it('accepts a numeric date', () => {
+    expect(quoteSupportsDate('sale opens 7/1 online only', 7, 1)).toBe(true);
+    expect(quoteSupportsDate('07-01-2027', 7, 1)).toBe(true);
+    expect(quoteSupportsDate('starts 2027-07-01 at 10am', 7, 1)).toBe(true);
+  });
+
+  it('rejects a month with the wrong day', () => {
+    expect(quoteSupportsDate('March 3: Spring turkey licenses', 3, 4)).toBe(false);
+    expect(quoteSupportsDate('available August 11th', 8, 1)).toBe(false);
+  });
+
+  it('rejects a month with no day at all', () => {
+    expect(quoteSupportsDate('leftover tags are sold in July each year', 7, 1)).toBe(false);
+  });
+
+  it('does not read "maybe" as May', () => {
+    expect(quoteSupportsDate('maybe 3 tags remain', 5, 3)).toBe(false);
+    expect(quoteSupportsDate('May 3 at 8 a.m.', 5, 3)).toBe(true);
+  });
+
+  it('refuses nonsense instead of guessing', () => {
+    expect(quoteSupportsDate('', 7, 1)).toBe(false);
+    expect(quoteSupportsDate('July 1', 13, 1)).toBe(false);
+    expect(quoteSupportsDate('July 1', 7, 0)).toBe(false);
   });
 });
