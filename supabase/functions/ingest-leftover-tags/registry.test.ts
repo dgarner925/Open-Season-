@@ -86,9 +86,23 @@ describe('rule-driven sale dates', () => {
     expect(bear.species).toEqual(['bear']);
   });
 
-  it('gives a general rule the whole entry\u2019s species', () => {
+  it('falls back to the entry\u2019s species only when a rule names none', () => {
+    // This test used to assert that Oregon's 1 July rule covered the whole
+    // entry, bear included. The fallback itself is right and worth keeping --
+    // a rule naming no species should mean "all of them". Asserting it against
+    // a state whose bear has its own March rule is what blessed a published
+    // bear sale on 1 July under a name reading "deer, elk and pronghorn". So
+    // the fallback is tested on a rule that really is general, and Oregon's
+    // July rule now names its three.
     const bigGame = fixedSalesFor(or, 2027).find((s) => s.date.endsWith('07-01'))!;
-    expect(bigGame.species).toEqual(or.species);
+    expect(bigGame.species).toEqual(['deer', 'elk', 'pronghorn']);
+    expect(bigGame.species).not.toContain('bear');
+
+    const general = fixedSalesFor(
+      { ...or, fixed: [{ month: 7, day: 1, time: null, zone: 'America/Los_Angeles', name: 'All of it' }] },
+      2027,
+    );
+    expect(general[0].species).toEqual(or.species);
   });
 
   it('pads single-digit months and days', () => {
@@ -196,5 +210,43 @@ describe('dueFixedSales', () => {
     expect(bear.zone).toBe('America/Los_Angeles');
     expect(bear.species).toEqual(['bear']);
     expect(bear.name).toMatch(/bear/i);
+  });
+});
+
+describe('fixed rules do not overlap', () => {
+  /**
+   * Oregon published a bear sale on 1 July because that rule named no species
+   * and inherited all four, bear included -- while bear's own 15 March rule
+   * sat right beside it. Two rules claiming one species means one of them is
+   * wrong, and the wrong one gets a name that contradicts itself.
+   */
+  it('never lets two rules in one state claim the same species', () => {
+    for (const e of REGISTRY) {
+      if ((e.fixed?.length ?? 0) < 2) continue;
+      const seen = new Map<string, string>();
+      for (const f of e.fixed!) {
+        for (const k of f.species ?? e.species ?? []) {
+          const prior = seen.get(k);
+          expect(
+            prior,
+            `${e.state_code}: ${k} is claimed by both "${prior}" and "${f.name}"`,
+          ).toBeUndefined();
+          seen.set(k, f.name);
+        }
+      }
+    }
+  });
+
+  it('gives a species-specific rule a name that admits it', () => {
+    // Not a style rule. A row called "deer, elk and pronghorn" attached to a
+    // bear is the exact shape of the bug above, and it reaches a hunter as a
+    // push notification.
+    for (const e of REGISTRY) {
+      for (const f of e.fixed ?? []) {
+        const species = f.species ?? e.species ?? [];
+        if (species.length !== 1) continue;
+        expect(f.name.toLowerCase(), `${e.state_code} ${f.name}`).toContain(species[0]);
+      }
+    }
   });
 });

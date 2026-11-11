@@ -240,6 +240,14 @@ export const REGISTRY: StateEntry[] = [
     fixed: [
       {
         month: 7, day: 1, time: '10:00:00', zone: 'America/Los_Angeles',
+        // Named explicitly, and bear is NOT among them. Leaving this out made
+        // the rule inherit every species the entry lists, so Oregon published
+        // a bear sale on 1 July under a name that says deer, elk and
+        // pronghorn -- while bear's real date, 15 March, sat in the row above
+        // it. A hunter following bear would have been warned twice and been
+        // wrong once. Any species with a rule of its own must be excluded
+        // here; the test below enforces it.
+        species: ['deer', 'elk', 'pronghorn'],
         name: 'Leftover controlled deer, elk and pronghorn tags',
         note: 'Big game leftover tags, online only, first come first served. Standing rule, not a 2026 date.',
       },
