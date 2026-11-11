@@ -250,3 +250,94 @@ export function seasonYearFor(saleStartISO: string): number {
   if (!y || !m) return new Date().getFullYear();
   return m <= 3 ? y - 1 : y;
 }
+
+// ---------------------------------------------------------------------------
+// robots.txt
+// ---------------------------------------------------------------------------
+
+/**
+ * Whether robots.txt permits fetching a path.
+ *
+ * Deliberately strict in our disfavour. A state agency's site is public
+ * infrastructure and we are a guest on it: where the file is ambiguous or
+ * unparseable this answers "no" and the state goes to the manual path, which
+ * costs ten minutes a year. Guessing "yes" costs the agency's goodwill.
+ *
+ * Implements the parts of the standard that actually appear on agency sites:
+ * the most specific matching user-agent group wins, the longest matching rule
+ * within it wins, Allow beats Disallow at equal length, and an empty Disallow
+ * means allow everything.
+ */
+export function isAllowedByRobots(
+  robotsTxt: string,
+  path: string,
+  userAgent: string,
+): boolean {
+  if (!robotsTxt.trim()) return true; // no file, or empty: nothing forbidden
+
+  const ua = userAgent.toLowerCase();
+  type Group = { agents: string[]; rules: { allow: boolean; path: string }[] };
+  const groups: Group[] = [];
+  let current: Group | null = null;
+  let lastWasAgent = false;
+
+  for (const rawLine of robotsTxt.split(/\r?\n/)) {
+    const line = rawLine.split('#')[0].trim();
+    if (!line) continue;
+    const idx = line.indexOf(':');
+    if (idx === -1) continue;
+    const field = line.slice(0, idx).trim().toLowerCase();
+    const value = line.slice(idx + 1).trim();
+
+    if (field === 'user-agent') {
+      // Consecutive User-agent lines share one group.
+      if (!current || !lastWasAgent) {
+        current = { agents: [], rules: [] };
+        groups.push(current);
+      }
+      current.agents.push(value.toLowerCase());
+      lastWasAgent = true;
+      continue;
+    }
+    lastWasAgent = false;
+    if (!current) continue;
+    if (field === 'allow' || field === 'disallow') {
+      current.rules.push({ allow: field === 'allow', path: value });
+    }
+  }
+
+  // Most specific matching group: an exact-ish agent match beats the wildcard.
+  const named = groups.filter((g) => g.agents.some((a) => a !== '*' && ua.includes(a)));
+  const wild = groups.filter((g) => g.agents.includes('*'));
+  const applicable = named.length ? named : wild;
+  if (!applicable.length) return true;
+
+  const rules = applicable.flatMap((g) => g.rules);
+  // "Disallow:" with an empty value means allow everything; it matches nothing.
+  let best: { allow: boolean; len: number } | null = null;
+  for (const r of rules) {
+    if (r.path === '') {
+      if (!r.allow && !best) best = { allow: true, len: 0 };
+      continue;
+    }
+    if (!matchesRobotsPattern(path, r.path)) continue;
+    const len = r.path.length;
+    if (!best || len > best.len || (len === best.len && r.allow)) {
+      best = { allow: r.allow, len };
+    }
+  }
+  return best ? best.allow : true;
+}
+
+/** robots.txt path matching: prefix, with * and $ as the standard allows. */
+function matchesRobotsPattern(path: string, pattern: string): boolean {
+  const anchored = pattern.endsWith('$');
+  const body = anchored ? pattern.slice(0, -1) : pattern;
+  const escaped = body.replace(/[.+?^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '.*');
+  const re = new RegExp(`^${escaped}${anchored ? '$' : ''}`);
+  return re.test(path);
+}
+
+/** How this project identifies itself to an agency's server. */
+export const USER_AGENT =
+  'OpenSeasonBot/1.0 (+https://osdatesanddraws.com/bot; hunting season dates for hunters)';

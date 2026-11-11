@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   confidenceFor,
   diffSale,
+  isAllowedByRobots,
   normaliseForHash,
   parseResidency,
   parseSaleTime,
@@ -263,5 +264,69 @@ describe('seasonYearFor', () => {
 
   it('turns over in April', () => {
     expect(seasonYearFor('2027-04-01')).toBe(2027);
+  });
+});
+
+describe('isAllowedByRobots', () => {
+  const UA = 'OpenSeasonBot/1.0 (+https://osdatesanddraws.com/bot)';
+
+  it('allows everything when there is no file', () => {
+    expect(isAllowedByRobots('', '/hunting/leftover', UA)).toBe(true);
+  });
+
+  it('honours a blanket disallow', () => {
+    expect(isAllowedByRobots('User-agent: *\nDisallow: /', '/hunting/leftover', UA)).toBe(false);
+  });
+
+  it('treats an empty Disallow as allow everything', () => {
+    expect(isAllowedByRobots('User-agent: *\nDisallow:', '/anything', UA)).toBe(true);
+  });
+
+  it('blocks only the path named', () => {
+    const txt = 'User-agent: *\nDisallow: /admin';
+    expect(isAllowedByRobots(txt, '/admin/users', UA)).toBe(false);
+    expect(isAllowedByRobots(txt, '/hunting/leftover', UA)).toBe(true);
+  });
+
+  it('lets the longest rule win, so an Allow can carve out of a Disallow', () => {
+    const txt = 'User-agent: *\nDisallow: /hunting\nAllow: /hunting/leftover';
+    expect(isAllowedByRobots(txt, '/hunting/leftover', UA)).toBe(true);
+    expect(isAllowedByRobots(txt, '/hunting/private', UA)).toBe(false);
+  });
+
+  it('prefers Allow when two rules are the same length', () => {
+    const txt = 'User-agent: *\nDisallow: /x\nAllow: /x';
+    expect(isAllowedByRobots(txt, '/x', UA)).toBe(true);
+  });
+
+  it('lets a rule naming us override the wildcard group', () => {
+    const txt = 'User-agent: *\nDisallow: /\n\nUser-agent: OpenSeasonBot\nAllow: /';
+    expect(isAllowedByRobots(txt, '/hunting', UA)).toBe(true);
+  });
+
+  it('obeys a rule aimed at us even when the wildcard is permissive', () => {
+    const txt = 'User-agent: *\nAllow: /\n\nUser-agent: OpenSeasonBot\nDisallow: /';
+    expect(isAllowedByRobots(txt, '/hunting', UA)).toBe(false);
+  });
+
+  it('groups consecutive user-agent lines together', () => {
+    const txt = 'User-agent: BadBot\nUser-agent: OpenSeasonBot\nDisallow: /hunting';
+    expect(isAllowedByRobots(txt, '/hunting/leftover', UA)).toBe(false);
+  });
+
+  it('understands wildcards and end-anchors', () => {
+    expect(isAllowedByRobots('User-agent: *\nDisallow: /*.pdf$', '/docs/deer.pdf', UA)).toBe(false);
+    expect(isAllowedByRobots('User-agent: *\nDisallow: /*.pdf$', '/docs/deer.pdf?x=1', UA)).toBe(true);
+  });
+
+  it('ignores comments and blank lines', () => {
+    const txt = '# a comment\n\nUser-agent: *  # us\nDisallow: /admin # not here\n';
+    expect(isAllowedByRobots(txt, '/admin', UA)).toBe(false);
+    expect(isAllowedByRobots(txt, '/public', UA)).toBe(true);
+  });
+
+  it('ignores directives it does not understand', () => {
+    const txt = 'Sitemap: https://x.invalid/s.xml\nCrawl-delay: 10\nUser-agent: *\nDisallow: /admin';
+    expect(isAllowedByRobots(txt, '/public', UA)).toBe(true);
   });
 });

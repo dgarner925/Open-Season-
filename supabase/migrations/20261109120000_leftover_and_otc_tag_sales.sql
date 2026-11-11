@@ -243,6 +243,11 @@ create table if not exists public.source_fetch_log (
   state_id uuid references public.states(id) on delete set null,
   -- Which job did the fetching: 'leftover_tags', 'seasons', 'regulations'.
   purpose text not null default 'leftover_tags',
+  -- The exact URL fetched. A state can have more than one page (Wyoming has
+  -- two), and the content hash is only meaningful per URL -- keyed by state
+  -- alone, two pages would overwrite each other's hash and every run would
+  -- look like a change.
+  url text,
   fetched_at timestamptz not null default now(),
   -- ok: fetched and changed. unchanged: hash matched, nothing written.
   -- blocked: robots.txt said no. error: anything else.
@@ -263,6 +268,8 @@ create index if not exists source_fetch_log_recent
   on public.source_fetch_log (state_id, purpose, fetched_at desc);
 create index if not exists source_fetch_log_source_recent
   on public.source_fetch_log (source_id, fetched_at desc);
+create index if not exists source_fetch_log_url_recent
+  on public.source_fetch_log (purpose, url, fetched_at desc);
 
 -- ---------------------------------------------------------------------------
 -- Keeping the absolute instants honest
