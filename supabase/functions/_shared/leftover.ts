@@ -151,6 +151,58 @@ export function parseResidency(raw: string | null | undefined): Residency[] {
  * fetch -- which would mean re-extracting all fifty states every night and
  * paying for a model call each time to learn nothing.
  */
+/**
+ * The page as something to READ.
+ *
+ * Not the same thing as normaliseForHash, and the difference cost a day.
+ * normaliseForHash deletes every time that carries a zone -- "11 am MT" --
+ * because a clock in a page footer changes hourly without the content
+ * changing, and hashing has to ignore it. Feeding that same text to the model
+ * handed it a page with the one field this feature exists to capture already
+ * deleted, and it dutifully reported no sales.
+ *
+ * So: hashing gets its own aggressive normaliser, reading gets this one.
+ * This keeps case, keeps times, and keeps block boundaries as newlines so a
+ * heading does not glue itself to the paragraph under it -- "March 3: Spring
+ * turkey licenses" is a date and its subject, and they have to stay together.
+ */
+const BLOCK_TAGS =
+  /<\/?(p|div|br|li|tr|h[1-6]|section|article|header|footer|table|ul|ol|dl|dt|dd|blockquote)\b[^>]*>/gi;
+
+export function textForReading(html: string): string {
+  return html
+    .replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, ' ')
+    .replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi, ' ')
+    .replace(/<!--[\s\S]*?-->/g, ' ')
+    // Block tags become newlines; inline tags become nothing, so
+    // "<b>March 3</b>:" does not turn into "March 3 :".
+    .replace(BLOCK_TAGS, '\n')
+    .replace(/<[^>]+>/g, '')
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/&amp;/gi, '&')
+    .replace(/&lt;/gi, '<')
+    .replace(/&gt;/gi, '>')
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;|&apos;/gi, "'")
+    .replace(/&[a-z]+;|&#\d+;/gi, ' ')
+    // Every horizontal run of whitespace, but never a newline.
+    .replace(/[^\S\n]+/g, ' ')
+    .replace(/ ?\n ?/g, '\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+
+/**
+ * Flattened for comparing a model's quote against the page.
+ *
+ * Case and whitespace only. It must NOT strip times, or a quote naming the
+ * hour would fail to match the page it came from -- which is the one quote
+ * worth checking hardest.
+ */
+export function normaliseForQuote(s: string): string {
+  return s.replace(/\s+/g, ' ').trim().toLowerCase();
+}
+
 export function normaliseForHash(html: string): string {
   return html
     .replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, ' ')

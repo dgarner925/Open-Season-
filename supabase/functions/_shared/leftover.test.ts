@@ -4,10 +4,12 @@ import {
   diffSale,
   isAllowedByRobots,
   normaliseForHash,
+  normaliseForQuote,
   parseResidency,
   parseSaleTime,
   saleIdentity,
   seasonYearFor,
+  textForReading,
   zoneFromAbbrev,
   type ProposedSale,
 } from './leftover';
@@ -328,5 +330,78 @@ describe('isAllowedByRobots', () => {
   it('ignores directives it does not understand', () => {
     const txt = 'Sitemap: https://x.invalid/s.xml\nCrawl-delay: 10\nUser-agent: *\nDisallow: /admin';
     expect(isAllowedByRobots(txt, '/public', UA)).toBe(true);
+  });
+});
+
+describe('textForReading vs normaliseForHash', () => {
+  // The bug this pair exists to prevent: the ingest function fed the model
+  // hash-normalised text, which deletes every time carrying a zone, and the
+  // model reported no sales on a page that plainly announced one.
+  const PAGE =
+    '<div><h2>Leftover licenses</h2><p>The preview list will be posted ' +
+    '<b>Tuesdays at 11:00 am MT</b>.</p><p>No new hunt codes after 1:00 pm MT ' +
+    'on Wednesdays.</p></div>';
+
+  it('keeps the hour the whole feature is about', () => {
+    const read = textForReading(PAGE);
+    expect(read).toContain('11:00 am MT');
+    expect(read).toContain('1:00 pm MT');
+  });
+
+  // normaliseForHash only strips a time that carries a colon -- "11:00 am MT",
+  // never "11 am MT". That is narrower than it looks, and worth pinning down
+  // so nobody (me) claims it as the cause of something it cannot cause. The
+  // two normalisers differ in more ways than the time stripping, and the
+  // lowercasing alone is enough to ruin a date extraction and make every
+  // quote check meaningless.
+  it('still strips a clock time for hashing, which is the point of hashing', () => {
+    const hashed = normaliseForHash(PAGE);
+    expect(hashed).not.toContain('11:00 am mt');
+    expect(hashed).not.toContain('1:00 pm mt');
+  });
+
+  it('flattens case and line structure for hashing, which reading must not', () => {
+    const hashed = normaliseForHash(PAGE);
+    expect(hashed).not.toContain('Leftover');
+    expect(hashed).not.toContain('\n');
+  });
+
+  it('keeps case, so a quote can be matched and a date read', () => {
+    expect(textForReading(PAGE)).toContain('Leftover licenses');
+  });
+
+  it('keeps a heading off the paragraph under it', () => {
+    const read = textForReading('<h2>March 3</h2><p>Spring turkey licenses</p>');
+    expect(read).toBe('March 3\n\nSpring turkey licenses');
+  });
+
+  it('does not put a space inside a phrase an inline tag split', () => {
+    expect(textForReading('<p><b>March 3</b>: turkey</p>')).toBe('March 3: turkey');
+  });
+
+  it('drops scripts and styles rather than reading them aloud', () => {
+    const read = textForReading('<style>p{color:red}</style><script>var x=1</script><p>Sale</p>');
+    expect(read).toBe('Sale');
+  });
+
+  it('decodes the entities an agency page actually uses', () => {
+    expect(textForReading('<p>10&nbsp;am &amp; later &#39;leftover&#39;</p>')).toBe(
+      "10 am & later 'leftover'",
+    );
+  });
+
+  it('is reusable: the shared block regex does not carry state between calls', () => {
+    const html = '<p>one</p><p>two</p>';
+    expect(textForReading(html)).toBe(textForReading(html));
+  });
+});
+
+describe('normaliseForQuote', () => {
+  it('flattens case and whitespace so a quote can be found', () => {
+    expect(normaliseForQuote('  Sales   open\n at 10:00 AM MT ')).toBe('sales open at 10:00 am mt');
+  });
+
+  it('keeps the time, unlike the hashing normaliser', () => {
+    expect(normaliseForQuote('Opens 11 am MT')).toContain('11 am mt');
   });
 });

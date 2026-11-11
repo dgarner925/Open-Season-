@@ -33,9 +33,11 @@ import {
   diffSale,
   isAllowedByRobots,
   normaliseForHash,
+  normaliseForQuote,
   parseResidency,
   parseSaleTime,
   seasonYearFor,
+  textForReading,
   USER_AGENT,
   type ProposedSale,
 } from '../_shared/leftover.ts';
@@ -139,6 +141,9 @@ Return JSON only, matching the schema given. An empty array is a perfectly
 good answer when the page announces no sale.`;
 
 type Extracted = {
+  /** The model's raw reply, so a parse failure never looks like an empty page. */
+  raw?: string;
+  parsed?: boolean;
   sales: {
     species: string;
     unit_code?: string | null;
@@ -189,12 +194,12 @@ async function extract(text: string, entry: StateEntry, speciesKeys: string[]): 
   const body = await res.json();
   const raw = body?.content?.[0]?.text ?? '';
   const match = raw.match(/\{[\s\S]*\}/);
-  if (!match) return { sales: [] };
+  if (!match) return { sales: [], raw, parsed: false };
   try {
     const parsed = JSON.parse(match[0]);
-    return { sales: Array.isArray(parsed?.sales) ? parsed.sales : [] };
+    return { sales: Array.isArray(parsed?.sales) ? parsed.sales : [], raw, parsed: true };
   } catch {
-    return { sales: [] };
+    return { sales: [], raw, parsed: false };
   }
 }
 
@@ -261,8 +266,13 @@ async function processSource(
   }
 
   // 3. Has it changed?
-  const normalised = normaliseForHash(text);
-  const hash = await sha256Hex(normalised);
+  // Two different normalisers on purpose. The hash has to ignore a clock in
+  // a footer; the model has to SEE one in the body. Using the hashing
+  // normaliser for both handed the model a page with every zoned time already
+  // deleted, and it correctly reported no sales.
+  const hash = await sha256Hex(normaliseForHash(text));
+  const readable = textForReading(text);
+  const haystack = normaliseForQuote(readable);
   const { data: prev } = await admin
     .from('source_fetch_log')
     .select('content_hash')
@@ -280,7 +290,7 @@ async function processSource(
   // 4. Read it.
   let found: Extracted;
   try {
-    found = await extract(normalised, entry, Object.keys(ctx.speciesByKey));
+    found = await extract(readable, entry, Object.keys(ctx.speciesByKey));
   } catch (e) {
     await log({ status: 'error', http_status: httpStatus, content_hash: hash, error: e instanceof Error ? e.message : String(e) });
     return { state: entry.state_code, url, status: 'error' as const };
@@ -298,8 +308,8 @@ async function processSource(
     // The quote must actually be on the page. The model is not trusted to
     // tell us what it read; this is the same grounding discipline the season
     // extractor uses, and it is what catches a confident invention.
-    const quoteNorm = normaliseForHash(s.quote);
-    if (quoteNorm.length < 12 || !normalised.includes(quoteNorm.slice(0, Math.min(60, quoteNorm.length)))) {
+    const quoteNorm = normaliseForQuote(s.quote);
+    if (quoteNorm.length < 12 || !haystack.includes(quoteNorm.slice(0, Math.min(60, quoteNorm.length)))) {
       discarded.push(`${s.name}: quote not found on the page`);
       continue;
     }
@@ -340,7 +350,19 @@ async function processSource(
   }
 
   if (ctx.dry) {
-    return { state: entry.state_code, url, status: 'dry' as const, proposals: proposals.length, discarded };
+    // Zero proposals and zero discards used to be indistinguishable from a
+    // model reply that did not parse. Never again: say what was read and what
+    // came back.
+    return {
+      state: entry.state_code,
+      url,
+      status: 'dry' as const,
+      proposals: proposals.length,
+      discarded,
+      read: { bytes: text.length, readable: readable.length, model_parsed: found.parsed ?? null },
+      sales_seen: found.sales.length,
+      model_said: found.sales.length === 0 ? (found.raw ?? '').slice(0, 600) : undefined,
+    };
   }
 
   // 6. Only what actually differs from what we publish today.
