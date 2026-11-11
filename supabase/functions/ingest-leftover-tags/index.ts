@@ -491,13 +491,34 @@ Deno.serve(async (req) => {
   const runId = crypto.randomUUID();
 
   try {
-    const [{ data: states }, { data: species }, { data: zones }] = await Promise.all([
+    const [stateRes, speciesRes, zoneRes] = await Promise.all([
       admin.from('states').select('id, code'),
       admin.from('species').select('id, key'),
       admin.from('zones').select('id, code, state_id'),
     ]);
-    const stateIdByCode = Object.fromEntries((states ?? []).map((s: any) => [s.code, s.id]));
-    const speciesByKey = Object.fromEntries((species ?? []).map((s: any) => [s.key, s.id]));
+
+    // These three errors used to be discarded. When the states select came
+    // back empty the run reported "state not in the database" for every
+    // entry -- a confident, specific, wrong answer about the data, when the
+    // truth was that the query had failed and nobody asked why.
+    //
+    // Reference data is never legitimately empty. Fifty states do not go
+    // missing. So an empty result is an outage, not a finding, and the run
+    // stops rather than inventing a diagnosis.
+    const refErr =
+      stateRes.error?.message ?? speciesRes.error?.message ?? zoneRes.error?.message ?? null;
+    if (refErr) return json({ error: `reference data unavailable: ${refErr}` }, 503);
+    const states = stateRes.data ?? [];
+    const species = speciesRes.data ?? [];
+    const zones = zoneRes.data ?? [];
+    if (states.length === 0 || species.length === 0) {
+      return json(
+        { error: 'reference data came back empty', states: states.length, species: species.length },
+        503,
+      );
+    }
+    const stateIdByCode = Object.fromEntries(states.map((s: any) => [s.code, s.id]));
+    const speciesByKey = Object.fromEntries(species.map((s: any) => [s.key, s.id]));
 
     let entries = liveEntries();
     if (only) entries = entries.filter((e) => e.state_code === only);
@@ -513,7 +534,7 @@ Deno.serve(async (req) => {
         continue;
       }
       const zonesByCode = Object.fromEntries(
-        (zones ?? []).filter((z: any) => z.state_id === stateId && z.code).map((z: any) => [z.code, z.id]),
+        zones.filter((z: any) => z.state_id === stateId && z.code).map((z: any) => [z.code, z.id]),
       );
 
       // Rule-driven dates need no page, so they are proposed even when the
