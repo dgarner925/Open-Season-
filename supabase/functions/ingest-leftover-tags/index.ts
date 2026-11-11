@@ -154,7 +154,11 @@ type Extracted = {
   blocks?: string;
   stop?: string | null;
   sales: {
-    species: string;
+    // One sale usually covers several species: CPW's August list is "bear,
+    // deer, elk, and pronghorn" in one sentence. Letting the model say that
+    // once, instead of repeating a near-identical object per species, is what
+    // keeps the reply inside its token budget -- and it matches the page.
+    species: string | string[];
     unit_code?: string | null;
     sale_type: 'leftover' | 'otc' | 'reissue';
     name: string;
@@ -188,7 +192,7 @@ async function extract(text: string, entry: StateEntry, speciesKeys: string[]): 
     },
     body: JSON.stringify({
       model: MODEL,
-      max_tokens: 4096,
+      max_tokens: 16000,
       system: SYSTEM,
       messages: [
         {
@@ -199,6 +203,9 @@ async function extract(text: string, entry: StateEntry, speciesKeys: string[]): 
             `Known shape of this state's programme: ${entry.shape}\n\n` +
             `Today is ${new Date().toISOString().slice(0, 10)}.\n\n` +
             `Return JSON: {"sales":[{"species","unit_code","sale_type","name","shape",` +
+            `  (species is an ARRAY of keys: one sale that covers bear, deer and elk is ONE ` +
+            `entry with three keys, not three entries. Be brief; do not repeat a sale.)
+` +
             `"start_month":M,"start_day":D,"start_year":YYYY or null,"start_time_text",` +
             `"end_month","end_day","end_year","residency_text",` +
             `"purchase_url","conflict","quote"}]}\n` +
@@ -226,9 +233,8 @@ async function extract(text: string, entry: StateEntry, speciesKeys: string[]): 
   const blockTypes = (body?.content ?? []).map((b: any) => b?.type).join(',');
   const stopReason = body?.stop_reason ?? null;
   const match = raw.match(/\{[\s\S]*\}/);
-  if (!match) return { sales: [], raw, parsed: false, blocks: blockTypes, stop: stopReason };
-  try {
-    const parsed = JSON.parse(match[0]);
+  const parsed = match ? tryParse(match[0]) : null;
+  if (parsed) {
     return {
       sales: Array.isArray(parsed?.sales) ? parsed.sales : [],
       raw,
@@ -236,8 +242,23 @@ async function extract(text: string, entry: StateEntry, speciesKeys: string[]): 
       blocks: blockTypes,
       stop: stopReason,
     };
+  }
+  // The third time this feature dressed a failure up as a finding. A reply
+  // that did not parse -- truncated at max_tokens, or not JSON at all -- is
+  // NOT a page with no sale on it. Say so, loudly, and let the caller log an
+  // error instead of reporting zero proposals about a page full of dates.
+  throw new Error(
+    stopReason === 'max_tokens'
+      ? `model reply truncated at max_tokens (blocks: ${blockTypes})`
+      : `model reply did not parse (stop: ${stopReason}, blocks: ${blockTypes}): ${raw.slice(0, 200)}`,
+  );
+}
+
+function tryParse(s: string): any | null {
+  try {
+    return JSON.parse(s);
   } catch {
-    return { sales: [], raw, parsed: false, blocks: blockTypes, stop: stopReason };
+    return null;
   }
 }
 
@@ -255,6 +276,8 @@ async function processSource(
     speciesByKey: Record<string, string>;
     zonesByCode: Record<string, string>;
     runId: string;
+    /** Today, once, so every source in a run agrees on what "past" means. */
+    today: string;
   },
 ) {
   const started = Date.now();
@@ -343,9 +366,18 @@ async function processSource(
       discarded.push(`${s?.name ?? 'unnamed'}: no supporting quote`);
       continue;
     }
-    const start = resolveSaleYear(s.start_month, s.start_day, s.start_year);
+    const start = resolveSaleYear(s.start_month, s.start_day, s.start_year, ctx.today);
     if (!start) {
       discarded.push(`${s.name}: no usable start date (month ${s.start_month}, day ${s.start_day})`);
+      continue;
+    }
+    // CPW's page says "Leftover license sales started on August 4, 2026" --
+    // past tense, about a sale that is finished. With a year printed on the
+    // page resolveSaleYear honours it, so these resolve into the past and
+    // would queue proposals for sales nobody can buy. A sale whose start is
+    // behind us is only news while it is still open.
+    if (start.date < ctx.today && !(s.end_month && s.end_day)) {
+      discarded.push(`${s.name}: already started (${start.date}) and the page gives no end`);
       continue;
     }
     // A sale that ends without a stated year ends in the year it started,
@@ -353,11 +385,11 @@ async function processSource(
     // window), in which case it is the year after.
     const end = (() => {
       if (!s.end_month || !s.end_day) return null;
-      if (s.end_year) return resolveSaleYear(s.end_month, s.end_day, s.end_year);
+      if (s.end_year) return resolveSaleYear(s.end_month, s.end_day, s.end_year, ctx.today);
       const startYear = Number(start.date.slice(0, 4));
-      const same = resolveSaleYear(s.end_month, s.end_day, startYear);
+      const same = resolveSaleYear(s.end_month, s.end_day, startYear, ctx.today);
       if (same && same.date >= start.date) return same;
-      return resolveSaleYear(s.end_month, s.end_day, startYear + 1);
+      return resolveSaleYear(s.end_month, s.end_day, startYear + 1, ctx.today);
     })();
     // The quote must actually be on the page. The model is not trusted to
     // tell us what it read; this is the same grounding discipline the season
@@ -367,49 +399,65 @@ async function processSource(
       discarded.push(`${s.name}: quote not found on the page`);
       continue;
     }
-    const speciesId = ctx.speciesByKey[s.species];
-    if (!speciesId) {
-      discarded.push(`${s.name}: unknown species "${s.species}"`);
+    if (end && end.date < ctx.today) {
+      discarded.push(`${s.name}: closed on ${end.date}`);
       continue;
     }
     const zoneId = s.unit_code ? ctx.zonesByCode[s.unit_code] ?? null : null;
     const { time, zone } = parseSaleTime(s.start_time_text, entry.state_code);
 
-    const payload: ProposedSale = {
-      state_code: entry.state_code,
-      species_key: s.species,
-      zone_code: s.unit_code ?? null,
-      season_year: seasonYearFor(start.date),
-      sale_type: s.sale_type ?? 'leftover',
-      name: s.name,
-      sale_start_date: start.date,
-      sale_start_time: time,
-      sale_end_date: end?.date ?? null,
-      time_zone: zone,
-      residency: parseResidency(s.residency_text),
-      purchase_url: s.purchase_url ?? null,
-      notes: s.conflict ? `Page gives conflicting dates: ${s.conflict}` : null,
-    };
+    // One sale, one row per species. The page says "bear, deer, elk and
+    // pronghorn" in a single sentence and the model now answers in kind; the
+    // fan-out belongs here, where the species keys are checked against the
+    // database rather than taken on trust.
+    const keys = (Array.isArray(s.species) ? s.species : [s.species]).filter(Boolean);
+    if (keys.length === 0) {
+      discarded.push(`${s.name}: no species`);
+      continue;
+    }
+    for (const key of keys) {
+      const speciesId = ctx.speciesByKey[key];
+      if (!speciesId) {
+        discarded.push(`${s.name}: unknown species "${key}"`);
+        continue;
+      }
 
-    let confidence = confidenceFor(payload, {
-      zoneMatched: !s.unit_code || Boolean(zoneId),
-      yearInferred: start.yearInferred,
-    });
-    // A page that contradicts itself never sweeps automatically, whatever
-    // else is right about it.
-    if (s.conflict) confidence = Math.min(confidence, 0.5);
+      const payload: ProposedSale = {
+        state_code: entry.state_code,
+        species_key: key,
+        zone_code: s.unit_code ?? null,
+        season_year: seasonYearFor(start.date),
+        sale_type: s.sale_type ?? 'leftover',
+        name: s.name,
+        sale_start_date: start.date,
+        sale_start_time: time,
+        sale_end_date: end?.date ?? null,
+        time_zone: zone,
+        residency: parseResidency(s.residency_text),
+        purchase_url: s.purchase_url ?? null,
+        notes: s.conflict ? `Page gives conflicting dates: ${s.conflict}` : null,
+      };
 
-    proposals.push({
-      payload,
-      confidence,
-      evidence: {
-        quote: s.quote,
-        url,
-        shape: s.shape ?? entry.shape,
-        year_inferred: start.yearInferred,
-        run: ctx.runId,
-      },
-    });
+      let confidence = confidenceFor(payload, {
+        zoneMatched: !s.unit_code || Boolean(zoneId),
+        yearInferred: start.yearInferred,
+      });
+      // A page that contradicts itself never sweeps automatically, whatever
+      // else is right about it.
+      if (s.conflict) confidence = Math.min(confidence, 0.5);
+
+      proposals.push({
+        payload,
+        confidence,
+        evidence: {
+          quote: s.quote,
+          url,
+          shape: s.shape ?? entry.shape,
+          year_inferred: start.yearInferred,
+          run: ctx.runId,
+        },
+      });
+    }
   }
 
   if (ctx.dry) {
@@ -489,6 +537,9 @@ Deno.serve(async (req) => {
   const force = Boolean(body?.force);
   const only = typeof body?.state === 'string' ? body.state.toUpperCase() : null;
   const runId = crypto.randomUUID();
+  // Read the clock once. A run that straddles midnight should not change its
+  // mind about which sales are over.
+  const today = new Date().toISOString().slice(0, 10);
 
   try {
     // Retried, because the failure that sent us looking was "JWT issued at
@@ -559,7 +610,15 @@ Deno.serve(async (req) => {
       for (const src of entry.sources) {
         if (src.role === 'news') continue; // not built yet; see the registry
         results.push(
-          await processSource(entry, src.url, { dry, force, stateId, speciesByKey, zonesByCode, runId }),
+          await processSource(entry, src.url, {
+            dry,
+            force,
+            stateId,
+            speciesByKey,
+            zonesByCode,
+            runId,
+            today,
+          }),
         );
         await sleep(POLITE_PAUSE_MS);
       }

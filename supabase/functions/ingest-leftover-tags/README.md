@@ -123,6 +123,11 @@ real problems:
   sentence that says so. Discarded on principle.
 - `no usable start date (month N, day N)` — the model gave a month and day
   that is not on the calendar, or gave neither.
+- `already started (DATE) and the page gives no end` / `closed on DATE` — the
+  page was talking about history. Agency pages keep last season's sentence up
+  all year: CPW still says "Leftover license sales started on August 4, 2026".
+  A sale that has started is kept only while the page also gives an end date
+  still ahead of us.
 
 ### A word about years
 
@@ -146,6 +151,20 @@ The general rule, and it holds beyond this function: **the model reports what
 the page says; code does the arithmetic.** If you find yourself asking the
 model to compute, normalise, or combine something, move it into a tested
 function instead.
+
+### A reply that did not parse is not an empty page
+
+The run logs `error` and names the reason. The one you will actually see is
+**`model reply truncated at max_tokens`**, and it is worth knowing why: the
+reply leads with a thinking block, and a page listing eight species used to
+spend the whole budget repeating a near-identical object for each one. Two
+things fixed it — the budget is 16k, and `species` is an *array*, so one sale
+covering bear, deer, elk and pronghorn is one entry that the code fans out
+into four rows.
+
+If you see it again, the page is longer than the budget, not broken. Raise
+`max_tokens`; do not make the schema terser at the cost of the quote, which is
+the only thing standing between a proposal and an invention.
 
 ### 6. Watch the confidence
 
