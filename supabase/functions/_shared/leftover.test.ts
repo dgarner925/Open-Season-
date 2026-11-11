@@ -7,6 +7,7 @@ import {
   normaliseForQuote,
   parseResidency,
   parseSaleTime,
+  resolveSaleYear,
   saleIdentity,
   seasonYearFor,
   textForReading,
@@ -403,5 +404,101 @@ describe('normaliseForQuote', () => {
 
   it('keeps the time, unlike the hashing normaliser', () => {
     expect(normaliseForQuote('Opens 11 am MT')).toContain('11 am mt');
+  });
+});
+
+describe('resolveSaleYear', () => {
+  // The case that broke the first live run. CPW's leftover page says
+  // "March 3: Spring turkey licenses will be available for purchase on the
+  // leftover list" and never prints a year for it. Read on 10 November 2026,
+  // that means the coming March.
+  it('supplies the year a page did not print', () => {
+    expect(resolveSaleYear(3, 3, null, '2026-11-10')).toEqual({
+      date: '2027-03-03',
+      yearInferred: true,
+    });
+    expect(resolveSaleYear(8, 5, null, '2026-11-10')).toEqual({
+      date: '2027-08-05',
+      yearInferred: true,
+    });
+  });
+
+  it('takes the year the page did print, and says it did not infer', () => {
+    expect(resolveSaleYear(8, 4, 2026, '2026-11-10')).toEqual({
+      date: '2026-08-04',
+      yearInferred: false,
+    });
+  });
+
+  it('keeps a date still ahead of us in the current year', () => {
+    expect(resolveSaleYear(12, 25, null, '2026-11-10')).toEqual({
+      date: '2026-12-25',
+      yearInferred: true,
+    });
+  });
+
+  it('treats today as still ahead', () => {
+    expect(resolveSaleYear(11, 10, null, '2026-11-10')).toEqual({
+      date: '2026-11-10',
+      yearInferred: true,
+    });
+  });
+
+  it('rolls to next year the day after a sale passes', () => {
+    expect(resolveSaleYear(11, 9, null, '2026-11-10')?.date).toBe('2027-11-09');
+  });
+
+  it('finds the next leap day rather than inventing one', () => {
+    expect(resolveSaleYear(2, 29, null, '2026-11-10')?.date).toBe('2028-02-29');
+  });
+
+  it('refuses a day that is not on the calendar', () => {
+    expect(resolveSaleYear(2, 30, null, '2026-11-10')).toBeNull();
+    expect(resolveSaleYear(2, 29, 2027, '2026-11-10')).toBeNull();
+    expect(resolveSaleYear(4, 31, 2027, '2026-11-10')).toBeNull();
+  });
+
+  it('refuses nonsense rather than guessing at it', () => {
+    expect(resolveSaleYear(0, 5, null, '2026-11-10')).toBeNull();
+    expect(resolveSaleYear(13, 5, null, '2026-11-10')).toBeNull();
+    expect(resolveSaleYear(3, 0, null, '2026-11-10')).toBeNull();
+    expect(resolveSaleYear(3, 32, null, '2026-11-10')).toBeNull();
+    expect(resolveSaleYear(NaN as unknown as number, 3, null, '2026-11-10')).toBeNull();
+  });
+
+  it('honours a year in the past when the page states one', () => {
+    expect(resolveSaleYear(8, 4, 2024, '2026-11-10')).toEqual({
+      date: '2024-08-04',
+      yearInferred: false,
+    });
+  });
+});
+
+describe('confidenceFor, with an inferred year', () => {
+  const sale = {
+    state_code: 'CO',
+    species_key: 'turkey',
+    season_year: 2027,
+    sale_type: 'leftover' as const,
+    name: 'Spring turkey leftover list',
+    sale_start_date: '2027-03-03',
+    sale_start_time: null,
+    sale_end_date: null,
+    time_zone: 'America/Denver',
+    residency: ['resident', 'nonresident'],
+    zone_code: null,
+    purchase_url: null,
+    notes: null,
+  };
+
+  it('keeps a supplied year under the auto-approval threshold', () => {
+    const c = confidenceFor(sale, { yearInferred: true });
+    expect(c).toBeLessThan(0.85);
+  });
+
+  it('does not penalise a year the page actually printed', () => {
+    const withYear = confidenceFor(sale, { yearInferred: false });
+    const inferred = confidenceFor(sale, { yearInferred: true });
+    expect(withYear - inferred).toBeCloseTo(0.2, 5);
   });
 });

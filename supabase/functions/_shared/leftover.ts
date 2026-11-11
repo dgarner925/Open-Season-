@@ -264,8 +264,14 @@ export function diffSale(current: CurrentSale, proposed: ProposedSale): string[]
  * we could not read, and a sale we could not tie to a known zone. Both stay
  * under the sweep threshold so a human sees them.
  */
-export function confidenceFor(p: ProposedSale, opts: { zoneMatched?: boolean } = {}): number {
+export function confidenceFor(
+  p: ProposedSale,
+  opts: { zoneMatched?: boolean; yearInferred?: boolean } = {},
+): number {
   let c = 0.95;
+  // We supplied the year the page did not print. Reasonable to do; not
+  // reasonable to publish without a human glancing at it.
+  if (opts.yearInferred) c -= 0.2;
   if (!p.sale_start_time) c -= 0.1; // a date with no hour is still useful, just vaguer
   if (p.zone_code && !opts.zoneMatched) c -= 0.25; // named a unit we do not know
   if (!p.purchase_url) c -= 0.05;
@@ -301,6 +307,61 @@ export function seasonYearFor(saleStartISO: string): number {
   const [y, m] = saleStartISO.split('-').map(Number);
   if (!y || !m) return new Date().getFullYear();
   return m <= 3 ? y - 1 : y;
+}
+
+export type ResolvedDate = { date: string; yearInferred: boolean };
+
+/**
+ * Turn a month and day into a real date, supplying the year when the page did
+ * not give one.
+ *
+ * Agency pages mostly do not give one. Colorado's leftover page says "March 3:
+ * Spring turkey licenses will be available for purchase on the leftover list"
+ * and "August 5" and "August 11th", and carries a year on exactly two lines,
+ * both about the past. A hunter reading it in November knows perfectly well
+ * that March 3 means the coming March. The extractor did not, because the
+ * schema demanded YYYY-MM-DD and the prompt forbade inferring a year -- so the
+ * model obeyed, returned nothing, and the correct answer had nowhere to go.
+ *
+ * The split that fixes it is the one the rest of this pipeline already uses:
+ * the model reports what the page SAYS, and code does the arithmetic. The
+ * model now returns a month and a day, and a year only when the page prints
+ * one. Here we resolve the rest, deterministically, to the next occurrence on
+ * or after today -- which is what a forward-looking app wants, and is a
+ * calendar fact rather than a guess about the agency.
+ *
+ * yearInferred rides along so confidenceFor can keep an inferred sale under
+ * the auto-approval threshold. Supplying a year is reasonable; publishing one
+ * without a human glancing at it is not.
+ */
+export function resolveSaleYear(
+  month: number,
+  day: number,
+  year: number | null | undefined,
+  todayISO?: string,
+): ResolvedDate | null {
+  if (!Number.isInteger(month) || month < 1 || month > 12) return null;
+  if (!Number.isInteger(day) || day < 1 || day > 31) return null;
+
+  const iso = (y: number) =>
+    `${y}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+
+  // A real calendar day, not the 31st of February.
+  const real = (y: number) => {
+    const d = new Date(Date.UTC(y, month - 1, day));
+    return d.getUTCMonth() === month - 1 && d.getUTCDate() === day;
+  };
+
+  if (year && Number.isInteger(year) && year > 1900) {
+    return real(year) ? { date: iso(year), yearInferred: false } : null;
+  }
+
+  const today = todayISO ?? new Date().toISOString().slice(0, 10);
+  const thisYear = Number(today.slice(0, 4));
+  for (const y of [thisYear, thisYear + 1, thisYear + 2]) {
+    if (real(y) && iso(y) >= today) return { date: iso(y), yearInferred: true };
+  }
+  return null;
 }
 
 // ---------------------------------------------------------------------------

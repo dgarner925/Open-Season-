@@ -35,6 +35,7 @@ import {
   normaliseForHash,
   normaliseForQuote,
   parseResidency,
+  resolveSaleYear,
   parseSaleTime,
   seasonYearFor,
   textForReading,
@@ -127,6 +128,11 @@ Rules that matter more than completeness:
 - If the page gives a day but no hour, return null for the time. Do NOT
   return midnight, 00:00, or a guess. A missing hour is a correct answer and
   the common one.
+- Report the month and day the page gives. Report the year ONLY if the page
+  prints one for that sale; otherwise return null for the year. A page that
+  says "March 3" without a year is normal, and null is the right answer --
+  the calendar arithmetic is done afterwards, not by you. Never borrow a year
+  from a different sentence on the page.
 - If two parts of the page give DIFFERENT dates for the same sale, report the
   sale once, use the date that appears closest to the heading naming that
   sale, and say so in "conflict". Conflicting pages are common and your note
@@ -150,9 +156,18 @@ type Extracted = {
     sale_type: 'leftover' | 'otc' | 'reissue';
     name: string;
     shape?: 'first_come' | 'application_window' | 'recurring';
-    start_date: string;
+    // Month and day, with the year ONLY when the page prints one. Agency
+    // pages mostly do not: Colorado says "March 3" and "August 5" and carries
+    // a year on two lines, both about the past. Demanding YYYY-MM-DD here is
+    // what made a correct answer impossible to express. resolveSaleYear does
+    // the calendar arithmetic instead.
+    start_month: number;
+    start_day: number;
+    start_year?: number | null;
     start_time_text?: string | null;
-    end_date?: string | null;
+    end_month?: number | null;
+    end_day?: number | null;
+    end_year?: number | null;
     residency_text?: string | null;
     purchase_url?: string | null;
     conflict?: string | null;
@@ -179,9 +194,14 @@ async function extract(text: string, entry: StateEntry, speciesKeys: string[]): 
             `State: ${entry.state_code}\n` +
             `Species keys you may use: ${speciesKeys.join(', ')}\n` +
             `Known shape of this state's programme: ${entry.shape}\n\n` +
+            `Today is ${new Date().toISOString().slice(0, 10)}.\n\n` +
             `Return JSON: {"sales":[{"species","unit_code","sale_type","name","shape",` +
-            `"start_date":"YYYY-MM-DD","start_time_text","end_date","residency_text",` +
+            `"start_month":M,"start_day":D,"start_year":YYYY or null,"start_time_text",` +
+            `"end_month","end_day","end_year","residency_text",` +
             `"purchase_url","conflict","quote"}]}\n` +
+            `Give start_year ONLY if the page prints a year for that sale. Most pages ` +
+            `do not, and null is the correct answer then -- we work the year out from ` +
+            `the calendar. Never carry a year over from a different sentence.\n` +
             `"quote" must be the sentence from the page that states the date, copied exactly. ` +
             `A sale without a supporting quote will be discarded.\n\n` +
             `PAGE:\n${text.slice(0, 120_000)}`,
@@ -301,10 +321,19 @@ async function processSource(
   const discarded: string[] = [];
 
   for (const s of found.sales) {
-    if (!s?.quote || !s.start_date) {
-      discarded.push(`${s?.name ?? 'unnamed'}: no quote or no date`);
+    if (!s?.quote) {
+      discarded.push(`${s?.name ?? 'unnamed'}: no supporting quote`);
       continue;
     }
+    const start = resolveSaleYear(s.start_month, s.start_day, s.start_year);
+    if (!start) {
+      discarded.push(`${s.name}: no usable start date (month ${s.start_month}, day ${s.start_day})`);
+      continue;
+    }
+    const end =
+      s.end_month && s.end_day
+        ? resolveSaleYear(s.end_month, s.end_day, s.end_year ?? start.date.slice(0, 4))
+        : null;
     // The quote must actually be on the page. The model is not trusted to
     // tell us what it read; this is the same grounding discipline the season
     // extractor uses, and it is what catches a confident invention.
@@ -325,19 +354,22 @@ async function processSource(
       state_code: entry.state_code,
       species_key: s.species,
       zone_code: s.unit_code ?? null,
-      season_year: seasonYearFor(s.start_date),
+      season_year: seasonYearFor(start.date),
       sale_type: s.sale_type ?? 'leftover',
       name: s.name,
-      sale_start_date: s.start_date,
+      sale_start_date: start.date,
       sale_start_time: time,
-      sale_end_date: s.end_date ?? null,
+      sale_end_date: end?.date ?? null,
       time_zone: zone,
       residency: parseResidency(s.residency_text),
       purchase_url: s.purchase_url ?? null,
       notes: s.conflict ? `Page gives conflicting dates: ${s.conflict}` : null,
     };
 
-    let confidence = confidenceFor(payload, { zoneMatched: !s.unit_code || Boolean(zoneId) });
+    let confidence = confidenceFor(payload, {
+      zoneMatched: !s.unit_code || Boolean(zoneId),
+      yearInferred: start.yearInferred,
+    });
     // A page that contradicts itself never sweeps automatically, whatever
     // else is right about it.
     if (s.conflict) confidence = Math.min(confidence, 0.5);
@@ -345,7 +377,13 @@ async function processSource(
     proposals.push({
       payload,
       confidence,
-      evidence: { quote: s.quote, url, shape: s.shape ?? entry.shape, run: ctx.runId },
+      evidence: {
+        quote: s.quote,
+        url,
+        shape: s.shape ?? entry.shape,
+        year_inferred: start.yearInferred,
+        run: ctx.runId,
+      },
     });
   }
 
