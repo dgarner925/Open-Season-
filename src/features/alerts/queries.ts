@@ -9,6 +9,7 @@ export type AlertPref = {
   opener_offsets: number[];
   deadline_offsets: number[];
   results_offsets: number[];
+  leftover_offsets: number[];
   /** null = every method of this hunt, [] = none, ['archery'] = only those. */
   methods: string[] | null;
   follow: {
@@ -19,6 +20,9 @@ export type AlertPref = {
 
 const DEFAULT_OFFSETS = [365, 30, 7, 1];
 const DEFAULT_RESULTS = [1, 0];
+// Coarser than the rest: a leftover sale is a short-fuse event, and the
+// morning-of alert is the one that actually saves the tag.
+const DEFAULT_LEFTOVER = [7, 1, 0];
 
 /**
  * One alert card per followed (state, species). We drive this off `follows`
@@ -34,7 +38,7 @@ export function useAlertPreferences() {
     queryFn: async (): Promise<AlertPref[]> => {
       const { data, error } = await supabase
         .from('follows')
-        .select('id, state_id, species_id, state:states(code,name), species:species(id,key,name), alert_preferences(opener_offsets, deadline_offsets, results_offsets, methods)')
+        .select('id, state_id, species_id, state:states(code,name), species:species(id,key,name), alert_preferences(opener_offsets, deadline_offsets, results_offsets, leftover_offsets, methods)')
         .eq('user_id', user!.id);
       if (error) throw error;
       return (data ?? []).map((f: any) => {
@@ -46,6 +50,7 @@ export function useAlertPreferences() {
           opener_offsets: ap?.opener_offsets ?? DEFAULT_OFFSETS,
           deadline_offsets: ap?.deadline_offsets ?? DEFAULT_OFFSETS,
           results_offsets: ap?.results_offsets ?? DEFAULT_RESULTS,
+          leftover_offsets: ap?.leftover_offsets ?? DEFAULT_LEFTOVER,
           methods: ap?.methods ?? null,
           follow: { state: f.state, species: f.species },
         } as AlertPref;
@@ -95,7 +100,7 @@ export function useToggleOffset() {
       current,
     }: {
       followId: string;
-      kind: 'opener' | 'deadline' | 'results';
+      kind: 'opener' | 'deadline' | 'results' | 'leftover';
       offset: number;
       current: number[];
     }) => {
@@ -107,14 +112,16 @@ export function useToggleOffset() {
           ? { opener_offsets: next }
           : kind === 'deadline'
             ? { deadline_offsets: next }
-            : { results_offsets: next };
+            : kind === 'results'
+              ? { results_offsets: next }
+              : { leftover_offsets: next };
       // The prefs row is normally created by a trigger; if it's missing, this
       // self-heals it with the defaults (ignoreDuplicates means an existing row
       // is never clobbered). Then update only the toggled cadence.
       await supabase
         .from('alert_preferences')
         .upsert(
-          { follow_id: followId, opener_offsets: DEFAULT_OFFSETS, deadline_offsets: DEFAULT_OFFSETS, results_offsets: DEFAULT_RESULTS },
+          { follow_id: followId, opener_offsets: DEFAULT_OFFSETS, deadline_offsets: DEFAULT_OFFSETS, results_offsets: DEFAULT_RESULTS, leftover_offsets: DEFAULT_LEFTOVER },
           { onConflict: 'follow_id', ignoreDuplicates: true },
         );
       const { error } = await supabase.from('alert_preferences').update(patch).eq('follow_id', followId);

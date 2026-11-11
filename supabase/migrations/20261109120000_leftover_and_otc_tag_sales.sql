@@ -645,6 +645,14 @@ $function$;
 alter table public.alert_preferences
   add column if not exists leftover_offsets smallint[] not null default '{7,1,0}';
 
+-- Same shape as the other ladders: the UI only ever offers these, and the
+-- constraint is what stops a write from anywhere else setting an offset
+-- that nothing would ever fire on.
+alter table public.alert_preferences drop constraint if exists leftover_offsets_allowed;
+alter table public.alert_preferences
+  add constraint leftover_offsets_allowed
+  check (leftover_offsets <@ array[0,1,3,7,14]::smallint[]);
+
 /**
  * The clock label for an instant in a US zone -- 'MDT', 'EST', 'PDT'.
  *

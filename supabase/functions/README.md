@@ -142,3 +142,18 @@ select cron.schedule(
 - The model is instructed **never to guess** — unconfirmed dates come back `null`.
 - Every proposal lands in `review_queue` as `draft`/pending; you approve in-app.
   Approving is what publishes it and makes it eligible for countdowns and alerts.
+
+---
+
+## `ingest-leftover-tags` — leftover and OTC tag sales
+
+Reads the agency pages in `ingest-leftover-tags/registry.ts` and proposes sale
+dates into `review_queue`. It publishes nothing.
+
+See **[`ingest-leftover-tags/README.md`](./ingest-leftover-tags/README.md)** for
+how to add a state — including why half the states researched so far should NOT
+get an adapter, and why Oregon's dates come from a regulation rather than a
+page.
+
+The alerts are not a function of their own: they are two more arms on
+`notifications_due()`, so `send-alerts` carries them with the rest.

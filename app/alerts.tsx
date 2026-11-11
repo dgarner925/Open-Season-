@@ -33,6 +33,17 @@ const RESULTS_OFFSETS: { days: number; label: string }[] = [
   { days: 0, label: 'the day of' },
 ];
 
+// Leftover tags go on sale at an hour and are gone in minutes. The week out is
+// for planning the trip; the morning-of is the one that saves the tag.
+// Must stay within the leftover_offsets check constraint (0/1/3/7/14).
+const LEFTOVER_OFFSETS: { days: number; label: string }[] = [
+  { days: 14, label: '2 weeks' },
+  { days: 7, label: 'a week' },
+  { days: 3, label: '3 days' },
+  { days: 1, label: 'a day' },
+  { days: 0, label: 'that morning' },
+];
+
 export default function Alerts() {
   const router = useRouter();
   const { species: speciesFilter } = useLocalSearchParams<{ species?: string }>();
@@ -153,7 +164,7 @@ function PrefSection({
 }: {
   pref: AlertPref;
   hasDraw: boolean;
-  onToggle: (kind: 'opener' | 'deadline' | 'results', offset: number, current: number[]) => void;
+  onToggle: (kind: 'opener' | 'deadline' | 'results' | 'leftover', offset: number, current: number[]) => void;
 }) {
   return (
     <Tile style={styles.tile}>
@@ -180,6 +191,16 @@ function PrefSection({
           onToggle={(o) => onToggle('results', o, pref.results_offsets)}
         />
       ) : null}
+      {/* Shown on every follow, not just the ones with a draw. Over-the-counter
+          and leftover sales happen in states that never drew you in the first
+          place, and the hunter who most needs this ladder is the one who did
+          not apply. */}
+      <LadderLine
+        lead="Before leftover tags go on sale, remind me"
+        ladder={LEFTOVER_OFFSETS}
+        active={pref.leftover_offsets}
+        onToggle={(o) => onToggle('leftover', o, pref.leftover_offsets)}
+      />
     </Tile>
   );
 }
