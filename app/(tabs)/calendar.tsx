@@ -4,7 +4,7 @@ import { useMemo, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Unreachable } from '@/components/GapNote';
-import { Headline, Micro, Sentence, Tile } from '@/components/system';
+import { Headline, Micro, ScreenMark, Sentence, Tile } from '@/components/system';
 import { SpeciesBadge } from '@/components/midnight';
 import { useSeasonsFeed } from '@/features/reference/queries';
 import { BrowseStateChip, BrowseStatePrompt } from '@/components/BrowseStateChip';
@@ -80,6 +80,7 @@ export default function Seasons() {
         {/* One tight sans headline saying what the screen is for, and a
             sentence saying whose dates these are. The serif masthead and the
             SEASON DATES overline above it were two titles doing one job. */}
+        <ScreenMark />
         <View style={styles.header}>
           <View style={styles.headRow}>
             <Headline style={{ flex: 1 }}>What's open,{'\n'}and what's next.</Headline>

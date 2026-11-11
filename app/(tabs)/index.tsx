@@ -8,7 +8,7 @@ import { AlmanacCol, almanacStyles } from '@/components/AlmanacRow';
 import { LightCountdown } from '@/components/LightCountdown';
 import { useDailyBrief } from '@/features/brief/queries';
 import { PageTitle, SpeciesBadge } from '@/components/midnight';
-import { Headline } from '@/components/system';
+import { Headline, Monogram } from '@/components/system';
 import { headlineSize, nextOpenerSentence, zoneNote } from '@/features/home/sentences';
 import { NotificationsOffBanner } from '@/components/NotificationsOffBanner';
 import { ProUpsellCard } from '@/components/ProUpsellCard';
@@ -160,12 +160,18 @@ export default function Home() {
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.color.accent} />}
       >
         <View style={styles.topRow}>
-          <Pressable style={styles.locChip} onPress={() => router.push(browsing ? '/pick-state' : '/follows')}>
-            <View style={styles.locDot} />
-            <AppText variant="caption" color={theme.color.textSecondary} numberOfLines={1}>
-              {locationLabel}
-            </AppText>
-          </Pressable>
+          {/* The mark is back, top-left, on every screen (David, 2026-11-10).
+              It rides the existing top row rather than taking a line of its
+              own, so the hero keeps all the room the countdown needs. */}
+          <View style={styles.topLeft}>
+            <Monogram size={20} />
+            <Pressable style={styles.locChip} onPress={() => router.push(browsing ? '/pick-state' : '/follows')}>
+              <View style={styles.locDot} />
+              <AppText variant="caption" color={theme.color.textSecondary} numberOfLines={1}>
+                {locationLabel}
+              </AppText>
+            </Pressable>
+          </View>
           <Pressable onPress={() => router.push('/search')} hitSlop={10} style={styles.bellBtn} accessibilityRole="button" accessibilityLabel="Search">
             <Ionicons name="search" size={19} color={lang.color.muted} />
           </Pressable>
@@ -597,6 +603,10 @@ const styles = StyleSheet.create({
   },
 
   topRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  // The mark and the location chip are one left-hand group. Left as three
+  // direct children of a space-between row, the chip would be stranded in the
+  // middle of the screen.
+  topLeft: { flexDirection: 'row', alignItems: 'center', gap: lang.space.x12, flexShrink: 1 },
   locChip: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, flexShrink: 1 },
   locDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: lang.color.copper },
   topRight: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },

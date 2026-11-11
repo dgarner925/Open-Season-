@@ -2,7 +2,7 @@ import { useRouter } from 'expo-router';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Unreachable } from '@/components/GapNote';
-import { Headline, LinkSentence, Micro, Sentence, Tile } from '@/components/system';
+import { Headline, LinkSentence, Micro, ScreenMark, Sentence, Tile } from '@/components/system';
 import { SpeciesBadge } from '@/components/midnight';
 import { useWindowsFeed } from '@/features/reference/queries';
 import { BrowseStateChip, BrowseStatePrompt } from '@/components/BrowseStateChip';
@@ -37,6 +37,7 @@ export default function Applications() {
           a list that renders its own rows cannot be wrapped in one. The feed
           is bounded by what you follow, so there is nothing to virtualise. */}
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+        <ScreenMark />
         <View style={styles.header}>
           <Headline>Miss the deadline,{'\n'}miss the season.</Headline>
           <Sentence style={{ marginTop: space.x16 }}>

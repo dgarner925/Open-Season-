@@ -305,6 +305,26 @@ export function Monogram({ size = 24 }: { size?: number }) {
 }
 
 /**
+ * The mark in its place: top-left, above the headline, on every screen that
+ * owns its own header.
+ *
+ * Small (20pt) and quiet on purpose. It is not a title and must never compete
+ * with the Headline below it -- it is the thing a hunter glances at to know
+ * which app is on the screen, which matters more than it sounds for an app
+ * opened in the dark at 5 a.m. next to three others.
+ *
+ * Stacked screens get theirs from HeaderBack, beside the chevron, because
+ * their top-left is a native header this cannot reach.
+ */
+export function ScreenMark({ style }: { style?: StyleProp<ViewStyle> }) {
+  return (
+    <View style={[{ marginBottom: space.x16 }, style]}>
+      <Monogram size={20} />
+    </View>
+  );
+}
+
+/**
  * The headline: one tight sans sentence per screen, saying what the screen is
  * for ("Ducks open in 7 days."). Archivo at a weight and tracking the serif
  * can't hold — the serif stays on values. One per screen, never two.

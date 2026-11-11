@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Redirect } from 'expo-router';
 import { ActivityIndicator, Alert, StyleSheet, Switch, View } from 'react-native';
 import { AppText, Button, Card, Divider, GlassChip, Screen } from '@/components/ui';
+import { ScreenMark } from '@/components/system';
 import { useAuth } from '@/providers/AuthProvider';
 import {
   CLEAN_MIN_CONFIDENCE,
@@ -83,6 +84,7 @@ export default function Admin() {
 
   return (
     <Screen scroll>
+      <ScreenMark />
       <View style={{ gap: spacing.xs }}>
         <AppText variant="h1">Review Queue</AppText>
         <AppText variant="body" color={theme.color.textSecondary}>

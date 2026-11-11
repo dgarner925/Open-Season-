@@ -2,7 +2,7 @@ import { useRouter } from 'expo-router';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Unreachable } from '@/components/GapNote';
-import { Headline, Micro, Sentence, Tile } from '@/components/system';
+import { Headline, Micro, ScreenMark, Sentence, Tile } from '@/components/system';
 import { Disclaimer } from '@/components/Provenance';
 import { useRegsFeed } from '@/features/reference/queries';
 import { BrowseStateChip, BrowseStatePrompt } from '@/components/BrowseStateChip';
@@ -29,6 +29,7 @@ export default function Regs() {
       {/* A ScrollView, not a FlatList: the summaries live in one tile, and a
           list that renders its own rows cannot be wrapped in one. */}
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+        <ScreenMark />
         <View style={styles.header}>
           <Headline>What the rules{'\n'}say this year.</Headline>
           <Sentence style={{ marginTop: space.x16 }}>

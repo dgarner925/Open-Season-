@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'expo-router';
 import { ActivityIndicator, Alert, Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Headline, Input, LinkSentence, Micro, Pill, Sentence, Serif, Tile, tileSurface } from '@/components/system';
+import { Headline, Input, LinkSentence, Micro, Pill, ScreenMark, Sentence, Serif, Tile, tileSurface } from '@/components/system';
 import { useAuth } from '@/providers/AuthProvider';
 import { useActiveStates } from '@/features/reference/queries';
 import { useBrowseStateCode } from '@/lib/browseState';
@@ -183,6 +183,7 @@ export default function Settings() {
     return (
       <SafeAreaView style={styles.screen} edges={['top', 'left', 'right']}>
         <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+          <ScreenMark />
           <Headline>Your profile.</Headline>
 
           <Offer
@@ -214,7 +215,8 @@ export default function Settings() {
   return (
     <SafeAreaView style={styles.screen} edges={['top', 'left', 'right']}>
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <Headline>Your profile.</Headline>
+        <ScreenMark />
+          <Headline>Your profile.</Headline>
 
         {/* Identity as a bookplate: a copper ring, the name in the display
             serif, and the member line set like an edition note. The pencil

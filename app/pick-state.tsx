@@ -15,7 +15,7 @@ import { Stack, useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Sentence, Serif } from '@/components/system';
+import { ScreenMark, Sentence, Serif } from '@/components/system';
 import { useActiveStates } from '@/features/reference/queries';
 import { setBrowseStateCode } from '@/lib/browseState';
 import { lang } from '@/theme/tokens';
@@ -44,6 +44,7 @@ export default function PickState() {
       <Stack.Screen options={{ headerShown: false }} />
       <SafeAreaView style={styles.screen} edges={['top', 'left', 'right', 'bottom']}>
         <View style={styles.head}>
+          <ScreenMark />
           <Serif size={40} style={{ lineHeight: 46 }}>
             Where do you{'\n'}
             <Serif italic copper size={40}>
