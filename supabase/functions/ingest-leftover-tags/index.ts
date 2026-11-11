@@ -491,11 +491,24 @@ Deno.serve(async (req) => {
   const runId = crypto.randomUUID();
 
   try {
-    const [stateRes, speciesRes, zoneRes] = await Promise.all([
-      admin.from('states').select('id, code'),
-      admin.from('species').select('id, key'),
-      admin.from('zones').select('id, code, state_id'),
-    ]);
+    // Retried, because the failure that sent us looking was "JWT issued at
+    // future" -- a few seconds of clock skew between the edge runtime and
+    // the database, which came and went inside one evening. coverage-watch
+    // ran clean eight minutes later, so this is a window to ride out rather
+    // than a fault to report. Three cheap reads, two seconds apart; if it is
+    // still failing after that, the error is real and gets surfaced.
+    let stateRes, speciesRes, zoneRes;
+    for (let attempt = 1; ; attempt += 1) {
+      [stateRes, speciesRes, zoneRes] = await Promise.all([
+        admin.from('states').select('id, code'),
+        admin.from('species').select('id, key'),
+        admin.from('zones').select('id, code, state_id'),
+      ]);
+      const failed =
+        stateRes.error || speciesRes.error || zoneRes.error || (stateRes.data ?? []).length === 0;
+      if (!failed || attempt === 3) break;
+      await sleep(2000);
+    }
 
     // These three errors used to be discarded. When the states select came
     // back empty the run reported "state not in the database" for every
