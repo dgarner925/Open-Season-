@@ -12,7 +12,7 @@ npx supabase functions deploy ingest-leftover-tags
 |---|---|
 | `{}` | Every verified entry. This is what the cron sends. |
 | `{"state":"CO"}` | One state. |
-| `{"dry":true}` | Fetches and extracts, writes nothing but the fetch log. |
+| `{"dry":true}` | Fetches and extracts, writes nothing at all -- not even the fetch log, deliberately: logging the hash would make the next live run skip the page as unchanged and queue nothing. |
 | `{"force":true}` | Ignores the content hash and re-extracts. |
 
 Needs `ANTHROPIC_API_KEY` as a function secret; `SUPABASE_URL` and
