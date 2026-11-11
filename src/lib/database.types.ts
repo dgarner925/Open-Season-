@@ -216,6 +216,14 @@ export type ProfileRow = Timestamps & {
   weekend_brief?: boolean;
   /** Public URL in the avatars bucket; null until they set one. */
   avatar_url?: string | null;
+  /**
+   * Last known OS notification permission. Null means the app has not
+   * reported since the column shipped -- NOT that the user declined. Written
+   * by src/lib/push.ts, which previously discarded this and left us guessing
+   * why 50 of 91 users with follows could not be reached.
+   */
+  push_permission?: 'granted' | 'denied' | 'undetermined' | null;
+  push_permission_at?: string | null;
 };
 
 export type DateReportRow = {
@@ -386,7 +394,7 @@ export type Database = {
       regulation_summaries: Table<RegulationSummaryRow, Omit<RegulationSummaryRow, Gen> & { id?: string }>;
       profiles: Table<
         ProfileRow,
-        { id: string; display_name?: string | null; is_admin?: boolean; onboarded_at?: string | null; active_location_id?: string | null; resident_state_id?: string | null; is_premium?: boolean; grandfathered?: boolean; weekend_brief?: boolean }
+        { id: string; display_name?: string | null; is_admin?: boolean; onboarded_at?: string | null; active_location_id?: string | null; resident_state_id?: string | null; is_premium?: boolean; grandfathered?: boolean; weekend_brief?: boolean; avatar_url?: string | null; push_permission?: 'granted' | 'denied' | 'undetermined' | null; push_permission_at?: string | null }
       >;
       user_locations: Table<UserLocationRow, Omit<UserLocationRow, 'id' | 'created_at'> & { id?: string }>;
       state_species: Table<StateSpeciesRow, StateSpeciesRow>;

@@ -1,6 +1,7 @@
 import * as Notifications from 'expo-notifications';
 import { useEffect, useState } from 'react';
-import { AppState, Linking, Platform, Pressable, StyleSheet, Text } from 'react-native';
+import { AppState, Platform, Pressable, StyleSheet, Text } from 'react-native';
+import { useRouter } from 'expo-router';
 import { lang } from '@/theme/tokens';
 
 const { color, space, type } = lang;
@@ -15,6 +16,7 @@ const { color, space, type } = lang;
  * invalidates — weight by position, not by a tinted box (rule 10).
  */
 export function NotificationsOffBanner() {
+  const router = useRouter();
   const [denied, setDenied] = useState(false);
 
   useEffect(() => {
@@ -45,13 +47,18 @@ export function NotificationsOffBanner() {
 
   return (
     <Pressable
-      onPress={() => Linking.openSettings()}
+      // Goes to the explainer, not straight to Settings. For the users who
+      // already declined, Settings IS the only way back -- but dropping
+      // somebody into iOS Settings without first saying what they would be
+      // turning on is how they got here in the first place.
+      onPress={() => router.push('/notifications-why')}
       accessibilityRole="button"
-      accessibilityLabel="Notifications are off — open Settings"
+      accessibilityLabel="Notifications are off — see what you are missing"
       style={({ pressed }) => [styles.block, pressed && { opacity: 0.75 }]}
     >
       <Text style={styles.line}>
-        Notifications are off, so no reminder will reach you — tap to turn them on in Settings.{' '}
+        Notifications are off, so no reminder will reach you — not a season opener, not a tag
+        sale, nothing you follow.{' '}
         <Text style={{ color: color.dim }}>›</Text>
       </Text>
     </Pressable>

@@ -1,11 +1,13 @@
 import { Ionicons } from '@expo/vector-icons';
-import { Redirect, Tabs } from 'expo-router';
+import { Redirect, Tabs, useRouter } from 'expo-router';
 import { useEffect } from 'react';
 import { ActivityIndicator, StyleSheet, View, type ColorValue } from 'react-native';
 import { useAuth } from '@/providers/AuthProvider';
 import { useBrowseStateCode } from '@/lib/browseState';
 import { useNeedsSetup } from '@/hooks/useNeedsSetup';
-import { registerForPushNotifications } from '@/lib/push';
+import { pushPermissionState, syncPushToken } from '@/lib/push';
+import { useFollows } from '@/features/follows/queries';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { lang } from '@/theme/tokens';
 
 function icon(base: keyof typeof Ionicons.glyphMap) {
@@ -19,11 +21,42 @@ export default function TabsLayout() {
   const { code: browseCode, loading: browseLoading } = useBrowseStateCode();
   const { needsSetup, loading: setupLoading } = useNeedsSetup();
 
+  const router = useRouter();
+  const { data: follows = [] } = useFollows();
+
   const userId = session?.user.id;
   useEffect(() => {
-    // Guests have no id to register, so this no-ops for them.
-    if (userId) registerForPushNotifications(userId);
+    // Registers an already-granted device and NEVER prompts. This used to fire
+    // the OS permission dialog here, in the first seconds of a first session,
+    // before the app had shown anyone a single date -- and on iOS that dialog
+    // comes once in an app's life. Half our users spent theirs on "no".
+    if (userId) syncPushToken(userId);
   }, [userId]);
+
+  // The ask moved to where it can be earned: once somebody has told us what
+  // they hunt, "we will tell you seven days before your tags go on sale" is a
+  // sentence about them. Shown once, and never to someone who has decided.
+  useEffect(() => {
+    if (!userId || follows.length === 0) return;
+    let active = true;
+    (async () => {
+      const key = `push-explainer-shown:${userId}`;
+      try {
+        if (await AsyncStorage.getItem(key)) return;
+        const state = await pushPermissionState();
+        if (state !== 'undetermined' || !active) return;
+        await AsyncStorage.setItem(key, new Date().toISOString());
+        router.push('/notifications-why');
+      } catch {
+        /* a storage failure must never cost somebody their reminders, and it
+           must never turn into a dialog on every launch either -- so do
+           nothing, and let the Profile and alerts entry points carry it. */
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, [userId, follows.length, router]);
 
   if (loading || browseLoading || setupLoading) {
     return (
