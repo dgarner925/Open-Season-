@@ -119,8 +119,33 @@ real problems:
   catches a confident invention.
 - `unknown species "..."` — the page uses a name the database does not. Fix the
   species keys you pass, not the database.
-- `no quote or no date` — the page probably does not state a date after all.
-  Go back to step 1.
+- `no supporting quote` — the model proposed a sale without pointing at the
+  sentence that says so. Discarded on principle.
+- `no usable start date (month N, day N)` — the model gave a month and day
+  that is not on the calendar, or gave neither.
+
+### A word about years
+
+**Agency pages mostly do not print one.** Colorado's leftover page says
+"March 3: Spring turkey licenses will be available for purchase on the
+leftover list", and "August 5", and "August 11th", and carries a year on
+exactly two lines — both about the past.
+
+The first version of this extractor demanded `YYYY-MM-DD` and told the model
+never to infer a year. Both rules were defensible on their own; together they
+made the correct answer impossible to express, and the first live run came
+back empty on a page full of dates.
+
+So the model now returns `start_month`, `start_day`, and `start_year` **only
+when the page prints one**. `resolveSaleYear` does the arithmetic: the next
+occurrence on or after today. An inferred year costs 0.2 confidence, which
+keeps the sale under the 0.85 sweep — working out that "March 3" means the
+coming March is reasonable, publishing it unseen is not.
+
+The general rule, and it holds beyond this function: **the model reports what
+the page says; code does the arithmetic.** If you find yourself asking the
+model to compute, normalise, or combine something, move it into a tested
+function instead.
 
 ### 6. Watch the confidence
 

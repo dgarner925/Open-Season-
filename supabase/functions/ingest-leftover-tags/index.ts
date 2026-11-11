@@ -150,6 +150,9 @@ type Extracted = {
   /** The model's raw reply, so a parse failure never looks like an empty page. */
   raw?: string;
   parsed?: boolean;
+  /** Which block types came back, and why the model stopped. */
+  blocks?: string;
+  stop?: string | null;
   sales: {
     species: string;
     unit_code?: string | null;
@@ -212,14 +215,29 @@ async function extract(text: string, entry: StateEntry, speciesKeys: string[]): 
   });
   if (!res.ok) throw new Error(`anthropic ${res.status}: ${(await res.text()).slice(0, 300)}`);
   const body = await res.json();
-  const raw = body?.content?.[0]?.text ?? '';
+  // FIND the text block; never assume it is content[0]. A reply can lead with
+  // a non-text block, and reading content[0].text then yields undefined --
+  // which this code turned into '' and reported as "the page announces no
+  // sale". extract-source has always done it this way; I did not copy it.
+  const raw = (body?.content ?? [])
+    .filter((b: any) => b?.type === 'text' && typeof b.text === 'string')
+    .map((b: any) => b.text)
+    .join('\n');
+  const blockTypes = (body?.content ?? []).map((b: any) => b?.type).join(',');
+  const stopReason = body?.stop_reason ?? null;
   const match = raw.match(/\{[\s\S]*\}/);
-  if (!match) return { sales: [], raw, parsed: false };
+  if (!match) return { sales: [], raw, parsed: false, blocks: blockTypes, stop: stopReason };
   try {
     const parsed = JSON.parse(match[0]);
-    return { sales: Array.isArray(parsed?.sales) ? parsed.sales : [], raw, parsed: true };
+    return {
+      sales: Array.isArray(parsed?.sales) ? parsed.sales : [],
+      raw,
+      parsed: true,
+      blocks: blockTypes,
+      stop: stopReason,
+    };
   } catch {
-    return { sales: [], raw, parsed: false };
+    return { sales: [], raw, parsed: false, blocks: blockTypes, stop: stopReason };
   }
 }
 
@@ -404,7 +422,13 @@ async function processSource(
       status: 'dry' as const,
       proposals: proposals.length,
       discarded,
-      read: { bytes: text.length, readable: readable.length, model_parsed: found.parsed ?? null },
+      read: {
+        bytes: text.length,
+        readable: readable.length,
+        model_parsed: found.parsed ?? null,
+        model_blocks: found.blocks ?? null,
+        model_stop: found.stop ?? null,
+      },
       sales_seen: found.sales.length,
       model_said: found.sales.length === 0 ? (found.raw ?? '').slice(0, 600) : undefined,
     };
