@@ -1,0 +1,20 @@
+This release adds leftover and over-the-counter tag sales: the dates, and the hour, that a state puts unclaimed hunting tags back on sale.
+
+HOW TO REACH IT -- NO ACCOUNT AND NO SUBSCRIPTION NEEDED
+  1. Tags tab (third tab).
+  2. The link beginning "Leftover tags --", near the bottom of that screen.
+  3. The screen explains each state's mechanism (first come first served, a sign-up window, or sold until gone), when it happens, and what to watch for. Any upcoming sale listed at the top opens a detail screen that leads with the exact hour and its time zone.
+
+Reading these dates is free, as all season dates in this app are. The paid tier adds only the reminders described below, so the sandbox purchase walkthrough from the previous release is not needed to review this version -- nothing new sits behind the paywall.
+
+REMINDERS (Open Season Pro)
+A subscriber who follows a state and species is sent a notification ahead of a sale -- by default a week before, the day before, and on the morning of it. Reminders are only ever sent for something the user chose to follow, and each lead time can be switched on or off individually at Profile > Reminders.
+
+WHERE THE DATES COME FROM
+Each sale is read either from the state wildlife agency's own page, in which case it is stored with the sentence it was quoted from and a link to that page, or from the agency's published regulations where the date is fixed by rule. Every sale is reviewed by the developer before it becomes visible in the app, and where there is a source page its link appears on the sale's detail screen so a hunter can check it against the agency directly.
+
+NO CHANGE TO THE FOLLOWING
+This version adds no user-generated content, no new data collection, and requests no new permissions. The messaging, profile photo, moderation and account-deletion behaviour described in the 1.4.6 review notes is unchanged.
+
+ACCOUNT DELETION
+Profile tab > "Delete account", at the bottom.
