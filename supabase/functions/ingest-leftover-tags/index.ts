@@ -330,10 +330,17 @@ async function processSource(
       discarded.push(`${s.name}: no usable start date (month ${s.start_month}, day ${s.start_day})`);
       continue;
     }
-    const end =
-      s.end_month && s.end_day
-        ? resolveSaleYear(s.end_month, s.end_day, s.end_year ?? start.date.slice(0, 4))
-        : null;
+    // A sale that ends without a stated year ends in the year it started,
+    // unless that would put the end before the start (a December-to-January
+    // window), in which case it is the year after.
+    const end = (() => {
+      if (!s.end_month || !s.end_day) return null;
+      if (s.end_year) return resolveSaleYear(s.end_month, s.end_day, s.end_year);
+      const startYear = Number(start.date.slice(0, 4));
+      const same = resolveSaleYear(s.end_month, s.end_day, startYear);
+      if (same && same.date >= start.date) return same;
+      return resolveSaleYear(s.end_month, s.end_day, startYear + 1);
+    })();
     // The quote must actually be on the page. The model is not trusted to
     // tell us what it read; this is the same grounding discipline the season
     // extractor uses, and it is what catches a confident invention.
