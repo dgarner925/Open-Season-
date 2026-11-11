@@ -497,7 +497,7 @@ async function processSource(
     const changed = diffSale(existing ?? {}, p.payload);
     if (existing && changed.length === 0) continue;
 
-    await admin.from('review_queue').insert({
+    const ins = await admin.from('review_queue').insert({
       target_table: 'leftover_tag_sales',
       target_id: existing?.id ?? null,
       change_type: existing ? 'update' : 'create',
@@ -514,6 +514,16 @@ async function processSource(
       evidence: p.evidence,
       extraction_run_id: ctx.runId,
     });
+    // The fourth swallowed failure in this feature, and the most embarrassing:
+    // the run reported nine rows queued and the queue held none. review_queue
+    // has a CHECK on target_table, the migration taught apply_review_item
+    // about leftover_tag_sales but never opened that gate, and an unchecked
+    // insert counted every rejection as a success. Never count a write you
+    // have not looked at.
+    if (ins.error) {
+      discarded.push(`${p.payload.species_key} ${p.payload.name}: queue rejected it -- ${ins.error.message}`);
+      continue;
+    }
     queued += 1;
   }
 
