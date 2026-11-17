@@ -26,6 +26,7 @@ import {
   scoreConfidence,
   validateSeason,
 } from '../_shared/extraction.ts';
+import { staleProposal } from '../_shared/licence_year.ts';
 
 const ANTHROPIC_API_KEY = Deno.env.get('ANTHROPIC_API_KEY')!;
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
@@ -308,8 +309,21 @@ async function pendingExists(targetTable: string, targetId: string | null, keys:
   return (data?.length ?? 0) > 0;
 }
 
-type Tally = { created: number; updated: number; unchanged: number; skipped: number };
-const emptyTally = (): Tally => ({ created: 0, updated: 0, unchanged: 0, skipped: 0 });
+type Tally = {
+  created: number;
+  updated: number;
+  unchanged: number;
+  skipped: number;
+  /** Rows discarded because the page they came from is a licence year behind.
+   *  Counted and named separately from `skipped`, which is a grab-bag: a run
+   *  that reads a stale mirror should say so, not quietly return a low
+   *  number. */
+  stale: number;
+  stale_reasons: string[];
+};
+const emptyTally = (): Tally => ({
+  created: 0, updated: 0, unchanged: 0, skipped: 0, stale: 0, stale_reasons: [],
+});
 
 async function processSource(source: any, runId: string, speciesByKey: Record<string, string>, catalog: string, schema: unknown) {
   // Stamp FIRST so the round-robin advances even if this source later kills the
@@ -328,6 +342,7 @@ async function processSource(source: any, runId: string, speciesByKey: Record<st
   // for one row per window; this is what guarantees it.
   const { kept: seasons, dropped: summaries } = dropSummarySpans(extracted.seasons);
   const t = emptyTally();
+  const today = new Date().toISOString().slice(0, 10);
   t.skipped += summaries.length;
   // An existing row may be claimed by at most ONE proposal per run. Without
   // this, a season the document splits into four windows — all labelled
@@ -349,6 +364,26 @@ async function processSource(source: any, runId: string, speciesByKey: Record<st
     const open_date = v.dates.open;
     const close_date = v.dates.close;
     const label = row.label ?? null;
+
+    // Is the SOURCE still current? Grounding only asks whether the page says
+    // what we claim it says, and a mirror a year out of date answers yes to
+    // that about last season's dates. Wisconsin put 42 such rows in the queue
+    // at 0.90+ confidence before this check existed.
+    const stale = staleProposal(
+      {
+        seasonYear: row.season_year,
+        closeDate: close_date,
+        quote: (row.evidence as { quote?: string } | null)?.quote ?? null,
+      },
+      today,
+    );
+    if (stale.stale) {
+      t.stale++;
+      if (t.stale_reasons.length < 10) {
+        t.stale_reasons.push(`${row.species} ${label ?? ''} ${open_date ?? '?'}: ${stale.reason}`.trim());
+      }
+      continue;
+    }
 
     // Identity INCLUDES the label. Georgia runs "Archery" and "Extended
     // Archery" for the same species, zone, method and year; matching without
