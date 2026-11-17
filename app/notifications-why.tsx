@@ -1,8 +1,7 @@
 import { Stack, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { Headline, Micro, Rule, Sentence, Serif } from '@/components/system';
+import { Linking, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Headline, Micro, Rule, Screen, Sentence, Serif } from '@/components/system';
 import { useAuth } from '@/providers/AuthProvider';
 import { askForPush, pushPermissionState, type PushState } from '@/lib/push';
 import { lang } from '@/theme/tokens';
@@ -54,96 +53,97 @@ export default function NotificationsWhy() {
   const alreadyDenied = state === 'denied';
   const granted = state === 'granted';
 
+  // Same rule as every other pushed screen: the native header already sits in
+  // the top inset, so Screen claims left/right/bottom only. Taking 'top' here
+  // too inset the content twice and left a hole above the headline.
   return (
-    <SafeAreaView style={styles.screen} edges={['top', 'left', 'right']}>
+    <Screen scroll>
       <Stack.Screen options={{ title: 'Reminders' }} />
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <View style={styles.header}>
-          <Headline>A date you miss{'\n'}is a season you miss.</Headline>
-          <Sentence style={{ marginTop: space.x16 }}>
-            Oregon's leftover tags go on sale at 10 a.m. Pacific on the first of July. The good
-            units are gone before lunch. Nobody announces it twice, and the page that holds the
-            date is not a page anyone visits twice.
-          </Sentence>
-          <Sentence style={{ marginTop: space.x12 }}>
-            That is the whole job here. Not a feed to check — a tap on the shoulder, on the days
-            it would cost you something not to know.
-          </Sentence>
-        </View>
+      <View style={styles.header}>
+        <Headline>A date you miss{'\n'}is a season you miss.</Headline>
+        <Sentence style={{ marginTop: space.x16 }}>
+          Oregon's leftover tags go on sale at 10 a.m. Pacific on the first of July. The good
+          units are gone before lunch. Nobody announces it twice, and the page that holds the
+          date is not a page anyone visits twice.
+        </Sentence>
+        <Sentence style={{ marginTop: space.x12 }}>
+          That is the whole job here. Not a feed to check — a tap on the shoulder, on the days
+          it would cost you something not to know.
+        </Sentence>
+      </View>
 
-        <View style={styles.section}>
-          <Micro>What arrives</Micro>
-          {ARRIVES.map((a) => (
-            <View key={a.when} style={styles.row}>
-              <Serif style={styles.mark}>{a.mark}</Serif>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.rowTitle}>{a.when}</Text>
-                <Text style={styles.rowBody}>{a.what}</Text>
-              </View>
+      <View style={styles.section}>
+        <Micro>What arrives</Micro>
+        {ARRIVES.map((a) => (
+          <View key={a.when} style={styles.row}>
+            <Serif style={styles.mark}>{a.mark}</Serif>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.rowTitle}>{a.when}</Text>
+              <Text style={styles.rowBody}>{a.what}</Text>
             </View>
-          ))}
+          </View>
+        ))}
+      </View>
+
+      <Rule space={space.section} />
+
+      <View>
+        <Micro>What never arrives</Micro>
+        {NEVER.map((n) => (
+          <View key={n} style={styles.neverRow}>
+            <Text style={styles.neverMark}>·</Text>
+            <Text style={styles.neverText}>{n}</Text>
+          </View>
+        ))}
+        <Sentence style={{ marginTop: space.x16, color: color.muted }}>
+          Every reminder is one you asked for by following something, and you can change which
+          ones arrive, or switch any of them off, whenever you like.
+        </Sentence>
+      </View>
+
+      {granted ? (
+        <View style={styles.action}>
+          <Sentence>Reminders are on. Nothing else to do.</Sentence>
         </View>
-
-        <Rule space={space.section} />
-
-        <View>
-          <Micro>What never arrives</Micro>
-          {NEVER.map((n) => (
-            <View key={n} style={styles.neverRow}>
-              <Text style={styles.neverMark}>·</Text>
-              <Text style={styles.neverText}>{n}</Text>
-            </View>
-          ))}
-          <Sentence style={{ marginTop: space.x16, color: color.muted }}>
-            Every reminder is one you asked for by following something, and you can change which
-            ones arrive, or switch any of them off, whenever you like.
+      ) : alreadyDenied ? (
+        <View style={styles.action}>
+          <Sentence>
+            Notifications are switched off for Open Season at the system level, and an app
+            cannot ask twice — iOS only offers that choice once. It takes two taps in Settings
+            to undo.
           </Sentence>
+          <Pressable
+            onPress={() => Linking.openSettings()}
+            accessibilityRole="button"
+            style={({ pressed }) => [styles.button, pressed && styles.pressed]}
+          >
+            <Text style={styles.buttonText}>Open Settings</Text>
+          </Pressable>
         </View>
-
-        {granted ? (
-          <View style={styles.action}>
-            <Sentence>Reminders are on. Nothing else to do.</Sentence>
-          </View>
-        ) : alreadyDenied ? (
-          <View style={styles.action}>
-            <Sentence>
-              Notifications are switched off for Open Season at the system level, and an app
-              cannot ask twice — iOS only offers that choice once. It takes two taps in Settings
-              to undo.
-            </Sentence>
-            <Pressable
-              onPress={() => Linking.openSettings()}
-              accessibilityRole="button"
-              style={({ pressed }) => [styles.button, pressed && styles.pressed]}
-            >
-              <Text style={styles.buttonText}>Open Settings</Text>
-            </Pressable>
-          </View>
-        ) : (
-          <View style={styles.action}>
-            <Pressable
-              onPress={onAllow}
-              disabled={asking || !user}
-              accessibilityRole="button"
-              style={({ pressed }) => [styles.button, pressed && styles.pressed, asking && styles.pressed]}
-            >
-              <Text style={styles.buttonText}>{asking ? 'One moment…' : 'Turn reminders on'}</Text>
-            </Pressable>
-            <Pressable
-              onPress={() => router.back()}
-              accessibilityRole="button"
-              style={({ pressed }) => [styles.secondary, pressed && styles.pressed]}
-            >
-              <Text style={styles.secondaryText}>Not now</Text>
-            </Pressable>
-            <Text style={styles.fineprint}>
-              Your phone will ask next. It only asks once, so if you are not sure, "Not now" keeps
-              the question open — this screen is here whenever you want it.
-            </Text>
-          </View>
-        )}
-      </ScrollView>
-    </SafeAreaView>
+      ) : (
+        <View style={styles.action}>
+          <Pressable
+            onPress={onAllow}
+            disabled={asking || !user}
+            accessibilityRole="button"
+            style={({ pressed }) => [styles.button, pressed && styles.pressed, asking && styles.pressed]}
+          >
+            <Text style={styles.buttonText}>{asking ? 'One moment…' : 'Turn reminders on'}</Text>
+          </Pressable>
+          <Pressable
+            onPress={() => router.back()}
+            accessibilityRole="button"
+            style={({ pressed }) => [styles.secondary, pressed && styles.pressed]}
+          >
+            <Text style={styles.secondaryText}>Not now</Text>
+          </Pressable>
+          <Text style={styles.fineprint}>
+            Your phone will ask next. It only asks once, so if you are not sure, "Not now" keeps
+            the question open — this screen is here whenever you want it.
+          </Text>
+        </View>
+      )}
+    </Screen>
   );
 }
 
@@ -174,9 +174,7 @@ const NEVER = [
 ];
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: color.bg },
-  content: { paddingHorizontal: space.gutter, paddingTop: space.x16, paddingBottom: 64 },
-  header: { marginTop: space.x12 },
+  header: { marginTop: space.x16 },
   section: { marginTop: space.section },
 
   row: { flexDirection: 'row', gap: space.x12, alignItems: 'flex-start', marginTop: space.x16 },

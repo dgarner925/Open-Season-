@@ -1,7 +1,6 @@
 import { Stack, useRouter } from 'expo-router';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { Headline, LinkSentence, Micro, Rule, Sentence, Serif, Tile } from '@/components/system';
+import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Headline, LinkSentence, Micro, Rule, Screen, Sentence, Serif, Tile } from '@/components/system';
 import { SpeciesBadge } from '@/components/midnight';
 import { useSalesFeed, type LeftoverSale } from '@/features/leftover/queries';
 import { saleClock, saleStatus, saleTypeLabel } from '@/features/leftover/format';
@@ -44,107 +43,109 @@ export default function Leftovers() {
 
   if (isLoading) {
     return (
-      <SafeAreaView style={styles.center} edges={['top']}>
+      <View style={styles.center}>
         <ActivityIndicator color={color.copper} />
-      </SafeAreaView>
+      </View>
     );
   }
 
+  // Screen takes the left/right/bottom insets and leaves the top alone: the
+  // native header already sits in it. Claiming the top edge here as well --
+  // which this screen used to do -- inset the content twice, which is the
+  // gap David saw above "The tags nobody drew" and nowhere else.
   return (
-    <SafeAreaView style={styles.screen} edges={['top', 'left', 'right']}>
+    <Screen scroll>
       <Stack.Screen options={{ title: 'Leftovers' }} />
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <View style={styles.header}>
-          <Headline>The tags nobody drew.</Headline>
-          <Sentence style={{ marginTop: space.x16 }}>
-            Most western tags go by draw, and every year some go unclaimed. Those come back on
-            sale — and in the states that sell them first come, first served, the good units are
-            gone inside an hour.
-          </Sentence>
-          <Sentence style={{ marginTop: space.x12 }}>
-            This is the one date in hunting where knowing the day is not enough.
-          </Sentence>
-          {browsing ? (
-            <View style={{ marginTop: space.x12 }}>
-              <BrowseStateChip stateCode={stateCode} />
-            </View>
-          ) : null}
-        </View>
+      <View style={styles.header}>
+        <Headline>The tags nobody drew.</Headline>
+        <Sentence style={{ marginTop: space.x16 }}>
+          Most western tags go by draw, and every year some go unclaimed. Those come back on
+          sale — and in the states that sell them first come, first served, the good units are
+          gone inside an hour.
+        </Sentence>
+        <Sentence style={{ marginTop: space.x12 }}>
+          This is the one date in hunting where knowing the day is not enough.
+        </Sentence>
+        {browsing ? (
+          <View style={{ marginTop: space.x12 }}>
+            <BrowseStateChip stateCode={stateCode} />
+          </View>
+        ) : null}
+      </View>
 
-        {/* What you will be told, and when. Said before the dates, because for
-            most of the year this is the only part with anything in it. */}
-        <Tile style={styles.tile}>
-          <Micro>What we do</Micro>
-          <Sentence style={{ marginTop: space.x8 }}>
-            We read the agencies' own pages every night. When a sale date appears for something
-            you follow, you get told {DEFAULT_OFFSETS.map(offsetLine).join(', then ')}.
-          </Sentence>
-          <Rule space={space.x16} />
-          {DEFAULT_OFFSETS.map((off) => (
-            <View key={off} style={styles.offsetRow}>
-              <Serif style={styles.offsetMark}>{off === 0 ? 'Today' : `−${off}`}</Serif>
-              <Text style={styles.offsetText}>
-                {off === 7
-                  ? 'A week out. Time to decide which unit you actually want.'
-                  : off === 1
-                    ? 'The day before. Licence account logged in, card to hand.'
-                    : 'The morning of, four hours before a 10 a.m. Mountain sale.'}
-              </Text>
-            </View>
-          ))}
-          <LinkSentence onPress={() => router.push('/alerts')} style={{ marginTop: space.x16 }}>
-            Change which warnings you get
-          </LinkSentence>
-        </Tile>
-
-        {/* Dates, when there are any. */}
-        {sales.length > 0 ? (
-          <Tile style={styles.tile}>
-            <Micro>Coming up</Micro>
-            {sales.map((s) => (
-              <SaleRow key={s.id} sale={s} onPress={() => router.push(`/leftover/${s.id}`)} />
-            ))}
-          </Tile>
-        ) : (
-          <Tile style={styles.tile}>
-            <Micro>Coming up</Micro>
-            <Sentence style={{ marginTop: space.x8 }}>
-              Nothing announced yet. Leftover sales land between March and September, after the
-              draws they come from are settled — so an empty list in the back half of the year is
-              the normal state of things, not a gap.
-            </Sentence>
-          </Tile>
-        )}
-
-        {/* State by state. The part that answers "exactly what happens". */}
-        <View style={styles.sectionHead}>
-          <Micro>State by state</Micro>
-          <Sentence style={{ marginTop: space.x8 }}>
-            A leftover sale is not one thing repeated six times. Montana's is a list you join by a
-            deadline. Oregon's is an hour written into regulation. Utah's runs until the tags are
-            gone. Turning up expecting the wrong one is how people miss them.
-          </Sentence>
-        </View>
-
-        {PROGRAMMES.map((p) => (
-          <ProgrammeCard key={p.code} programme={p} />
+      {/* What you will be told, and when. Said before the dates, because for
+          most of the year this is the only part with anything in it. */}
+      <Tile style={styles.tile}>
+        <Micro>What we do</Micro>
+        <Sentence style={{ marginTop: space.x8 }}>
+          We read the agencies' own pages every night. When a sale date appears for something
+          you follow, you get told {DEFAULT_OFFSETS.map(offsetLine).join(', then ')}.
+        </Sentence>
+        <Rule space={space.x16} />
+        {DEFAULT_OFFSETS.map((off) => (
+          <View key={off} style={styles.offsetRow}>
+            <Serif style={styles.offsetMark}>{off === 0 ? 'Today' : `−${off}`}</Serif>
+            <Text style={styles.offsetText}>
+              {off === 7
+                ? 'A week out. Time to decide which unit you actually want.'
+                : off === 1
+                  ? 'The day before. Licence account logged in, card to hand.'
+                  : 'The morning of, four hours before a 10 a.m. Mountain sale.'}
+            </Text>
+          </View>
         ))}
+        <LinkSentence onPress={() => router.push('/alerts')} style={{ marginTop: space.x16 }}>
+          Change which warnings you get
+        </LinkSentence>
+      </Tile>
 
-        <View style={{ marginTop: space.section }}>
-          <Micro>Not yet covered</Micro>
+      {/* Dates, when there are any. */}
+      {sales.length > 0 ? (
+        <Tile style={styles.tile}>
+          <Micro>Coming up</Micro>
+          {sales.map((s) => (
+            <SaleRow key={s.id} sale={s} onPress={() => router.push(`/leftover/${s.id}`)} />
+          ))}
+        </Tile>
+      ) : (
+        <Tile style={styles.tile}>
+          <Micro>Coming up</Micro>
           <Sentence style={{ marginTop: space.x8 }}>
-            {RESEARCHING.length} more states are believed to run a leftover, surplus or second-draw
-            programme. Three of them cannot be read by a machine at all — Arizona refuses automated
-            requests, North Dakota puts availability behind a sign-in, and South Dakota publishes a
-            PDF it replaces each year rather than keeping a page. We would rather say nothing about
-            a state than guess at its date.
+            Nothing announced yet. Leftover sales land between March and September, after the
+            draws they come from are settled — so an empty list in the back half of the year is
+            the normal state of things, not a gap.
           </Sentence>
-          <Sentence style={{ marginTop: space.x12, color: color.dim }}>
-            {RESEARCHING.join(' · ')}
-          </Sentence>
-        </View>
-      </ScrollView>
-    </SafeAreaView>
+        </Tile>
+      )}
+
+      {/* State by state. The part that answers "exactly what happens". */}
+      <View style={styles.sectionHead}>
+        <Micro>State by state</Micro>
+        <Sentence style={{ marginTop: space.x8 }}>
+          A leftover sale is not one thing repeated six times. Montana's is a list you join by a
+          deadline. Oregon's is an hour written into regulation. Utah's runs until the tags are
+          gone. Turning up expecting the wrong one is how people miss them.
+        </Sentence>
+      </View>
+
+      {PROGRAMMES.map((p) => (
+        <ProgrammeCard key={p.code} programme={p} />
+      ))}
+
+      <View style={{ marginTop: space.section }}>
+        <Micro>Not yet covered</Micro>
+        <Sentence style={{ marginTop: space.x8 }}>
+          {RESEARCHING.length} more states are believed to run a leftover, surplus or second-draw
+          programme. Three of them cannot be read by a machine at all — Arizona refuses automated
+          requests, North Dakota puts availability behind a sign-in, and South Dakota publishes a
+          PDF it replaces each year rather than keeping a page. We would rather say nothing about
+          a state than guess at its date.
+        </Sentence>
+        <Sentence style={{ marginTop: space.x12, color: color.dim }}>
+          {RESEARCHING.join(' · ')}
+        </Sentence>
+      </View>
+    </Screen>
   );
 }
 
@@ -234,10 +235,8 @@ function SaleRow({ sale, onPress }: { sale: LeftoverSale; onPress: () => void })
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: color.bg },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: color.bg },
-  content: { paddingHorizontal: space.gutter, paddingTop: space.x16, paddingBottom: 56 },
-  header: { marginTop: space.x12 },
+  header: { marginTop: space.x16 },
   sectionHead: { marginTop: space.section },
 
   tile: { marginTop: space.x12 },
