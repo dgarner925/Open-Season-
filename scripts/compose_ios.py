@@ -4,13 +4,21 @@ Takes raw device captures from ../store-raw/ and produces polished 1284x2778
 (6.5"/6.7" slot) images in ../store-shots/, matching the Play Store set's look:
 a text hero slide, then captioned phone frames on the warm-charcoal gradient.
 
-Expected raw captures (PNG, any iPhone size — aspect ~0.46 is assumed):
-  home.png       Home (wordmark-first, greeting visible)
-  seasons.png    Seasons list with the species filter chips
-  detail.png     A species detail (e.g. Elk, grouped by state)
-  tags.png       Tag deadlines
-  provenance.png Season detail showing Verified + official source (optional)
-  alerts.png     Alerts cadence screen (optional)
+Expected raw captures (PNG/JPG, any iPhone size). The 1.4.7 set, shot on an
+iPhone 15 Pro, is checked in as store-raw/v147-*.jpg:
+  v147-home.jpg          Home -- greeting, the daily outlook, counts
+  v147-seasons.jpg       Seasons -- species chips, "Open now"
+  v147-tags.jpg          Tags -- deadlines, and the way in to Leftovers
+  v147-leftovers.jpg     Leftovers -- the explanation and the three warnings
+  v147-applications.jpg  The ledger -- draws, costs, "riding on 7 draws"
+  v147-regs.jpg          Regs -- plain-English summaries, verified dates
+
+Captures come off the phone at slightly different heights depending on how
+much the screen had scrolled, which would give each slide a phone of its own
+proportions. normalise() crops or pads every capture to one aspect ratio
+first -- from the TOP where there is status-bar space to spare, and at the
+bottom with the capture's own background where there is not -- so the frames
+line up from slide to slide.
 
 Run:  python scripts/compose_ios.py
 """
@@ -70,9 +78,40 @@ def draw_tracked(d, cx, y, s, font, fill, tracking):
         x += w + tr
 
 
+TARGET_AR = 1179 / 2379  # the shape most of the 1.4.7 captures came off at
+
+
+def normalise(shot):
+    """One aspect ratio for every capture, so no slide's phone is a different
+    shape from the next. Trims the top (status-bar space) when a capture is
+    too tall, and extends the bottom with its own edge colour when it is too
+    short -- never the reverse, because the bottom is where the tab bar lives
+    and the top is where nothing does."""
+    w, h = shot.size
+    want_h = int(round(w / TARGET_AR))
+    if h == want_h:
+        return shot
+    if h > want_h:
+        return shot.crop((0, h - want_h, w, h))
+    pad = Image.new("RGB", (w, want_h), shot.getpixel((w // 2, h - 1)))
+    pad.paste(shot, (0, 0))
+    return pad
+
+
+def fit(d, s, path, size, max_w):
+    """Serif at 96pt is set by eye, and a longer line than the ones below
+    would run off the canvas silently. Step down until it fits."""
+    while size > 40:
+        font = f(path, size)
+        if d.textlength(s, font=font) <= max_w * SS:
+            return font
+        size -= 4
+    return f(path, size)
+
+
 def phone(img, shot_path, box_w, top_y):
     """Paste a capture centered in a rounded frame with soft shadow (1x coords)."""
-    shot = Image.open(shot_path).convert("RGB")
+    shot = normalise(Image.open(shot_path).convert("RGB"))
     sw, sh = shot.size
     pw = int(box_w * SS)
     ph = int(pw * sh / sw)
@@ -115,12 +154,18 @@ centered(d, cx, 1720, "for every state you hunt.", f(SANS, 38), MUTED)
 save(img, "01.png")
 
 # --- 02..: captioned phone slides -------------------------------------------
+# The Tags capture (store-raw/v147-tags.jpg) is deliberately NOT here. It is a
+# true screenshot of a real account, and that account has no tag deadline
+# coming up, so the screen reads "No upcoming tag deadlines for your follows
+# right now." under a caption promising we would never let you miss one. A
+# screenshot that argues with its own caption is worse than one fewer slide,
+# and Leftovers below is the same tab with something on it.
 SLIDES = [
-    ("home.png", "Your hunts,", "at a glance.", "02.png"),
-    ("seasons.png", "Every opener,", "soonest first.", "03.png"),
-    ("provenance.png", "Real dates,", "official sources.", "04.png"),
-    ("tags.png", "Never miss", "a tag deadline.", "05.png"),
-    ("alerts.png", "Reminded when", "it matters.", "06.png"),
+    ("v147-home.jpg", "Your season,", "every morning.", "02.png"),
+    ("v147-seasons.jpg", "Every opener,", "soonest first.", "03.png"),
+    ("v147-leftovers.jpg", "The tags", "nobody drew.", "04.png"),
+    ("v147-applications.jpg", "Every draw,", "what it cost.", "05.png"),
+    ("v147-regs.jpg", "The rules,", "in plain English.", "06.png"),
 ]
 
 for raw, l1, l2, out in SLIDES:
@@ -130,8 +175,8 @@ for raw, l1, l2, out in SLIDES:
         continue
     img = gradient()
     d = ImageDraw.Draw(img)
-    centered(d, cx, 180, l1, f(SERIF, 96), TEXT)
-    centered(d, cx, 305, l2, f(SERIF_IT, 96), COPPER)
+    centered(d, cx, 180, l1, fit(d, l1, SERIF, 96, W - 120), TEXT)
+    centered(d, cx, 305, l2, fit(d, l2, SERIF_IT, 96, W - 120), COPPER)
     phone(img, src, box_w=880, top_y=560)
     save(img, out)
 

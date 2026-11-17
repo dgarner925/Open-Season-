@@ -14,6 +14,8 @@
  *   node scripts/asc.js state                 # report only, changes nothing
  *   node scripts/asc.js builds
  *   node scripts/asc.js submit <version> <buildNumber>
+ *   node scripts/asc.js version <version>             # create the record
+ *   node scripts/asc.js upload-shots <version> <dir>   # replaces the 6.5" set
  *
  * Env (same vars the EAS build uses):
  *   EXPO_ASC_API_KEY_PATH, EXPO_ASC_KEY_ID, EXPO_ASC_ISSUER_ID
@@ -146,11 +148,16 @@ async function shots() {
       const imgs = await api(
         `/v1/appScreenshotSets/${s.id}/appScreenshots?fields[appScreenshots]=fileName,assetDeliveryState&limit=10`,
       );
-      const names = imgs ? imgs.data.map((i) => i.attributes.fileName) : [];
-      console.log(
-        `    ${s.attributes.screenshotDisplayType}: ${names.length} image(s)` +
-          (names.length ? ` -- e.g. ${names[0]}` : ''),
-      );
+      // Print each asset's delivery state, not just its name. An upload that
+      // reached Apple but failed processing still has a fileName, so a list of
+      // names alone reads as "six screenshots" for a set that will show none.
+      const rows = imgs ? imgs.data.map((i) => i.attributes) : [];
+      console.log(`    ${s.attributes.screenshotDisplayType}: ${rows.length} image(s)`);
+      for (const a of rows) {
+        const st = a.assetDeliveryState || {};
+        const errs = (st.errors || []).map((e) => e.description || e.code).join('; ');
+        console.log(`      ${String(a.fileName).padEnd(10)} ${st.state || '?'}${errs ? ' -- ' + errs : ''}`);
+      }
     }
     const wn = (l.attributes.whatsNew || '').replace(/\s+/g, ' ').trim();
     console.log(`  "What's New" on ${l.attributes.locale}: ${wn ? wn.slice(0, 140) + '...' : '(empty)'}`);
@@ -387,6 +394,199 @@ async function withdraw(go) {
   return true;
 }
 
+
+/**
+ * Replace the 6.5" screenshot set on a version with the PNGs in a directory,
+ * in filename order.
+ *
+ * Screenshots belong to an appStoreVersion, and a version that is already
+ * READY_FOR_SALE is frozen -- Apple will not let the live listing's pictures
+ * be swapped in place. So this refuses any version that is not open for
+ * editing, and names the state rather than failing halfway through.
+ *
+ * Upload is Apple's three-step dance: reserve the asset and receive a list of
+ * upload operations, PUT each byte range where it says, then PATCH the asset
+ * with `uploaded: true` and the file's MD5 so Apple can verify it arrived
+ * whole. Skipping the checksum leaves an asset stuck in UPLOAD_COMPLETE
+ * forever, which reads in the UI as a screenshot that silently never appears.
+ */
+const EDITABLE = new Set([
+  'PREPARE_FOR_SUBMISSION',
+  'DEVELOPER_REJECTED',
+  'REJECTED',
+  'METADATA_REJECTED',
+  'INVALID_BINARY',
+]);
+
+async function uploadShots(versionString, dir, go) {
+  const say = (s) => console.log(`  ${go ? '' : '[dry-run] '}${s}`);
+  const files = fs
+    .readdirSync(dir)
+    .filter((n) => /\.(png|jpg|jpeg)$/i.test(n))
+    .sort();
+  if (!files.length) {
+    console.error(`  no images in ${dir}`);
+    process.exitCode = 1;
+    return;
+  }
+  console.log(`
+Screenshots -> ${versionString}${go ? '' : '  (DRY RUN)'}`);
+
+  const v = await api(
+    `/v1/apps/${APP_ID}/appStoreVersions?filter[versionString]=${versionString}` +
+      `&limit=1&fields[appStoreVersions]=versionString,appStoreState`,
+  );
+  if (!v) return;
+  if (!v.data.length) {
+    console.error(`  no version record for ${versionString}`);
+    process.exitCode = 1;
+    return;
+  }
+  const ver = v.data[0];
+  const state = ver.attributes.appStoreState;
+  if (!EDITABLE.has(state)) {
+    console.error(
+      `  version ${versionString} is ${state}; Apple only allows screenshots to be
+` +
+        `  changed on a version that is still open for editing. Create the next
+` +
+        `  version record first -- the pictures go up with it.`,
+    );
+    process.exitCode = 1;
+    return;
+  }
+  say(`version ${versionString} is ${state}`);
+
+  const locs = await api(
+    `/v1/appStoreVersions/${ver.id}/appStoreVersionLocalizations` +
+      `?fields[appStoreVersionLocalizations]=locale`,
+  );
+  if (!locs) return;
+  const en = locs.data.find((l) => l.attributes.locale === 'en-US');
+  if (!en) {
+    console.error('  no en-US localization on that version');
+    process.exitCode = 1;
+    return;
+  }
+
+  const sets = await api(
+    `/v1/appStoreVersionLocalizations/${en.id}/appScreenshotSets` +
+      `?fields[appScreenshotSets]=screenshotDisplayType`,
+  );
+  if (!sets) return;
+  let set = sets.data.find((s) => s.attributes.screenshotDisplayType === 'APP_IPHONE_65');
+  if (set) {
+    const existing = await api(
+      `/v1/appScreenshotSets/${set.id}/appScreenshots?fields[appScreenshots]=fileName&limit=20`,
+    );
+    const n = existing ? existing.data.length : 0;
+    say(`replace the ${n} image(s) already in the 6.5" set`);
+    if (go && existing) {
+      for (const img of existing.data) {
+        await api(`/v1/appScreenshots/${img.id}`, { method: 'DELETE' });
+      }
+    }
+  } else {
+    say('create the 6.5" screenshot set');
+    if (go) {
+      const made = await post('/v1/appScreenshotSets', {
+        data: {
+          type: 'appScreenshotSets',
+          attributes: { screenshotDisplayType: 'APP_IPHONE_65' },
+          relationships: {
+            appStoreVersionLocalization: {
+              data: { type: 'appStoreVersionLocalizations', id: en.id },
+            },
+          },
+        },
+      });
+      if (!made) return;
+      set = made.data;
+    }
+  }
+
+  for (const name of files) {
+    const bytes = fs.readFileSync(`${dir}/${name}`);
+    say(`upload ${name} (${Math.round(bytes.length / 1024)} KB)`);
+    if (!go) continue;
+
+    const reserved = await post('/v1/appScreenshots', {
+      data: {
+        type: 'appScreenshots',
+        attributes: { fileSize: bytes.length, fileName: name },
+        relationships: {
+          appScreenshotSet: { data: { type: 'appScreenshotSets', id: set.id } },
+        },
+      },
+    });
+    if (!reserved) return;
+
+    for (const op of reserved.data.attributes.uploadOperations) {
+      const headers = {};
+      for (const h of op.requestHeaders || []) headers[h.name] = h.value;
+      const res = await fetch(op.url, {
+        method: op.method,
+        headers,
+        body: bytes.subarray(op.offset, op.offset + op.length),
+      });
+      if (!res.ok) {
+        console.error(`    upload chunk failed: HTTP ${res.status}`);
+        process.exitCode = 1;
+        return;
+      }
+    }
+
+    const md5 = crypto.createHash('md5').update(bytes).digest('hex');
+    const done = await patch(`/v1/appScreenshots/${reserved.data.id}`, {
+      data: {
+        type: 'appScreenshots',
+        id: reserved.data.id,
+        attributes: { uploaded: true, sourceFileChecksum: md5 },
+      },
+    });
+    if (!done) return;
+    console.log(`    ${name}: ${done.data.attributes.assetDeliveryState?.state || 'uploaded'}`);
+  }
+  if (go) console.log(`
+  ${files.length} screenshot(s) on ${versionString}.`);
+}
+
+
+/**
+ * Create the version record on its own, without a build.
+ *
+ * Screenshots and release notes hang off a version, and a released version is
+ * frozen, so staging the next release's listing means making the record
+ * first. It is invisible to users until it is submitted, and can be deleted
+ * while it is still PREPARE_FOR_SUBMISSION.
+ */
+async function makeVersion(versionString, go) {
+  const existing = await api(
+    `/v1/apps/${APP_ID}/appStoreVersions?filter[versionString]=${versionString}` +
+      `&limit=1&fields[appStoreVersions]=versionString,appStoreState`,
+  );
+  if (!existing) return;
+  if (existing.data.length) {
+    console.log(
+      `
+  ${versionString} already exists (${existing.data[0].attributes.appStoreState})`,
+    );
+    return;
+  }
+  console.log(`
+${go ? '' : '[dry-run] '}create version ${versionString}, releaseType AFTER_APPROVAL`);
+  if (!go) return;
+  const made = await post('/v1/appStoreVersions', {
+    data: {
+      type: 'appStoreVersions',
+      attributes: { platform: 'IOS', versionString, releaseType: 'AFTER_APPROVAL' },
+      relationships: { app: { data: { type: 'apps', id: APP_ID } } },
+    },
+  });
+  if (!made) return;
+  console.log(`  created ${made.data.id} (${made.data.attributes.appStoreState})`);
+}
+
 async function main() {
   const cmd = process.argv[2] || 'state';
   if (cmd === 'state') {
@@ -398,6 +598,21 @@ async function main() {
     await shots();
   } else if (cmd === 'withdraw') {
     await withdraw(process.argv.includes('--go'));
+  } else if (cmd === 'version') {
+    const version = process.argv[3];
+    if (!version) {
+      console.error('Usage: node scripts/asc.js version <version> [--go]');
+      process.exit(2);
+    }
+    await makeVersion(version, process.argv.includes('--go'));
+  } else if (cmd === 'upload-shots') {
+    const version = process.argv[3];
+    const dir = process.argv[4];
+    if (!version || !dir) {
+      console.error('Usage: node scripts/asc.js upload-shots <version> <dir> [--go]');
+      process.exit(2);
+    }
+    await uploadShots(version, dir, process.argv.includes('--go'));
   } else if (cmd === 'submit') {
     const version = process.argv[3];
     const build = process.argv[4];
@@ -408,7 +623,7 @@ async function main() {
     await submit(version, build, process.argv.includes('--go'));
   } else {
     console.error(`Unknown command: ${cmd}`);
-    console.error('Commands: state, builds, shots, withdraw, submit');
+    console.error('Commands: state, builds, shots, version, upload-shots, withdraw, submit');
     process.exit(2);
   }
   console.log('');
