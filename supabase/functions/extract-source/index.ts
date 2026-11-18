@@ -27,6 +27,7 @@ import {
   validateSeason,
 } from '../_shared/extraction.ts';
 import { staleProposal } from '../_shared/licence_year.ts';
+import { normaliseForHash, sha256Hex } from '../_shared/leftover.ts';
 
 const ANTHROPIC_API_KEY = Deno.env.get('ANTHROPIC_API_KEY')!;
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
@@ -228,7 +229,7 @@ const BROWSER_HEADERS: Record<string, string> = {
   'upgrade-insecure-requests': '1',
 };
 
-async function fetchDocumentBlock(url: string): Promise<any> {
+async function fetchDocumentBlock(url: string): Promise<{ doc: any; hash: string | null }> {
   const res = await fetch(url, { headers: BROWSER_HEADERS });
   if (!res.ok) throw new Error(`fetch ${url} failed: ${res.status}`);
   if (url.toLowerCase().endsWith('.pdf') || res.headers.get('content-type')?.includes('pdf')) {
@@ -236,12 +237,21 @@ async function fetchDocumentBlock(url: string): Promise<any> {
     if (buf.length > MAX_PDF_BYTES) {
       throw new Error(`PDF too large to extract in-worker (${(buf.length / 1e6).toFixed(1)} MB)`);
     }
-    return { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: bytesToBase64(buf) } };
+    // A PDF is hashed over its raw bytes: there is no normalised text to
+    // compare, and a regenerated-but-identical PDF is rare enough not to
+    // chase.
+    return {
+      doc: { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: bytesToBase64(buf) } },
+      hash: await sha256Hex(bytesToBase64(buf)),
+    };
   }
   const html = await res.text();
   const text = html.replace(/<script[\s\S]*?<\/script>/gi, ' ').replace(/<style[\s\S]*?<\/style>/gi, ' ')
     .replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').slice(0, 120_000);
-  return { type: 'text', text };
+  // Hash the NORMALISED page, not the raw HTML: agency sites stamp a render
+  // time into the markup, so a raw hash changes every night and would make
+  // this check useless -- exactly the trap normaliseForHash exists for.
+  return { doc: { type: 'text', text }, hash: await sha256Hex(normaliseForHash(html)) };
 }
 
 async function extract(doc: any, agency: string, catalog: string, schema: unknown): Promise<{ seasons: any[]; application_windows: any[]; regulation_summaries: any[] }> {
@@ -325,13 +335,67 @@ const emptyTally = (): Tally => ({
   created: 0, updated: 0, unchanged: 0, skipped: 0, stale: 0, stale_reasons: [],
 });
 
-async function processSource(source: any, runId: string, speciesByKey: Record<string, string>, catalog: string, schema: unknown) {
+async function processSource(
+  source: any,
+  runId: string,
+  speciesByKey: Record<string, string>,
+  catalog: string,
+  schema: unknown,
+  force = false,
+) {
   // Stamp FIRST so the round-robin advances even if this source later kills the
   // worker (a huge PDF hitting the memory/CPU limit, or a slow site hitting the
   // 150s wall clock). Otherwise last_extracted_at stays null and the same poison
   // source gets re-picked forever, stalling the sweep.
   await admin.from('sources').update({ last_extracted_at: new Date().toISOString() }).eq('id', source.id);
-  const doc = await fetchDocumentBlock(source.url);
+  const { doc, hash } = await fetchDocumentBlock(source.url);
+
+  // Do not pay to read a page that has not changed.
+  //
+  // Every run called the model on the full page whether or not a byte of it
+  // had moved, and agency pages move a few times a year. That is most of the
+  // extraction bill spent re-deriving yesterday's answer, and it is why one
+  // source a night was all the budget would carry.
+  //
+  // Skipping is not just cheaper, it is more honest: identical bytes cannot
+  // produce a different extraction, so re-reading them can never close a gap
+  // that those same bytes already failed to close. A gap that survives an
+  // unchanged page is a problem with our prompt or our species mapping, and
+  // this makes it visible instead of burning a call a night hiding it.
+  //
+  // `force` is the escape hatch for when the prompt or the parser changes and
+  // the same bytes really would read differently.
+  if (!force && hash) {
+    const { data: prev, error: prevErr } = await admin
+      .from('source_fetch_log')
+      .select('content_hash')
+      .eq('purpose', 'seasons')
+      .eq('url', source.url)
+      .in('status', ['ok', 'unchanged'])
+      .order('fetched_at', { ascending: false })
+      .limit(1);
+    // A failed lookup is not "the page is new". Read before deciding, or a
+    // dropped connection silently pays for a call we did not need.
+    if (prevErr) {
+      console.warn('[extract] could not read the last hash, reading the page:', prevErr.message);
+    } else if (prev?.[0]?.content_hash === hash) {
+      // Check the write. If this row never lands, the next run finds no hash
+      // to compare against, reads the page again, and the saving silently
+      // never happens -- a bill that looks like a feature working.
+      const { error: logErr } = await admin.from('source_fetch_log').insert({
+        state_id: source.state_id, purpose: 'seasons', url: source.url,
+        status: 'unchanged', content_hash: hash,
+      });
+      if (logErr) console.warn('[extract] could not log the unchanged read:', logErr.message);
+      return {
+        source: source.agency_name,
+        url: source.url,
+        unchanged_page: true,
+        note: 'page byte-identical to the last read; no model call',
+      };
+    }
+  }
+
   const extracted = await extract(doc, source.agency_name, catalog, schema);
   const { application_windows, regulation_summaries } = extracted;
   // An agency that splits a season prints a headline window above the detail
@@ -481,6 +545,15 @@ async function processSource(source: any, runId: string, speciesByKey: Record<st
     } else { t.unchanged++; }
   }
 
+  if (hash) {
+    // Likewise: a dropped hash here means tomorrow pays for this page again.
+    const { error: logErr } = await admin.from('source_fetch_log').insert({
+      state_id: source.state_id, purpose: 'seasons', url: source.url,
+      status: 'ok', content_hash: hash,
+    });
+    if (logErr) console.warn('[extract] could not log the read:', logErr.message);
+  }
+
   return {
     source: source.agency_name,
     url: source.url,
@@ -498,9 +571,12 @@ Deno.serve(async (req) => {
     }
 
     const body = req.method === 'POST' ? await req.json().catch(() => ({})) : {};
-    const { sourceId, max, accuracy, state_code, season_year, gaps } = body as {
+    const { sourceId, max, accuracy, state_code, season_year, gaps, force } = body as {
       sourceId?: string; max?: number; accuracy?: boolean; state_code?: string; season_year?: number;
       gaps?: boolean;
+      /** Read a page again even if it has not changed -- for when the prompt
+       *  or the parser changed and the same bytes would read differently. */
+      force?: boolean;
     };
 
     // --- accuracy mode -----------------------------------------------------
@@ -526,7 +602,7 @@ Deno.serve(async (req) => {
       const errors: string[] = [];
       for (const source of srcs) {
         try {
-          const doc = await fetchDocumentBlock(source.url);
+          const { doc } = await fetchDocumentBlock(source.url);
           const out = await extract(doc, source.agency_name, catalog, schema);
           // Same guard as the live path, so a preview grades what would
           // actually be written rather than the raw read.
@@ -640,7 +716,7 @@ const catalog = speciesCatalog((species ?? []) as { key: string; name: string }[
     const results = [];
     for (const source of sources) {
       try {
-        results.push(await processSource(source, runId, speciesByKey, catalog, schema));
+        results.push(await processSource(source, runId, speciesByKey, catalog, schema, force === true));
       } catch (e) {
         await admin.from('sources').update({ last_extracted_at: new Date().toISOString() }).eq('id', source.id);
         results.push({ source: source.agency_name, url: source.url, error: e instanceof Error ? e.message : String(e) });
