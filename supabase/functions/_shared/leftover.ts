@@ -65,11 +65,57 @@ const STATE_OVERRIDE: Record<string, string> = {
   AK: 'America/Anchorage',
 };
 
+/**
+ * The clock an agency keeps, for when the page names an hour and no zone.
+ *
+ * Most agency pages write "10 a.m." and nothing else, because everyone they
+ * are writing for is already in the state. Before this map existed that
+ * produced a sale with an hour and `time_zone: null` -- which is worse than
+ * no hour at all, because the app renders it as a confident time and the
+ * reader supplies their own zone. Oregon's 1 July sale reached the queue that
+ * way: a Georgia hunter would have read 10:00 as Eastern and been three hours
+ * late for a sale that is gone inside one.
+ *
+ * A straddling state resolves to the AGENCY's clock, not its geographic
+ * majority: the sale is an online transaction that opens on the licence
+ * system's clock, wherever the hunter happens to be. Idaho is the example --
+ * the panhandle is Pacific, but Fish and Game sells from Boise, so Boise's
+ * clock is the one a sale opens on.
+ */
+const STATE_ZONE: Record<string, string> = {
+  AL: 'America/Chicago', AK: 'America/Anchorage', AZ: 'America/Phoenix',
+  AR: 'America/Chicago', CA: 'America/Los_Angeles', CO: 'America/Denver',
+  CT: 'America/New_York', DE: 'America/New_York', FL: 'America/New_York',
+  GA: 'America/New_York', HI: 'Pacific/Honolulu', ID: 'America/Boise',
+  IL: 'America/Chicago', IN: 'America/Indiana/Indianapolis', IA: 'America/Chicago',
+  KS: 'America/Chicago', KY: 'America/New_York', LA: 'America/Chicago',
+  ME: 'America/New_York', MD: 'America/New_York', MA: 'America/New_York',
+  MI: 'America/Detroit', MN: 'America/Chicago', MS: 'America/Chicago',
+  MO: 'America/Chicago', MT: 'America/Denver', NE: 'America/Chicago',
+  NV: 'America/Los_Angeles', NH: 'America/New_York', NJ: 'America/New_York',
+  NM: 'America/Denver', NY: 'America/New_York', NC: 'America/New_York',
+  ND: 'America/Chicago', OH: 'America/New_York', OK: 'America/Chicago',
+  OR: 'America/Los_Angeles', PA: 'America/New_York', RI: 'America/New_York',
+  SC: 'America/New_York', SD: 'America/Chicago', TN: 'America/Chicago',
+  TX: 'America/Chicago', UT: 'America/Denver', VT: 'America/New_York',
+  VA: 'America/New_York', WA: 'America/Los_Angeles', WV: 'America/New_York',
+  WI: 'America/Chicago', WY: 'America/Denver',
+};
+
+/** The agency's own clock, with no page to read it off. */
+export function zoneForState(stateCode: string | null | undefined): string | null {
+  const st = (stateCode ?? '').trim().toUpperCase();
+  return STATE_OVERRIDE[st] ?? STATE_ZONE[st] ?? null;
+}
+
 export function zoneFromAbbrev(abbrev: string | null | undefined, stateCode?: string | null): string | null {
   const st = (stateCode ?? '').trim().toUpperCase();
   if (st && STATE_OVERRIDE[st]) return STATE_OVERRIDE[st];
   const a = (abbrev ?? '').trim().toUpperCase().replace(/[^A-Z]/g, '');
-  return ABBREV[a] ?? null;
+  // An abbreviation the page states wins: an agency that bothers to write
+  // "9 a.m. CT" for a Mountain state means it. Only when the page is silent
+  // does the state's own clock stand in.
+  return ABBREV[a] ?? zoneForState(st);
 }
 
 // ---------------------------------------------------------------------------

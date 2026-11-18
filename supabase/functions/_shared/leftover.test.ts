@@ -53,10 +53,65 @@ describe('zoneFromAbbrev', () => {
     expect(zoneFromAbbrev('PST', 'HI')).toBe('Pacific/Honolulu');
   });
 
-  it('is null when it cannot tell', () => {
-    expect(zoneFromAbbrev('', 'CO')).toBeNull();
+  it("falls back to the state's own clock when the page names no zone", () => {
+    // This assertion used to read `expect(zoneFromAbbrev('', 'CO')).toBeNull()`
+    // under the heading "is null when it cannot tell" -- but with a state in
+    // hand we CAN tell, and returning null let Oregon's 10 a.m. sale reach the
+    // queue with no zone at all. Most agency pages write an hour and nothing
+    // else, so this is the common path, not the edge case.
+    expect(zoneFromAbbrev('', 'CO')).toBe('America/Denver');
+    expect(zoneFromAbbrev(null, 'OR')).toBe('America/Los_Angeles');
+    expect(zoneFromAbbrev('ZZT', 'WI')).toBe('America/Chicago');
+    // Idaho resolves to the agency's clock in Boise, not the Pacific panhandle.
+    expect(zoneFromAbbrev(null, 'ID')).toBe('America/Boise');
+  });
+
+  it('is null only when there is genuinely nothing to go on', () => {
     expect(zoneFromAbbrev(null)).toBeNull();
     expect(zoneFromAbbrev('ZZT')).toBeNull();
+    expect(zoneFromAbbrev('', 'ZZ')).toBeNull();
+  });
+
+  it('lets an abbreviation the page states win over the state default', () => {
+    // An agency that bothers to write "CT" for a Mountain state means it.
+    expect(zoneFromAbbrev('CT', 'MT')).toBe('America/Chicago');
+  });
+});
+
+describe('parseSaleTime, with the state standing in for a silent page', () => {
+  it('keeps the hour AND a zone when the page names no abbreviation', () => {
+    // Oregon's page says "10 a.m." and nothing else -- the exact shape that
+    // put four zone-less sales in the review queue on 2026-11-18.
+    expect(parseSaleTime('10 a.m.', 'OR')).toEqual({
+      time: '10:00:00',
+      zone: 'America/Los_Angeles',
+    });
+  });
+
+  it('still reports no time when the page names no hour', () => {
+    // A missing hour must stay missing. Most pages give a day only, and a
+    // guessed midnight reads as the previous evening east of the agency.
+    // The zone may now be known from the state while the hour is not, which
+    // is the harmless direction -- the forbidden one is an hour with no zone,
+    // and queueProposals refuses that outright.
+    expect(parseSaleTime('', 'OR').time).toBeNull();
+    expect(parseSaleTime('Tuesday', 'CO').time).toBeNull();
+  });
+
+  it('never returns an hour without a zone, for any state', () => {
+    // The invariant the whole feature rests on, checked across every state
+    // the registry could name rather than the handful we happen to cover.
+    const states = ['OR', 'CO', 'ID', 'MT', 'UT', 'WY', 'AZ', 'NM', 'NV', 'WA',
+      'AK', 'SD', 'ND', 'NE', 'KS', 'OK', 'TX', 'CA', 'MN', 'IA', 'MO', 'WI', 'MI'];
+    for (const st of states) {
+      const r = parseSaleTime('10 a.m.', st);
+      expect(r.time).toBe('10:00:00');
+      expect(r.zone, `${st} has no clock`).not.toBeNull();
+    }
+  });
+
+  it('gives noon a zone too', () => {
+    expect(parseSaleTime('noon', 'MT')).toEqual({ time: '12:00:00', zone: 'America/Denver' });
   });
 });
 

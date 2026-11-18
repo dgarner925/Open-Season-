@@ -300,6 +300,21 @@ async function queueProposals(
   const skipped: string[] = [];
 
   for (const p of proposals) {
+    // An hour with no zone is worse than no hour at all. The app renders a
+    // bare time as a time, and the reader supplies their own zone -- so a
+    // Georgia hunter reads Oregon's 10:00 as Eastern and arrives three hours
+    // after the good units are gone. zoneFromAbbrev now falls back to the
+    // agency's own clock, so reaching here means the state is missing from
+    // that map: fail loudly rather than publish a number nobody can act on.
+    if (p.payload.sale_start_time && !p.payload.time_zone) {
+      skipped.push(
+        `${p.payload.species_key} ${p.payload.sale_start_date}: ` +
+          `has an hour (${p.payload.sale_start_time}) and no time zone -- ` +
+          `add ${p.payload.state_code} to STATE_ZONE in _shared/leftover.ts`,
+      );
+      continue;
+    }
+
     const identity = saleIdentity(p.payload);
     if (ctx.pending.has(identity)) {
       skipped.push(`${p.payload.species_key} ${p.payload.sale_start_date}: already waiting in the queue`);
