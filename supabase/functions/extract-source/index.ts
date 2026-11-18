@@ -27,6 +27,7 @@ import {
   validateSeason,
 } from '../_shared/extraction.ts';
 import { staleProposal } from '../_shared/licence_year.ts';
+import { orderGapSources, worstPriorityBySource } from '../_shared/gap_order.ts';
 import { normaliseForHash, sha256Hex } from '../_shared/leftover.ts';
 
 const ANTHROPIC_API_KEY = Deno.env.get('ANTHROPIC_API_KEY')!;
@@ -667,25 +668,29 @@ Deno.serve(async (req) => {
       // whole season — its turn simply hadn't come up. coverage-watch has
       // already worked out which pairs are actually broken and which source
       // answers each one; this follows that list, worst first.
-      const { data: rows } = await admin.from('coverage_gaps')
+      const { data: rows, error: gapErr } = await admin.from('coverage_gaps')
         .select('source_id, priority')
         .in('kind', ['stale_in_season', 'never_covered'])
-        .not('source_id', 'is', null)
-        .order('priority', { ascending: false });
-      // Several gaps usually point at one source; read it once.
-      const seen = new Set<string>();
-      const ids: string[] = [];
-      for (const r of rows ?? []) {
-        if (seen.has((r as any).source_id)) continue;
-        seen.add((r as any).source_id);
-        ids.push((r as any).source_id);
-        if (ids.length >= Math.min(Math.max(max ?? 3, 1), 25)) break;
+        .not('source_id', 'is', null);
+      if (gapErr) return json({ error: `could not read coverage_gaps: ${gapErr.message}` }, 500);
+
+      // Several gaps usually point at one source; read it once, at its worst.
+      const prio = worstPriorityBySource(
+        (rows ?? []) as { source_id?: string | null; priority?: number | null }[],
+      );
+
+      if (prio.size) {
+        const { data, error: srcErr } = await admin.from('sources').select('*').in('id', [...prio.keys()]);
+        if (srcErr) return json({ error: `could not read the gap sources: ${srcErr.message}` }, 500);
+        // Worst gap first, then the stalest -- see _shared/gap_order.ts for why
+        // priority on its own would re-read the same eight sources for ever.
+        sources = orderGapSources(
+          (data ?? []) as { id: string; last_extracted_at?: string | null }[],
+          prio,
+          max ?? 3,
+        );
       }
-      if (ids.length) {
-        const { data } = await admin.from('sources').select('*').in('id', ids);
-        // Preserve the priority order the gap list gave us.
-        sources = ids.map((id) => (data ?? []).find((s: any) => s.id === id)).filter(Boolean);
-      }
+
       if (sources.length === 0) {
         return json({ ok: true, mode: 'gaps', sources: 0, results: [], note: 'no actionable gaps with a source' });
       }
