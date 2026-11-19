@@ -133,6 +133,42 @@ async function fetchDocumentBlock(url: string): Promise<{ doc: any; hash: string
   return { doc: { type: 'text', text }, hash: await sha256Hex(normaliseForHash(html)) };
 }
 
+/**
+ * What that read actually cost.
+ *
+ * `ai_usage` had rows for the daily brief and Ask the Book and none at all for
+ * extraction -- which is the one that spends real money, on 80-page PDFs, every
+ * night. Asked how much a night costs, the only honest answer was an estimate,
+ * and the estimate was wrong twice before measurement settled it.
+ *
+ * Never throws. A failure to write the meter must not lose the extraction the
+ * meter is measuring -- but it is recorded, because a silently empty meter is
+ * how this started.
+ */
+async function logUsage(
+  agency: string,
+  usage: { input_tokens?: number; output_tokens?: number; cache_read_input_tokens?: number } | null,
+  ok: boolean,
+  note: string | null,
+): Promise<void> {
+  try {
+    const { error } = await admin.from('ai_usage').insert({
+      user_id: null,
+      feature: 'extraction',
+      model: MODEL,
+      input_tokens: usage?.input_tokens ?? 0,
+      output_tokens: usage?.output_tokens ?? 0,
+      cache_read_tokens: usage?.cache_read_input_tokens ?? 0,
+      served_from_cache: false,
+      ok,
+      note: note ?? agency,
+    });
+    if (error) console.error('ai_usage insert failed:', error.message);
+  } catch (e) {
+    console.error('ai_usage insert threw:', e instanceof Error ? e.message : String(e));
+  }
+}
+
 async function extract(doc: any, agency: string, catalog: string, schema: unknown): Promise<{ seasons: any[]; application_windows: any[]; regulation_summaries: any[] }> {
   const res = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
@@ -152,8 +188,12 @@ async function extract(doc: any, agency: string, catalog: string, schema: unknow
       }],
     }),
   });
-  if (!res.ok) throw new Error(`anthropic ${res.status}: ${await res.text()}`);
+  if (!res.ok) {
+    await logUsage(agency, null, false, `anthropic ${res.status}`);
+    throw new Error(`anthropic ${res.status}: ${await res.text()}`);
+  }
   const data = await res.json();
+  await logUsage(agency, data.usage, true, null);
   const textBlock = (data.content ?? []).find((b: any) => b.type === 'text');
   if (!textBlock) throw new Error('no text block in model response');
   const parsed = JSON.parse(textBlock.text);
