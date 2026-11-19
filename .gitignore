@@ -53,3 +53,6 @@ google-services.json
 
 # Design proofs and other local renders (scripts/compose_*.py)
 scratch/
+
+# Local measurement harness: ground truth, results, bundles. Never the key.
+scratch-eval/
