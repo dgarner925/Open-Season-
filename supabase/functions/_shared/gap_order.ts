@@ -85,6 +85,33 @@ export function orderGapSources<T extends GapSource>(
 }
 
 /**
+ * The draw-deadline pages, stalest first, skipping any read in the last day.
+ *
+ * Draw pages are invisible to the coverage watchdog: it reasons about
+ * state × species season rows, so a state with complete season coverage and no
+ * application window at all carries no gap, and gap mode never picks its draw
+ * page. Colorado, Wyoming, Montana, New Mexico, Nevada and Utah all had a good
+ * deadline page in `sources` and none had been read since July 2026.
+ *
+ * That is survivable in August and fatal in January: agencies publish the next
+ * year's application deadlines between December and February, and the draw
+ * season those deadlines belong to is the one that earns the subscriptions.
+ * This is the selection for a sweep that exists only to catch that.
+ *
+ * No priority to sort by -- every draw page matters the same amount, and what
+ * matters is that the one we have not read in longest gets read. Delegates so
+ * the cooldown and the deterministic tie-break are the same rule gap mode
+ * uses, tested once.
+ */
+export function orderDrawSources<T extends GapSource>(
+  sources: readonly T[],
+  want: number,
+  nowMs: number = Date.now(),
+): T[] {
+  return orderGapSources(sources, new Map(), want, nowMs);
+}
+
+/**
  * The worst priority each source carries, from the raw `coverage_gaps` rows.
  * Several gaps usually point at one source; it is read once, at its worst.
  */

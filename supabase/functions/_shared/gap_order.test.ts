@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { orderGapSources, RECENTLY_READ_MS, worstPriorityBySource } from './gap_order';
+import {
+  orderDrawSources,
+  orderGapSources,
+  RECENTLY_READ_MS,
+  worstPriorityBySource,
+} from './gap_order';
 
 const flat = (ids: string[], prio = 100) => new Map(ids.map((id) => [id, prio]));
 
@@ -161,6 +166,48 @@ describe('orderGapSources', () => {
     ];
     expect(orderGapSources(sources, new Map([['known', 100]]), 2, NOW).map((s) => s.id))
       .toEqual(['known', 'unknown']);
+  });
+});
+
+describe('orderDrawSources', () => {
+  it('reads the deadline page it has gone longest without reading', () => {
+    // The real state of things on 2026-11-19: six western deadline pages, all
+    // last read in July, none reachable through gap mode.
+    const sources = [
+      { id: 'wy', last_extracted_at: hoursAgo(24 * 122) },
+      { id: 'co', last_extracted_at: hoursAgo(24 * 123) },
+      { id: 'mt', last_extracted_at: hoursAgo(24 * 121) },
+      { id: 'or', last_extracted_at: null },
+    ];
+    expect(orderDrawSources(sources, 3, NOW).map((s) => s.id)).toEqual(['or', 'co', 'wy']);
+  });
+
+  it('skips a page it read last night, so a nightly sweep rotates', () => {
+    const sources = [
+      { id: 'read-last-night', last_extracted_at: hoursAgo(4) },
+      { id: 'read-in-july', last_extracted_at: hoursAgo(24 * 120) },
+    ];
+    expect(orderDrawSources(sources, 1, NOW).map((s) => s.id)).toEqual(['read-in-july']);
+  });
+
+  it('sweeps every page before repeating one', () => {
+    // Three pages, one a night: the January window is weeks long, and a sweep
+    // that re-read the same page would never see the other two publish.
+    const ids = ['az', 'id', 'or'];
+    let rows = ids.map((id) => ({ id, last_extracted_at: null as string | null }));
+    const picked: string[] = [];
+    for (let night = 0; night < 3; night++) {
+      const now = NOW + night * DAY;
+      const [got] = orderDrawSources(rows, 1, now);
+      picked.push(got.id);
+      rows = rows.map((r) =>
+        r.id === got.id ? { ...r, last_extracted_at: new Date(now).toISOString() } : r);
+    }
+    expect(picked.slice().sort()).toEqual(ids);
+  });
+
+  it('returns nothing when there is nothing flagged', () => {
+    expect(orderDrawSources([], 3, NOW)).toEqual([]);
   });
 });
 

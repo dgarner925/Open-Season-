@@ -27,7 +27,7 @@ import {
   validateSeason,
 } from '../_shared/extraction.ts';
 import { staleProposal } from '../_shared/licence_year.ts';
-import { orderGapSources, worstPriorityBySource } from '../_shared/gap_order.ts';
+import { orderDrawSources, orderGapSources, worstPriorityBySource } from '../_shared/gap_order.ts';
 import { timeForAnother } from '../_shared/time_budget.ts';
 import {
   extractionSchema,
@@ -493,9 +493,11 @@ Deno.serve(async (req) => {
     }
 
     const body = req.method === 'POST' ? await req.json().catch(() => ({})) : {};
-    const { sourceId, max, accuracy, state_code, season_year, gaps, force } = body as {
+    const { sourceId, max, accuracy, state_code, season_year, gaps, draws, force } = body as {
       sourceId?: string; max?: number; accuracy?: boolean; state_code?: string; season_year?: number;
       gaps?: boolean;
+      /** Re-read only the application-deadline pages (sources.carries_draws). */
+      draws?: boolean;
       /** Read a page again even if it has not changed -- for when the prompt
        *  or the parser changed and the same bytes would read differently. */
       force?: boolean;
@@ -614,6 +616,31 @@ Deno.serve(async (req) => {
 
       if (sources.length === 0) {
         return json({ ok: true, mode: 'gaps', sources: 0, results: [], note: 'no actionable gaps with a source' });
+      }
+    } else if (draws) {
+      // --- draws mode ------------------------------------------------------
+      // Re-read the application-deadline pages, stalest first.
+      //
+      // These pages cannot reach the queue any other way. Gap mode is driven by
+      // coverage_gaps, which counts state × species SEASON rows; a state whose
+      // seasons are all published carries no gap, so its draw page is never
+      // picked however stale it is. The round-robin below would reach it, but
+      // nothing runs the round-robin -- the only nightly cron asks for gaps.
+      //
+      // The result: every western deadline page sat unread since July 2026,
+      // and the 2027 windows that the January draw season turns on were not in
+      // the database at all.
+      const { data, error: drawErr } = await admin.from('sources').select('*')
+        .not('state_id', 'is', null)
+        .eq('purpose', 'seasons')
+        .eq('carries_draws', true);
+      if (drawErr) return json({ error: `could not read the draw sources: ${drawErr.message}` }, 500);
+      sources = orderDrawSources(
+        (data ?? []) as { id: string; last_extracted_at?: string | null }[],
+        max ?? 3,
+      );
+      if (sources.length === 0) {
+        return json({ ok: true, mode: 'draws', sources: 0, results: [], note: 'no source flagged carries_draws' });
       }
     } else {
       // Round-robin: the stalest sources first, so hourly cron cycles through all.
