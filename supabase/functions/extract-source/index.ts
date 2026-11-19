@@ -28,6 +28,7 @@ import {
 } from '../_shared/extraction.ts';
 import { staleProposal } from '../_shared/licence_year.ts';
 import { orderGapSources, worstPriorityBySource } from '../_shared/gap_order.ts';
+import { timeForAnother } from '../_shared/time_budget.ts';
 import {
   extractionSchema,
   speciesCatalog,
@@ -442,6 +443,9 @@ async function processSource(
 }
 
 Deno.serve(async (req) => {
+  // The wall clock starts here, not at the top of the source loop: auth, the
+  // body parse and the species read all spend from the same 150 seconds.
+  const startedAt = Date.now();
   try {
     const token = (req.headers.get('Authorization') ?? '').replace(/^Bearer\s+/i, '').trim();
     if (!isServiceRole(token)) {
@@ -595,17 +599,39 @@ const catalog = speciesCatalog((species ?? []) as { key: string; name: string }[
 
     // Process sequentially; isolate per-source errors so one bad source doesn't
     // abort the whole run.
+    //
+    // And stop before the wall clock stops us. `max` is what the caller wants,
+    // not what the night can carry -- see _shared/time_budget.ts for the run
+    // that asked for eight, read two, and recorded a third it never opened.
     const results = [];
+    let longestMs: number | null = null;
+    let stoppedForTime = 0;
     for (const source of sources) {
+      if (!timeForAnother(Date.now() - startedAt, longestMs)) {
+        stoppedForTime = sources.length - results.length;
+        break;
+      }
+      const t0 = Date.now();
       try {
         results.push(await processSource(source, runId, speciesByKey, catalog, schema, force === true));
       } catch (e) {
         await admin.from('sources').update({ last_extracted_at: new Date().toISOString() }).eq('id', source.id);
         results.push({ source: source.agency_name, url: source.url, error: e instanceof Error ? e.message : String(e) });
       }
+      const took = Date.now() - t0;
+      longestMs = longestMs === null ? took : Math.max(longestMs, took);
     }
 
-    return json({ ok: true, run_id: runId, sources: results.length, results });
+    return json({
+      ok: true,
+      run_id: runId,
+      sources: results.length,
+      // Never silently: a run that was asked for eight and did two says so.
+      asked_for: sources.length,
+      unread_out_of_time: stoppedForTime,
+      elapsed_ms: Date.now() - startedAt,
+      results,
+    });
   } catch (e) {
     return json({ error: e instanceof Error ? e.message : String(e) }, 500);
   }
