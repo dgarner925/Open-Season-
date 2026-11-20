@@ -249,10 +249,47 @@ type Tally = {
    *  number. */
   stale: number;
   stale_reasons: string[];
+  /** Proposals the database refused. Kept apart from `created` and `updated`
+   *  because an insert that failed created nothing, and a run that counts it
+   *  as created is a run that misreports its own work. */
+  lost: number;
+  lost_reasons: string[];
 };
 const emptyTally = (): Tally => ({
   created: 0, updated: 0, unchanged: 0, skipped: 0, stale: 0, stale_reasons: [],
+  lost: 0, lost_reasons: [],
 });
+
+/**
+ * Enqueue one proposal, and count it only if the database took the row.
+ *
+ * Six inserts here went unchecked and tallied `created` or `updated`
+ * regardless. A refused insert is an extraction that fetched the page, read
+ * the season off it, and dropped it -- while the run reported success and the
+ * source got stamped as read. That is the worst shape a failure takes in this
+ * pipeline: a default that reads as data. The draw sweep makes it sharper
+ * still, since every window it finds reaches the app through exactly one of
+ * these inserts.
+ */
+async function propose(
+  tally: Tally,
+  kind: 'created' | 'updated',
+  row: Record<string, unknown>,
+): Promise<void> {
+  const { error } = await admin.from('review_queue').insert(row);
+  if (!error) {
+    tally[kind]++;
+    return;
+  }
+  tally.lost++;
+  const why = `${row.target_table} ${row.change_type}: ${error.message}`;
+  // Capped and de-duplicated: one broken constraint can refuse every row on
+  // the page, and a hundred copies of one message is not a hundred findings.
+  if (tally.lost_reasons.length < 10 && !tally.lost_reasons.includes(why)) {
+    tally.lost_reasons.push(why);
+  }
+  console.error('[extract] review_queue refused a proposal:', why);
+}
 
 async function processSource(
   source: any,
@@ -405,12 +442,10 @@ async function processSource(
 
     if (!current) {
       if (await pendingExists('seasons', null, { state_id: source.state_id, species_id, zone_id, method: row.method, season_year: row.season_year, label })) { t.skipped++; continue; }
-      await admin.from('review_queue').insert({ target_table: 'seasons', change_type: 'create', proposed_payload: payload, source_id: source.id, extraction_run_id: runId, ...meta });
-      t.created++;
+      await propose(t, 'created', { target_table: 'seasons', change_type: 'create', proposed_payload: payload, source_id: source.id, extraction_run_id: runId, ...meta });
     } else if (current.open_date !== open_date || current.close_date !== close_date) {
       if (await pendingExists('seasons', current.id, {})) { t.skipped++; continue; }
-      await admin.from('review_queue').insert({ target_table: 'seasons', change_type: 'update', target_id: current.id, proposed_payload: payload, current_snapshot: current, source_id: source.id, extraction_run_id: runId, ...meta });
-      t.updated++;
+      await propose(t, 'updated', { target_table: 'seasons', change_type: 'update', target_id: current.id, proposed_payload: payload, current_snapshot: current, source_id: source.id, extraction_run_id: runId, ...meta });
     } else { t.unchanged++; }
   }
 
@@ -437,12 +472,10 @@ async function processSource(
     };
     if (!current) {
       if (await pendingExists('application_windows', null, { state_id: source.state_id, species_id, season_year: row.season_year, name: row.name })) { t.skipped++; continue; }
-      await admin.from('review_queue').insert({ target_table: 'application_windows', change_type: 'create', proposed_payload: payload, source_id: source.id, extraction_run_id: runId });
-      t.created++;
+      await propose(t, 'created', { target_table: 'application_windows', change_type: 'create', proposed_payload: payload, source_id: source.id, extraction_run_id: runId });
     } else if (current.closes_at !== closes_at || current.opens_at !== opens_at) {
       if (await pendingExists('application_windows', current.id, {})) { t.skipped++; continue; }
-      await admin.from('review_queue').insert({ target_table: 'application_windows', change_type: 'update', target_id: current.id, proposed_payload: payload, current_snapshot: current, source_id: source.id, extraction_run_id: runId });
-      t.updated++;
+      await propose(t, 'updated', { target_table: 'application_windows', change_type: 'update', target_id: current.id, proposed_payload: payload, current_snapshot: current, source_id: source.id, extraction_run_id: runId });
     } else { t.unchanged++; }
   }
 
@@ -455,12 +488,10 @@ async function processSource(
     const payload = { state_id: source.state_id, species_id, body: row.body, source_id: source.id };
     if (!current) {
       if (await pendingExists('regulation_summaries', null, { state_id: source.state_id, species_id })) { t.skipped++; continue; }
-      await admin.from('review_queue').insert({ target_table: 'regulation_summaries', change_type: 'create', proposed_payload: payload, source_id: source.id, extraction_run_id: runId });
-      t.created++;
+      await propose(t, 'created', { target_table: 'regulation_summaries', change_type: 'create', proposed_payload: payload, source_id: source.id, extraction_run_id: runId });
     } else if (current.body !== row.body) {
       if (await pendingExists('regulation_summaries', current.id, {})) { t.skipped++; continue; }
-      await admin.from('review_queue').insert({ target_table: 'regulation_summaries', change_type: 'update', target_id: current.id, proposed_payload: payload, current_snapshot: current, source_id: source.id, extraction_run_id: runId });
-      t.updated++;
+      await propose(t, 'updated', { target_table: 'regulation_summaries', change_type: 'update', target_id: current.id, proposed_payload: payload, current_snapshot: current, source_id: source.id, extraction_run_id: runId });
     } else { t.unchanged++; }
   }
 
@@ -696,6 +727,9 @@ const catalog = speciesCatalog((species ?? []) as { key: string; name: string }[
       // Never silently: a run that was asked for eight and did two says so.
       asked_for: sources.length,
       unread_out_of_time: stoppedForTime,
+      // Hoisted out of the per-source tallies: a night that lost proposals has
+      // to say so in the first line of the response, not the twelfth.
+      proposals_lost: results.reduce((n, r) => n + Number((r as { lost?: number }).lost ?? 0), 0),
       elapsed_ms: Date.now() - startedAt,
       results,
     });
