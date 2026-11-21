@@ -210,7 +210,11 @@ async function extract(
     },
     body: JSON.stringify({
       model: MODEL,
-      max_tokens: 16000,
+      // 16000 truncated the five richest Southeast pages mid-string, and the
+      // only symptom was "Unterminated string in JSON at position 29575" --
+      // a parser error that names nothing about the cause. A regulations page
+      // with per-water tables can emit far more than a season list does.
+      max_tokens: 32000,
       system: system + catalog,
       output_config: { format: { type: 'json_schema', schema } },
       messages: [{
@@ -227,6 +231,20 @@ async function extract(
   await logUsage(agency, data.usage, true, null);
   const textBlock = (data.content ?? []).find((b: any) => b.type === 'text');
   if (!textBlock) throw new Error('no text block in model response');
+  // Say WHY the JSON is broken before trying to parse it.
+  //
+  // A reply cut off at the output cap is not malformed JSON, it is an
+  // incomplete answer, and the two want different fixes: one is a bug, the
+  // other is a budget. Left to JSON.parse the only evidence was
+  // "Unterminated string in JSON at position 29575", which sent the last
+  // investigation looking for a parser bug that did not exist.
+  if (data.stop_reason === 'max_tokens') {
+    await logUsage(agency, data.usage, false, 'truncated at max_tokens');
+    throw new Error(
+      `model hit the ${/* keep in step with the request */ 32000}-token output cap and the answer was cut off: ` +
+      `this page emits more than one reply can carry. Raise max_tokens or split the source.`,
+    );
+  }
   const parsed = JSON.parse(textBlock.text);
   // Pass through every array the model returned, not a fixed list of keys.
   //
