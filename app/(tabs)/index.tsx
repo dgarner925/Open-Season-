@@ -12,6 +12,7 @@ import { Headline, Monogram } from '@/components/system';
 import { headlineSize, nextOpenerSentence, zoneNote } from '@/features/home/sentences';
 import { NotificationsOffBanner } from '@/components/NotificationsOffBanner';
 import { ProUpsellCard } from '@/components/ProUpsellCard';
+import { ModeToggle } from '@/components/ModeToggle';
 import { useAuth } from '@/providers/AuthProvider';
 import { nextPermitSegment, useFollows, usePermitFollows } from '@/features/follows/queries';
 import { useLegalLight } from '@/features/legalLight/useLegalLight';
@@ -182,9 +183,18 @@ export default function Home() {
               </AppText>
             </Pressable>
           </View>
-          <Pressable onPress={() => router.push('/search')} hitSlop={10} style={styles.bellBtn} accessibilityRole="button" accessibilityLabel="Search">
-            <Ionicons name="search" size={19} color={lang.color.muted} />
-          </Pressable>
+          {/* The mode toggle takes the right end of the header, with search
+              beside it. The mockup drops search entirely to make room; keeping
+              it is deliberate, because removing a working control is a second
+              change to hunting and only one was sanctioned. On a phone
+              narrower than 360pt the toggle sheds its labels instead -- see
+              ModeToggle. */}
+          <View style={styles.topRight}>
+            <Pressable onPress={() => router.push('/search')} hitSlop={10} style={styles.bellBtn} accessibilityRole="button" accessibilityLabel="Search">
+              <Ionicons name="search" size={19} color={lang.color.muted} />
+            </Pressable>
+            <ModeToggle />
+          </View>
         </View>
 
         {/* Greeting first, then the fact (David, 2026-11-08: "It should go
@@ -657,9 +667,9 @@ const styles = StyleSheet.create({
   // direct children of a space-between row, the chip would be stranded in the
   // middle of the screen.
   topLeft: { flexDirection: 'row', alignItems: 'center', gap: lang.space.x12, flexShrink: 1 },
+  topRight: { flexDirection: 'row', alignItems: 'center', gap: lang.space.x8, flexShrink: 0 },
   locChip: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, flexShrink: 1 },
   locDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: lang.color.copper },
-  topRight: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
   bellBtn: { width: 32, height: 32, alignItems: 'center', justifyContent: 'center' },
   
   // marginBottom sets the gap to the Daily Outlook beneath, rather than
