@@ -691,8 +691,21 @@ Deno.serve(async (req) => {
     // Pick the source(s) to process.
     let sources: any[] = [];
     if (sourceId) {
-      const { data } = await admin.from('sources').select('*').eq('id', sourceId).single();
-      if (data) sources = [data];
+      // Report what actually went wrong.
+      //
+      // This discarded its error and treated an empty result as a missing row,
+      // so on 2026-11-21 a re-read of a North Carolina source that plainly
+      // exists came back 404 "no source with a state_id to process" -- a
+      // default that reads as data, and the worst defect class in this
+      // pipeline. A row that is genuinely absent and a query that failed are
+      // not the same answer and must not share one.
+      const { data, error } = await admin.from('sources').select('*').eq('id', sourceId)
+        .maybeSingle();
+      if (error) {
+        return json({ error: `could not read source ${sourceId}: ${error.message}` }, 500);
+      }
+      if (!data) return json({ error: `no source with id ${sourceId}` }, 404);
+      sources = [data];
     } else if (gaps) {
       // Gap mode: go where the holes are instead of round-robin.
       //
@@ -766,7 +779,9 @@ Deno.serve(async (req) => {
         .limit(Math.min(Math.max(max ?? 1, 1), 25));
       sources = data ?? [];
     }
-    if (sources.length === 0) return json({ error: 'no source with a state_id to process' }, 404);
+    if (sources.length === 0) {
+      return json({ error: 'no source due for reading matched this request' }, 404);
+    }
 
     const runId = crypto.randomUUID();
     const { data: species } = await admin.from('species').select('id, key, name').order('sort_order');
