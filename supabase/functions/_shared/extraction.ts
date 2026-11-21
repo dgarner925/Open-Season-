@@ -225,6 +225,202 @@ export function scoreConfidence(row: ExtractedSeason, v: Validation): number {
 }
 
 // ---------------------------------------------------------------------------
+// Application windows (draw deadlines)
+//
+// Until 2026-11-21 none of this existed. `windowItem` did not ask the model for
+// a confidence or an evidence quote, nothing validated an extracted window, and
+// the proposal reached review_queue with confidence NULL -- which
+// approve_clean_reviews skips by construction. Every one of the 335 draw
+// deadlines ever published was therefore approved by hand, and the nightly draw
+// sweep had just started producing sixty a night.
+// ---------------------------------------------------------------------------
+
+export type ExtractedWindow = {
+  species: string;
+  zone: string | null;
+  season_year: number;
+  name: string | null;
+  opens_at: string | null;
+  closes_at: string | null;
+  results_expected_at: string | null;
+  fee_summary: string | null;
+  application_url: string | null;
+  confidence?: number;
+  evidence?: { page: number | null; quote: string | null } | null;
+};
+
+export type WindowValidation = {
+  ok: boolean;
+  errors: string[];
+  dates: { opens: string | null; closes: string | null; results: string | null };
+};
+
+export function validateWindow(row: ExtractedWindow): WindowValidation {
+  const errors: string[] = [];
+
+  if (!row.species) errors.push('missing species');
+  if (!Number.isInteger(row.season_year) || row.season_year < 2000 || row.season_year > 2100) {
+    errors.push(`implausible season_year: ${row.season_year}`);
+  }
+
+  const opens = normalizeExtractedDate(row.opens_at);
+  const closes = normalizeExtractedDate(row.closes_at);
+  const results = normalizeExtractedDate(row.results_expected_at);
+  if (row.opens_at && !opens) errors.push(`unparseable opens_at: ${String(row.opens_at)}`);
+  if (row.closes_at && !closes) errors.push(`unparseable closes_at: ${String(row.closes_at)}`);
+  if (row.results_expected_at && !results) {
+    errors.push(`unparseable results_expected_at: ${String(row.results_expected_at)}`);
+  }
+  if (opens && closes && closes < opens) errors.push(`closes_at ${closes} precedes opens_at ${opens}`);
+  if (closes && results && results < closes) {
+    errors.push(`results ${results} precede the deadline ${closes}`);
+  }
+
+  // The deadline IS the row. A window with no closing date cannot tell a hunter
+  // the one thing they came for, and it should never publish itself.
+  if (!closes) errors.push('no closes_at: nothing to apply by');
+
+  const quote = row.evidence?.quote ?? null;
+  if (quote && quote.trim().split(/\s+/).length > 25) errors.push('evidence quote longer than 25 words');
+
+  return { ok: errors.length === 0, errors, dates: { opens, closes, results } };
+}
+
+const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June',
+  'July', 'August', 'September', 'October', 'November', 'December'];
+
+/**
+ * Every way an agency might print one ISO date, so a literal search for it
+ * stands a fair chance of finding it.
+ *
+ * Deliberately generous on format and strict on value: "Nov 23" matches, but a
+ * different day never does. The point is to fail a date the page does not
+ * contain, not to prove the page is well formatted.
+ */
+export function dateRenderings(iso: string): string[] {
+  const [y, m, d] = iso.split('-').map((n) => parseInt(n, 10));
+  if (!y || !m || !d) return [iso];
+  const full = MONTHS[m - 1];
+  const abbr = full.slice(0, 3);
+  const mm = String(m).padStart(2, '0');
+  const dd = String(d).padStart(2, '0');
+  const yy = String(y).slice(2);
+  return [
+    iso,
+    `${full} ${d}, ${y}`, `${full} ${d} ${y}`, `${full} ${d}`,
+    `${abbr} ${d}, ${y}`, `${abbr} ${d} ${y}`, `${abbr} ${d}`, `${abbr}. ${d}`,
+    `${m}/${d}/${y}`, `${mm}/${dd}/${y}`, `${m}/${d}/${yy}`, `${mm}/${dd}/${yy}`,
+    `${m}-${d}-${y}`, `${mm}-${dd}-${y}`, `${m}.${d}.${y}`,
+  ];
+}
+
+export type Grounding = {
+  /** 'document' = checked against the page we fetched; 'quote' = only against
+   *  the model's own evidence quote; 'none' = could not check at all. */
+  basis: 'document' | 'quote' | 'none';
+  found: string[];
+  missing: string[];
+  quote: string | null;
+};
+
+/**
+ * Does the page actually SAY these dates?
+ *
+ * This is the check the seasons path never had. Season confidence is the
+ * model's opinion of itself, lowered a little for things we can see are wrong;
+ * a model that misreads a table and is sure about it scores 0.95 and
+ * publishes. Grounding asks a different and much harder question -- is this
+ * string on the page -- and a date that is not there cannot pass at any
+ * confidence the model cares to report.
+ *
+ * `text` is the normalised page the worker already fetched, so this costs
+ * nothing. It is null for a PDF, which reaches the model as base64 and has no
+ * text here to search; those fall back to checking the dates against the
+ * model's own quote, which is weaker (it only catches the model contradicting
+ * itself) and is scored as such.
+ */
+export function groundDates(
+  text: string | null,
+  quote: string | null,
+  dates: (string | null)[],
+): Grounding {
+  const wanted = dates.filter((d): d is string => !!d);
+  const haystack = text ?? quote ?? null;
+  const basis: Grounding['basis'] = text ? 'document' : quote ? 'quote' : 'none';
+  if (!haystack || wanted.length === 0) {
+    return { basis: haystack ? basis : 'none', found: [], missing: wanted, quote: null };
+  }
+
+  // Collapse whitespace and drop the comma/period noise agencies vary on, so
+  // "Nov. 23 , 2026" and "Nov 23 2026" compare equal.
+  const norm = (s: string) => s.toLowerCase().replace(/[.,]/g, '').replace(/\s+/g, ' ');
+  const hay = norm(haystack);
+
+  const found: string[] = [];
+  const missing: string[] = [];
+  let firstAt = -1;
+  for (const iso of wanted) {
+    const hit = dateRenderings(iso).map(norm).find((r) => hay.includes(r));
+    if (hit) {
+      found.push(iso);
+      const at = hay.indexOf(hit);
+      if (firstAt < 0 || at < firstAt) firstAt = at;
+    } else {
+      missing.push(iso);
+    }
+  }
+
+  // A short span of the page around the first date we matched, so a human
+  // checking the card can see what we read without opening the source.
+  let snippet: string | null = null;
+  if (firstAt >= 0) {
+    const flat = haystack.replace(/\s+/g, ' ');
+    const ratio = flat.length / Math.max(hay.length, 1);
+    const at = Math.min(flat.length - 1, Math.max(0, Math.round(firstAt * ratio)));
+    snippet = flat.slice(Math.max(0, at - 60), at + 120).trim();
+  }
+
+  return { basis, found, missing, quote: snippet };
+}
+
+/**
+ * Confidence for a draw deadline, led by grounding rather than by self-report.
+ *
+ * The tiers, and why each is where it is:
+ *   every date on the page      -> up to 0.95, can auto-approve
+ *   dates only in the model's
+ *     own quote (PDF source)    -> capped 0.80, below the 0.85 gate on purpose:
+ *                                  this only proves the model did not
+ *                                  contradict itself, which is not evidence
+ *   any date NOT found          -> capped 0.30, never auto-approves
+ *   validation failed           -> capped 0.30
+ */
+export function scoreWindowConfidence(
+  row: ExtractedWindow,
+  v: WindowValidation,
+  g: Grounding,
+): number {
+  let c = typeof row.confidence === 'number' && row.confidence >= 0 && row.confidence <= 1
+    ? row.confidence
+    : 0.5;
+
+  if (g.basis === 'document' && g.missing.length === 0 && g.found.length > 0) {
+    c = Math.max(c, 0.9);
+  } else if (g.missing.length > 0) {
+    c = Math.min(c, 0.3);
+  } else if (g.basis === 'quote') {
+    c = Math.min(c, 0.8);
+  } else {
+    c = Math.min(c, 0.5);
+  }
+
+  if (!v.ok) c = Math.min(c, 0.3);
+  if (!row.evidence?.quote) c = Math.min(c, 0.6);
+
+  return Math.max(0, Math.min(1, Math.round(c * 100) / 100));
+}
+
+// ---------------------------------------------------------------------------
 // Accuracy report — grade an extraction against hand-verified data.
 // ---------------------------------------------------------------------------
 

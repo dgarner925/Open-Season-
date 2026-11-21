@@ -59,8 +59,22 @@ export const windowItem = (keys: string[]) => ({
     results_expected_at: { type: ['string', 'null'] },
     fee_summary: { type: ['string', 'null'] },
     application_url: { type: ['string', 'null'] },
+    // Asked for from 2026-11-21. Without these two the proposal reached the
+    // review queue with confidence NULL, approve_clean_reviews skipped it by
+    // construction, and every draw deadline needed a human. The quote is also
+    // the only grounding available when the source is a PDF.
+    confidence: { type: 'number' },
+    evidence: {
+      type: 'object',
+      additionalProperties: false,
+      properties: {
+        page: { type: ['integer', 'null'] },
+        quote: { type: ['string', 'null'] },
+      },
+      required: ['page', 'quote'],
+    },
   },
-  required: ['species', 'zone', 'season_year', 'name', 'opens_at', 'closes_at', 'results_expected_at', 'fee_summary', 'application_url'],
+  required: ['species', 'zone', 'season_year', 'name', 'opens_at', 'closes_at', 'results_expected_at', 'fee_summary', 'application_url', 'confidence', 'evidence'],
 });
 
 export const regItem = (keys: string[]) => ({

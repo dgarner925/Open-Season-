@@ -10,8 +10,13 @@ import {
   scoreConfidence,
   seasonIdentity,
   validateSeason,
+  dateRenderings,
+  groundDates,
+  scoreWindowConfidence,
+  validateWindow,
   type CurrentSeason,
   type ExtractedSeason,
+  type ExtractedWindow,
 } from './extraction';
 
 const season = (over: Partial<ExtractedSeason> = {}): ExtractedSeason => ({
@@ -297,5 +302,146 @@ describe('dropSummarySpans', () => {
   it('leaves rows with unusable dates alone', () => {
     const rows = [row(null, null, { label: 'TBA' }), row('2026-10-17', '2026-11-01')];
     expect(dropSummarySpans(rows).dropped).toEqual([]);
+  });
+});
+
+
+// ---------------------------------------------------------------------------
+// Application windows
+// ---------------------------------------------------------------------------
+
+const win = (over: Partial<ExtractedWindow> = {}): ExtractedWindow => ({
+  species: 'elk',
+  zone: null,
+  season_year: 2027,
+  name: 'Primary Draw',
+  opens_at: '2027-03-01',
+  closes_at: '2027-04-07',
+  results_expected_at: null,
+  fee_summary: null,
+  application_url: null,
+  confidence: 0.9,
+  evidence: { page: null, quote: 'Applications accepted March 1 through April 7, 2027.' },
+  ...over,
+});
+
+describe('validateWindow', () => {
+  it('accepts a well-formed window', () => {
+    expect(validateWindow(win()).ok).toBe(true);
+  });
+
+  it('rejects a window with no closing date', () => {
+    const v = validateWindow(win({ closes_at: null }));
+    expect(v.ok).toBe(false);
+    expect(v.errors.join(' ')).toContain('nothing to apply by');
+  });
+
+  it('rejects a deadline that precedes its opening', () => {
+    const v = validateWindow(win({ opens_at: '2027-04-07', closes_at: '2027-03-01' }));
+    expect(v.errors.join(' ')).toContain('precedes');
+  });
+
+  it('rejects results that land before the deadline', () => {
+    const v = validateWindow(win({ results_expected_at: '2027-03-15' }));
+    expect(v.errors.join(' ')).toContain('results');
+  });
+
+  it('rejects a paraphrased evidence quote', () => {
+    const v = validateWindow(win({
+      evidence: { page: null, quote: Array.from({ length: 30 }, () => 'word').join(' ') },
+    }));
+    expect(v.errors.join(' ')).toContain('25 words');
+  });
+
+  it('normalises the dates it validated', () => {
+    expect(validateWindow(win()).dates).toEqual({
+      opens: '2027-03-01', closes: '2027-04-07', results: null,
+    });
+  });
+});
+
+describe('dateRenderings', () => {
+  it('covers the ways an agency prints one day', () => {
+    const r = dateRenderings('2027-04-07');
+    expect(r).toContain('April 7, 2027');
+    expect(r).toContain('Apr 7');
+    expect(r).toContain('4/7/2027');
+    expect(r).toContain('04/07/2027');
+    expect(r).toContain('2027-04-07');
+  });
+
+  it('never renders a different day', () => {
+    expect(dateRenderings('2027-04-07').join(' ')).not.toContain('April 8');
+  });
+});
+
+describe('groundDates', () => {
+  const page = 'Elk applications open March 1, 2027 and close on Apr. 7, 2027. Results posted later.';
+
+  it('finds every date the page states, however it is written', () => {
+    const g = groundDates(page, null, ['2027-03-01', '2027-04-07']);
+    expect(g.basis).toBe('document');
+    expect(g.missing).toEqual([]);
+    expect(g.found).toEqual(['2027-03-01', '2027-04-07']);
+  });
+
+  it('reports a date the page does not state', () => {
+    const g = groundDates(page, null, ['2027-04-09']);
+    expect(g.missing).toEqual(['2027-04-09']);
+    expect(g.found).toEqual([]);
+  });
+
+  it('falls back to the model quote when there is no page text (a PDF)', () => {
+    const g = groundDates(null, 'close on April 7, 2027', ['2027-04-07']);
+    expect(g.basis).toBe('quote');
+    expect(g.missing).toEqual([]);
+  });
+
+  it('reports no basis at all when there is neither', () => {
+    expect(groundDates(null, null, ['2027-04-07']).basis).toBe('none');
+  });
+
+  it('returns a snippet of the page around what it matched', () => {
+    const g = groundDates(page, null, ['2027-03-01']);
+    expect(g.quote).toBeTruthy();
+    expect(g.quote!).toContain('March 1, 2027');
+  });
+
+  it('is not fooled by punctuation or spacing', () => {
+    const g = groundDates('deadline  Apr.  7 ,  2027', null, ['2027-04-07']);
+    expect(g.missing).toEqual([]);
+  });
+});
+
+describe('scoreWindowConfidence', () => {
+  const score = (over: Partial<ExtractedWindow>, page: string | null) => {
+    const row = win(over);
+    const v = validateWindow(row);
+    const g = groundDates(page, row.evidence?.quote ?? null,
+      [row.opens_at, row.closes_at, row.results_expected_at]);
+    return scoreWindowConfidence(row, v, g);
+  };
+
+  it('clears the auto-approve gate when the page states every date', () => {
+    expect(score({}, 'open March 1, 2027 close April 7, 2027')).toBeGreaterThanOrEqual(0.85);
+  });
+
+  it('refuses a date the page does not contain, however sure the model is', () => {
+    expect(score({ confidence: 1 }, 'open March 1, 2027')).toBeLessThanOrEqual(0.3);
+  });
+
+  it('keeps a PDF below the gate even when the quote agrees', () => {
+    const s = score({ evidence: { page: 3, quote: 'March 1, 2027 to April 7, 2027' } }, null);
+    expect(s).toBeLessThanOrEqual(0.8);
+    expect(s).toBeGreaterThan(0.3);
+  });
+
+  it('refuses a window that failed validation', () => {
+    expect(score({ closes_at: null }, 'open March 1, 2027')).toBeLessThanOrEqual(0.3);
+  });
+
+  it('caps a row with no evidence quote', () => {
+    expect(score({ evidence: null }, 'open March 1, 2027 close April 7, 2027'))
+      .toBeLessThanOrEqual(0.6);
   });
 });

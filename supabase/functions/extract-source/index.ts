@@ -25,6 +25,9 @@ import {
   normalizeLabel,
   scoreConfidence,
   validateSeason,
+  groundDates,
+  scoreWindowConfidence,
+  validateWindow,
 } from '../_shared/extraction.ts';
 import { staleProposal } from '../_shared/licence_year.ts';
 import { orderDrawSources, orderGapSources, worstPriorityBySource } from '../_shared/gap_order.ts';
@@ -470,12 +473,61 @@ async function processSource(
       results_expected_at, fee_summary: row.fee_summary,
       application_url: row.application_url ?? source.url, source_id: source.id,
     };
+
+    // Grade the proposal, which until 2026-11-21 nothing did. A window arrived
+    // with confidence NULL, and approve_clean_reviews only ever considers rows
+    // that HAVE a confidence -- so no draw deadline could auto-approve, ever.
+    //
+    // Graded on grounding first: `doc` is the page this worker already
+    // fetched, so asking whether it literally contains these dates costs
+    // nothing and is a far harder test than the model's own certainty. A PDF
+    // has no text here, so it falls back to the model's quote and is capped
+    // below the auto-approve gate on purpose.
+    const wv = validateWindow(row);
+    const grounding = groundDates(
+      doc?.type === 'text' ? (doc.text as string) : null,
+      (row.evidence as { quote?: string } | null)?.quote ?? null,
+      [opens_at, closes_at, results_expected_at],
+    );
+    const wConfidence = scoreWindowConfidence(row, wv, grounding);
+
+    // Same stale guard the seasons path has: grounding only asks whether the
+    // page says this, and a mirror a year out of date says yes about last
+    // cycle's deadline.
+    const wStale = staleProposal(
+      { seasonYear: row.season_year, closeDate: closes_at,
+        quote: (row.evidence as { quote?: string } | null)?.quote ?? null },
+      today,
+    );
+    if (wStale.stale) {
+      t.stale++;
+      if (t.stale_reasons.length < 10) {
+        t.stale_reasons.push(`${row.species} ${row.name ?? 'draw'} ${closes_at ?? '?'}: ${wStale.reason}`);
+      }
+      continue;
+    }
+
+    const wMeta = {
+      confidence: wConfidence,
+      evidence: {
+        page: (row.evidence as { page?: number } | null)?.page ?? null,
+        quote: (row.evidence as { quote?: string } | null)?.quote ?? null,
+        grounded_in: grounding.basis,
+        dates_found: grounding.found,
+        dates_not_found: grounding.missing,
+        page_snippet: grounding.quote,
+      },
+      validation_errors: grounding.missing.length
+        ? [...wv.errors, `not found on the page: ${grounding.missing.join(', ')}`]
+        : wv.errors,
+    };
+
     if (!current) {
       if (await pendingExists('application_windows', null, { state_id: source.state_id, species_id, season_year: row.season_year, name: row.name })) { t.skipped++; continue; }
-      await propose(t, 'created', { target_table: 'application_windows', change_type: 'create', proposed_payload: payload, source_id: source.id, extraction_run_id: runId });
+      await propose(t, 'created', { target_table: 'application_windows', change_type: 'create', proposed_payload: payload, source_id: source.id, extraction_run_id: runId, ...wMeta });
     } else if (current.closes_at !== closes_at || current.opens_at !== opens_at) {
       if (await pendingExists('application_windows', current.id, {})) { t.skipped++; continue; }
-      await propose(t, 'updated', { target_table: 'application_windows', change_type: 'update', target_id: current.id, proposed_payload: payload, current_snapshot: current, source_id: source.id, extraction_run_id: runId });
+      await propose(t, 'updated', { target_table: 'application_windows', change_type: 'update', target_id: current.id, proposed_payload: payload, current_snapshot: current, source_id: source.id, extraction_run_id: runId, ...wMeta });
     } else { t.unchanged++; }
   }
 
