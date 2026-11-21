@@ -3,8 +3,7 @@ import { Redirect, Tabs, useRouter } from 'expo-router';
 import { useEffect } from 'react';
 import { ActivityIndicator, StyleSheet, View, type ColorValue } from 'react-native';
 import { useAuth } from '@/providers/AuthProvider';
-import { useBrowseStateCode } from '@/lib/browseState';
-import { useNeedsSetup } from '@/hooks/useNeedsSetup';
+import { useAppGate } from '@/hooks/useAppGate';
 import { pushPermissionState, syncPushToken } from '@/lib/push';
 import { useFollows } from '@/features/follows/queries';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -17,9 +16,8 @@ function icon(base: keyof typeof Ionicons.glyphMap) {
 }
 
 export default function TabsLayout() {
-  const { loading, session } = useAuth();
-  const { code: browseCode, loading: browseLoading } = useBrowseStateCode();
-  const { needsSetup, loading: setupLoading } = useNeedsSetup();
+  const { session } = useAuth();
+  const gate = useAppGate();
 
   const router = useRouter();
   const { data: follows = [] } = useFollows();
@@ -58,7 +56,10 @@ export default function TabsLayout() {
     };
   }, [userId, follows.length, router]);
 
-  if (loading || browseLoading || setupLoading) {
+  // The decision lives in useAppGate so (otw) cannot answer it differently.
+  // What is rendered while it waits stays here: the spinner is copper in the
+  // woods, and river on the water.
+  if (gate.status === 'loading') {
     return (
       <View style={styles.gate}>
         <ActivityIndicator color={lang.color.copper} size="large" />
@@ -66,26 +67,7 @@ export default function TabsLayout() {
     );
   }
 
-  // The tabs used to redirect to sign-in with no session, and to onboarding
-  // with no `onboarded_at`. Both are gone: RLS already lets `anon` read every
-  // published season, window and regulation summary, so the gate was purely
-  // client-side and cost us every install that wasn't ready to make an account
-  // first. Onboarding is now entered on purpose (Profile -> Set up your hunts),
-  // not by redirect.
-  //
-  // A fresh install now opens on sign-in (David, 2026-11-08) rather than the
-  // state picker. The door stays unlocked: "Look around first" on that screen
-  // goes to the picker, and from there everything reads without an account.
-  // It must not point back at the tabs, or this redirect bounces it straight
-  // back to sign-in.
-  if (!session && !browseCode) return <Redirect href="/(auth)/sign-in" />;
-
-  // A brand-new account goes through setup once, so the how-it-works steps
-  // are the first thing it meets rather than an empty Home (David,
-  // 2026-11-08). Only ever once, and only for an account made in the last
-  // day: see useNeedsSetup for why each condition is there, and why "Skip
-  // for now" does not land straight back here.
-  if (needsSetup) return <Redirect href="/onboarding" />;
+  if (gate.status === 'redirect') return <Redirect href={gate.href} />;
 
   return (
     <Tabs
