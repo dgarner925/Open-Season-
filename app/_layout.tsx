@@ -9,6 +9,16 @@ import {
   InstrumentSerif_400Regular,
   InstrumentSerif_400Regular_Italic,
 } from '@expo-google-fonts/instrument-serif';
+// "On the Water" sets its headlines, section titles and plate names in IM Fell
+// English. Loaded here with the rest because useFonts holds the splash until
+// every face is ready -- a mode the user can reach from the first screen must
+// not arrive with its type missing. Small caps is a sibling package; that face
+// has no italic.
+import {
+  IMFellEnglish_400Regular,
+  IMFellEnglish_400Regular_Italic,
+} from '@expo-google-fonts/im-fell-english';
+import { IMFellEnglishSC_400Regular } from '@expo-google-fonts/im-fell-english-sc';
 import { useFonts } from 'expo-font';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
@@ -31,6 +41,9 @@ export default function RootLayout() {
     Archivo_700Bold,
     InstrumentSerif_400Regular,
     InstrumentSerif_400Regular_Italic,
+    IMFellEnglish_400Regular,
+    IMFellEnglish_400Regular_Italic,
+    IMFellEnglishSC_400Regular,
   });
 
   // Hold the native splash (configured via expo-splash-screen) until the bespoke
