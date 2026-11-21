@@ -34,7 +34,13 @@ export function useSpecies() {
   return useQuery({
     queryKey: ['species'],
     queryFn: async (): Promise<SpeciesRow[]> => {
-      const { data, error } = await supabase.from('species').select('*').order('sort_order');
+      // RLS already hides the other pursuit's species, but a query that
+      // relies on a policy to mean the right thing breaks silently the day
+      // the policy is relaxed -- which is exactly what launching fishing
+      // does. So ask for what this screen actually wants.
+      const { data, error } = await supabase.from('species').select('*')
+        .eq('pursuit', 'hunting')
+        .order('sort_order');
       if (error) throw error;
       return data ?? [];
     },

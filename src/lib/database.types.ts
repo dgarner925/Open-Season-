@@ -140,11 +140,18 @@ export type PointBalanceRow = Timestamps & {
   notes: string | null;
 };
 
+/** Hunting or fishing. The coarse split; `category` is the fine-grained group
+ *  within it (big_game, upland, trout_salmon, bass...). Every species query
+ *  should filter on this: relying on the RLS policy to mean the right thing
+ *  breaks the day fishing launches and the policy is relaxed. */
+export type Pursuit = 'hunting' | 'fishing';
+
 export type SpeciesRow = {
   id: string;
   key: string;
   name: string;
   category: string | null;
+  pursuit: Pursuit;
   sort_order: number;
   created_at: string;
 };

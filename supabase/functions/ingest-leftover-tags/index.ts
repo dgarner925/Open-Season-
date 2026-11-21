@@ -713,7 +713,7 @@ Deno.serve(async (req) => {
     for (let attempt = 1; ; attempt += 1) {
       [stateRes, speciesRes, zoneRes] = await Promise.all([
         admin.from('states').select('id, code'),
-        admin.from('species').select('id, key'),
+        admin.from('species').select('id, key').eq('pursuit', 'hunting'),
         admin.from('zones').select('id, code, state_id'),
       ]);
       const failed =

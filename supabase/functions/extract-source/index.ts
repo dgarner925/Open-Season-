@@ -603,8 +603,11 @@ Deno.serve(async (req) => {
     }
 
     const body = req.method === 'POST' ? await req.json().catch(() => ({})) : {};
-    const { sourceId, max, accuracy, state_code, season_year, gaps, draws, force } = body as {
+    const {
+      sourceId, max, accuracy, state_code, season_year, gaps, draws, force, pursuit,
+    } = body as {
       sourceId?: string; max?: number; accuracy?: boolean; state_code?: string; season_year?: number;
+      pursuit?: string;
       gaps?: boolean;
       /** Re-read only the application-deadline pages (sources.carries_draws). */
       draws?: boolean;
@@ -623,7 +626,8 @@ Deno.serve(async (req) => {
       const { data: state } = await admin.from('states').select('id,name').eq('code', code).maybeSingle();
       if (!state) return json({ error: `unknown state ${code}` }, 404);
 
-      const { data: species } = await admin.from('species').select('id, key, name').order('sort_order');
+      const { data: species } = await admin.from('species').select('id, key, name')
+        .eq('pursuit', pursuit === 'fishing' ? 'fishing' : 'hunting').order('sort_order');
       const catalog = speciesCatalog((species ?? []) as { key: string; name: string }[]);
       const schema = extractionSchema((species ?? []).map((s: any) => s.key));
       const keyById = Object.fromEntries((species ?? []).map((s: any) => [s.id, s.key]));
@@ -783,8 +787,22 @@ Deno.serve(async (req) => {
       return json({ error: 'no source due for reading matched this request' }, 404);
     }
 
+    // Which pursuit's species this run may propose.
+    //
+    // The model is handed a species list and told to use only those keys, so
+    // this list IS the vocabulary of the run. Leaving fishing species in it
+    // would let a hunting page be read as proposing fish -- and, more
+    // immediately, it bloats the prompt of every nightly run with fifty-six
+    // irrelevant options.
+    //
+    // Server-side code runs as the service role and bypasses the RLS policy
+    // that hides fishing species from clients, so this filter is the only
+    // thing standing between the two pursuits here.
+    const forPursuit = pursuit === 'fishing' ? 'fishing' : 'hunting';
+
     const runId = crypto.randomUUID();
-    const { data: species } = await admin.from('species').select('id, key, name').order('sort_order');
+    const { data: species } = await admin.from('species').select('id, key, name')
+        .eq('pursuit', forPursuit).order('sort_order');
     const speciesByKey = Object.fromEntries((species ?? []).map((s: any) => [s.key, s.id]));
 const catalog = speciesCatalog((species ?? []) as { key: string; name: string }[]);
     const schema = extractionSchema((species ?? []).map((s: any) => s.key));
