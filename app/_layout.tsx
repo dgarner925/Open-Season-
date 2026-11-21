@@ -28,9 +28,20 @@ import { queryClient } from '@/lib/queryClient';
 import { AuthProvider } from '@/providers/AuthProvider';
 import { LaunchQuote } from '@/components/LaunchQuote';
 import { PremiumProvider } from '@/providers/PremiumProvider';
+import { ModeProvider, useMode } from '@/providers/ModeProvider';
 import { HeaderBack } from '@/components/HeaderBack';
 import { NotificationRouter } from '@/lib/notificationRouting';
 import { theme } from '@/theme';
+
+/**
+ * The status bar follows the mode: light glyphs on the woods' near-black,
+ * dark glyphs on the water's creek paper. Its own component because the hook
+ * cannot be called in the component that provides the context.
+ */
+function ModeStatusBar() {
+  const { mode } = useMode();
+  return <StatusBar style={mode === 'otw' ? 'dark' : 'light'} />;
+}
 
 export default function RootLayout() {
   const [launchQuoteDone, setLaunchQuoteDone] = useState(false);
@@ -54,8 +65,9 @@ export default function RootLayout() {
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
         <PremiumProvider>
+        <ModeProvider>
         <SafeAreaProvider>
-          <StatusBar style="light" />
+          <ModeStatusBar />
           <NotificationRouter />
           <Stack
             screenOptions={{
@@ -76,6 +88,7 @@ export default function RootLayout() {
           </Stack>
           {!launchQuoteDone ? <LaunchQuote onDone={() => setLaunchQuoteDone(true)} /> : null}
         </SafeAreaProvider>
+        </ModeProvider>
         </PremiumProvider>
       </AuthProvider>
     </QueryClientProvider>
