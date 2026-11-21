@@ -13,6 +13,7 @@ import { openExternalUrl } from '@/lib/openUrl';
 import { Engraving, engravingFor } from '@/components/Engraving';
 import { useClearAvatar, useSetAvatar } from '@/features/profile/avatar';
 import { lang } from '@/theme/tokens';
+import { APP_NAME, MODES_TAGLINE } from '@/content/brand';
 
 const { color, space, type } = lang;
 
@@ -74,9 +75,16 @@ function Colophon() {
   return (
     <View style={styles.colophon}>
       {colophonArt ? <Engraving data={colophonArt} size={34} color={color.dim} opacity={0.55} /> : null}
-      <Micro>
-        {`Open Season · Vol. ${Constants.expoConfig?.version ?? '?'} (${Constants.expoConfig?.ios?.buildNumber ?? '—'})`}
-      </Micro>
+      {/* The full brand gets its own line rather than extending the version
+          line. Together they run to about sixty characters, which wraps in the
+          middle of a build number on a small phone. Their own gap, because the
+          colophon's 12pt would read as two unrelated notes. */}
+      <View style={styles.colophonLines}>
+        <Micro>{MODES_TAGLINE}</Micro>
+        <Micro>
+          {`${APP_NAME} · Vol. ${Constants.expoConfig?.version ?? '?'} (${Constants.expoConfig?.ios?.buildNumber ?? '—'})`}
+        </Micro>
+      </View>
     </View>
   );
 }
@@ -384,6 +392,7 @@ const styles = StyleSheet.create({
   deleteLabel: { fontFamily: type.uiMedium, fontSize: 14, color: '#c96f5a' },
 
   colophon: { alignItems: 'center', gap: space.x12, marginTop: space.x32 },
+  colophonLines: { alignItems: 'center', gap: space.x4 },
 
   pressed: { opacity: 0.6 },
 });

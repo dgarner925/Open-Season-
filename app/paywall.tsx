@@ -7,6 +7,7 @@ import { RC_API_KEY, usePremium } from '@/providers/PremiumProvider';
 import { useAuth } from '@/providers/AuthProvider';
 import { openExternalUrl } from '@/lib/openUrl';
 import { lang } from '@/theme/tokens';
+import { MODES_TAGLINE, PRO_NAME } from '@/content/brand';
 
 const { color, space } = lang;
 
@@ -102,9 +103,14 @@ export default function Paywall() {
 
   return (
     <Screen scroll>
-      <Stack.Screen options={{ headerShown: true, title: 'Open Season Pro' }} />
+      <Stack.Screen options={{ headerShown: true, title: PRO_NAME }} />
 
-      <Sentence tone="bone" style={{ marginTop: space.x16 }}>
+      {/* The product name stays in the header, where it is tied to what people
+          already subscribe to. The brand sits under it as a micro label: it
+          says what the one subscription now covers, without renaming it. */}
+      <Micro style={{ marginTop: space.x16 }}>{MODES_TAGLINE}</Micro>
+
+      <Sentence tone="bone" style={{ marginTop: space.x8 }}>
         Every date in the app is free. Pro remembers them for you.
       </Sentence>
 

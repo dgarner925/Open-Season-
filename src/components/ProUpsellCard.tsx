@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { usePremium } from '@/providers/PremiumProvider';
 import { useAuth } from '@/providers/AuthProvider';
 import { lang } from '@/theme/tokens';
+import { MODES_TAGLINE, PRO_NAME } from '@/content/brand';
 
 const { color, space, type, radius } = lang;
 
@@ -33,7 +34,12 @@ export function ProUpsellCard({ context = 'home' }: { context?: 'home' | 'alerts
     >
       <Ionicons name="notifications-off-outline" size={20} color={color.copper} />
       <View style={{ flex: 1, gap: 2 }}>
-        <Text style={styles.title}>Open Season Pro</Text>
+        <Text style={styles.title}>{PRO_NAME}</Text>
+        {/* The product name is unchanged -- it is tied to a RevenueCat product
+            and to what people already pay for. The brand goes underneath it as
+            a micro label, which is where the rename belongs: it says what the
+            subscription now covers without renaming the subscription. */}
+        <Text style={styles.brand}>{MODES_TAGLINE.toUpperCase()}</Text>
         <Text style={styles.copy}>{copy}</Text>
       </View>
       <Ionicons name="chevron-forward" size={16} color={color.dim} />
@@ -55,5 +61,14 @@ const styles = StyleSheet.create({
     marginTop: space.x16,
   },
   title: { fontFamily: type.uiSemiBold, fontSize: type.size.body, color: color.bone },
+  // The micro label: a zone's name, not decoration. Tracked and dim so it
+  // sits under the product name without competing with the sentence below.
+  brand: {
+    fontFamily: type.uiMedium,
+    fontSize: type.size.micro,
+    letterSpacing: type.microTracking,
+    color: color.dim,
+    marginTop: 1,
+  },
   copy: { fontFamily: type.ui, fontSize: 13, lineHeight: 19, color: color.muted },
 });
