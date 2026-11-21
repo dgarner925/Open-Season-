@@ -228,11 +228,27 @@ async function extract(
   const textBlock = (data.content ?? []).find((b: any) => b.type === 'text');
   if (!textBlock) throw new Error('no text block in model response');
   const parsed = JSON.parse(textBlock.text);
-  return {
-    seasons: parsed.seasons ?? [],
-    application_windows: parsed.application_windows ?? [],
-    regulation_summaries: parsed.regulation_summaries ?? [],
+  // Pass through every array the model returned, not a fixed list of keys.
+  //
+  // This used to return only the three hunting keys. The fishing schema
+  // requires `waters` and `fishing_rules`, and the model returned them
+  // correctly -- this function dropped them on the floor, so every fishing
+  // extraction ever run reported zero and processFishingSource blamed it on
+  // the page being saltwater. A hardcoded default that reads as data.
+  //
+  // Deriving the keys from the response means the next pursuit added to the
+  // schema does not have to remember to edit a list down here.
+  const out: Record<string, any[]> = {
+    seasons: [],
+    application_windows: [],
+    regulation_summaries: [],
+    waters: [],
+    fishing_rules: [],
   };
+  for (const [k, v] of Object.entries(parsed ?? {})) {
+    if (Array.isArray(v)) out[k] = v;
+  }
+  return out;
 }
 
 // Resolve a zone by name within a state, creating it if missing. Returns null
@@ -370,13 +386,22 @@ async function processFishingSource(
   const waters = (out.waters ?? []) as any[];
   const rules = (out.fishing_rules ?? []) as any[];
 
-  // A page the model judged to be saltwater returns both lists empty. That is
-  // a real and correct answer, not a failure, and it is the only defence
-  // against the page whose title says freshwater and whose contents do not.
+  // Both lists empty means the model read the page and found no freshwater
+  // water or rule on it. That is usually a saltwater page, which FISHING_SYSTEM
+  // explicitly instructs it to return empty for -- a real and correct answer.
+  //
+  // But it is NOT proof of saltwater, and this branch must never again say it
+  // is. For most of this feature's life `extract` silently dropped the two
+  // fishing keys, so every page landed here and was reported as saltwater
+  // while the model's own correct extraction was thrown away. The note now
+  // says what was observed, not what it is guessed to mean, and the model's
+  // raw key presence is reported so an empty result can be told apart from a
+  // result that never arrived.
   if (waters.length === 0 && rules.length === 0) {
     return {
       source: source.url, pursuit: 'fishing', waters: 0, rules: 0,
-      note: 'nothing freshwater on this page',
+      note: 'model returned no freshwater waters or rules (usually saltwater)',
+      returned_keys: Object.keys(out).filter((k) => (out as any)[k]?.length > 0),
     };
   }
 
