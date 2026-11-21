@@ -126,9 +126,65 @@ const BROWSER_HEADERS: Record<string, string> = {
  * the model is unchanged, so this costs nothing and alters no extraction.
  * Null for a PDF, which has no markup to cut.
  */
+/**
+ * Cut a page down to the part one source is responsible for.
+ *
+ * North Carolina's warm-water page is a single 106-row table -- every other
+ * page that succeeded read at most 119 rows across its whole document, and
+ * Mississippi took 138s of a 150s budget doing it. NC killed the worker three
+ * times, before the model's response was even parsed.
+ *
+ * There is no second URL to point at and no heading to cut on: the page has
+ * exactly two headings and one table. So a source may carry markers naming
+ * where its share of the page starts and ends.
+ *
+ * THROWS when a marker is absent. A marker that silently fails to match would
+ * hand the model the WHOLE page while the source row claims it read a part --
+ * two sources would then propose the same rows twice and nothing would say so.
+ * That is the defect class this codebase keeps paying for; not here.
+ */
+function sliceHtml(
+  html: string,
+  slice: { from?: string | null; to?: string | null } | undefined,
+  url: string,
+): string {
+  const from = slice?.from?.trim() || null;
+  const to = slice?.to?.trim() || null;
+  if (!from && !to) return html;
+
+  let start = 0;
+  if (from) {
+    start = html.indexOf(from);
+    if (start < 0) {
+      throw new Error(
+        `slice_from ${JSON.stringify(from)} is not on ${url}: the page changed, ` +
+        `and reading it whole would duplicate the other half's rows`,
+      );
+    }
+  }
+  let end = html.length;
+  if (to) {
+    const at = html.indexOf(to, start + (from ? from.length : 0));
+    if (at < 0) {
+      throw new Error(
+        `slice_to ${JSON.stringify(to)} is not on ${url} after slice_from: the page changed`,
+      );
+    }
+    end = at;
+  }
+  if (end <= start) {
+    throw new Error(`slice_to precedes slice_from on ${url}`);
+  }
+  return html.slice(start, end);
+}
+
 async function fetchDocumentBlock(
   url: string,
+  slice?: { from?: string | null; to?: string | null },
 ): Promise<{ doc: any; hash: string | null; blocks: string[] | null }> {
+  // A URL fragment is never sent to a server, so two sources may share a page
+  // and differ only by the part of it they read. That is what makes a 106-row
+  // table into two sources without inventing a second URL.
   const res = await fetch(url, { headers: BROWSER_HEADERS });
   if (!res.ok) throw new Error(`fetch ${url} failed: ${res.status}`);
   if (url.toLowerCase().endsWith('.pdf') || res.headers.get('content-type')?.includes('pdf')) {
@@ -145,7 +201,7 @@ async function fetchDocumentBlock(
       blocks: null,
     };
   }
-  const html = await res.text();
+  const html = sliceHtml(await res.text(), slice, url);
   const text = html.replace(/<script[\s\S]*?<\/script>/gi, ' ').replace(/<style[\s\S]*?<\/style>/gi, ' ')
     .replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').slice(0, 120_000);
   // Hash the NORMALISED page, not the raw HTML: agency sites stamp a render
@@ -397,7 +453,9 @@ async function processFishingSource(
 ) {
   await admin.from('sources').update({ last_extracted_at: new Date().toISOString() })
     .eq('id', source.id);
-  const { doc, hash, blocks } = await fetchDocumentBlock(source.url);
+  const { doc, hash, blocks } = await fetchDocumentBlock(source.url, {
+    from: source.slice_from, to: source.slice_to,
+  });
   const text = doc?.type === 'text' ? (doc.text as string) : null;
 
   const out = await extract(doc, source.agency_name, catalog, schema, FISHING_SYSTEM);
