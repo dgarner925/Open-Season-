@@ -400,8 +400,14 @@ async function processFishingSource(
   if (waters.length === 0 && rules.length === 0) {
     return {
       source: source.url, pursuit: 'fishing', waters: 0, rules: 0,
-      note: 'model returned no freshwater waters or rules (usually saltwater)',
+      note: 'model returned no freshwater waters or rules',
       returned_keys: Object.keys(out).filter((k) => (out as any)[k]?.length > 0),
+      // How much page the model actually got. Without this, "the edge was
+      // served an empty page" and "the model read the page and correctly
+      // declined" produce an identical response, and the difference is the
+      // whole diagnosis. A few hundred chars means we were served a shell;
+      // tens of thousands means the refusal is the model's judgement.
+      doc_chars: text?.length ?? 0,
     };
   }
 
