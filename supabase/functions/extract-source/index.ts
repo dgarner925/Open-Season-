@@ -322,6 +322,15 @@ async function propose(
   console.error('[extract] review_queue refused a proposal:', why);
 }
 
+/** The model writes "" where a document says nothing (the schema has no room
+ *  for another nullable field -- see fishing_prompt.ts). Turn it back into
+ *  null at the boundary, so nothing downstream has to know that. */
+function blankToNull(v: unknown): string | null {
+  if (typeof v !== 'string') return null;
+  const t = v.trim();
+  return t === '' ? null : t;
+}
+
 /** A stable, readable slug, used as the water's identity within a state and
  *  as its URL segment on the site. */
 function slugify(name: string): string {
@@ -412,7 +421,7 @@ async function processFishingSource(
     if (!name) continue;
     // A water is grounded by its own name appearing on the page, and by its
     // extent being quoted rather than summarised.
-    const g = groundFishingRule(blocks, text, w.evidence?.quote ?? null, name, [], []);
+    const g = groundFishingRule(blocks, text, blankToNull(w.evidence?.quote), name, [], []);
     const errors: string[] = [];
     if (g.nameMatch === 0) errors.push('the page does not name this water');
     if (w.extent_note && text && !text.includes(String(w.extent_note).slice(0, 40))) {
@@ -429,20 +438,27 @@ async function processFishingSource(
       name,
       slug: slugify(name),
       kind: w.kind ?? 'other',
-      extent_note: w.extent_note ?? null,
-      parent_water_name: w.parent_water ?? null,
-      county: w.county ?? null,
+      extent_note: blankToNull(w.extent_note),
+      parent_water_name: blankToNull(w.parent_water),
+      county: blankToNull(w.county),
       source_id: source.id,
     }, Math.round(c * 100) / 100, {
       grounded_in: g.basis,
       name_match: g.nameMatch,
       row_text: g.rowText,
-      page_snippet: w.evidence?.quote ?? null,
+      page_snippet: blankToNull(w.evidence?.quote),
     }, errors)) proposedWaters++;
   }
 
   for (const r of rules) {
-    const v = validateFishingRule(r);
+    // Normalise the blanks before validating, or "" reads as a malformed date.
+    const v = validateFishingRule({
+      ...r,
+      water: blankToNull(r.water),
+      notes: blankToNull(r.notes),
+      effective_from: blankToNull(r.effective_from),
+      effective_to: blankToNull(r.effective_to),
+    });
     const keys: string[] = Array.isArray(r.species) ? r.species : [];
     const unknown = keys.filter((k) => !speciesByKey[k]);
     const errors = [...v.errors];
@@ -451,8 +467,9 @@ async function processFishingSource(
     // What this rule is ABOUT, for grounding: its water if it has one,
     // otherwise the species it covers. A statewide limit has no water to
     // anchor on, so the species names carry it.
-    const subject: string | null = r.water
-      ? String(r.water)
+    const water = blankToNull(r.water);
+    const subject: string | null = water
+      ? water
       : keys.length > 0
         ? keys.map((k) => k.replace(/-/g, ' ')).join(' ')
         : null;
@@ -463,9 +480,11 @@ async function processFishingSource(
       r.max_length_inches ?? null,
       r.trophy_min_length_inches ?? null,
     ];
+    const from = blankToNull(r.effective_from);
+    const to = blankToNull(r.effective_to);
     const g = groundFishingRule(
-      blocks, text, r.evidence?.quote ?? null, subject, numbers,
-      [r.effective_from ?? null, r.effective_to ?? null],
+      blocks, text, blankToNull(r.evidence?.quote), subject, numbers,
+      [from, to],
     );
     if (g.numbersMissing.length > 0) {
       errors.push(
@@ -475,11 +494,13 @@ async function processFishingSource(
       errors.push(`not found on the page: ${g.datesMissing.join(', ')}`);
     }
 
-    const confidence = scoreFishingRuleConfidence(r, { ok: errors.length === 0, errors }, g);
+    const confidence = scoreFishingRuleConfidence(
+      { ...r, evidence: { page: r.evidence?.page ?? null, quote: blankToNull(r.evidence?.quote) } },
+      { ok: errors.length === 0, errors }, g);
 
     if (await propose('fishing_rules', {
       state_id: source.state_id,
-      water_name: r.water ?? null,
+      water_name: water,
       species_keys: keys,
       limit_basis: r.limit_basis ?? 'aggregate',
       season_year: r.season_year ?? null,
@@ -492,9 +513,9 @@ async function processFishingSource(
       trophy_allowance: r.trophy_allowance ?? null,
       trophy_min_length_inches: r.trophy_min_length_inches ?? null,
       restrictions: r.restrictions ?? [],
-      effective_from: r.effective_from ?? null,
-      effective_to: r.effective_to ?? null,
-      notes: r.notes ?? null,
+      effective_from: from,
+      effective_to: to,
+      notes: blankToNull(r.notes),
       source_id: source.id,
     }, confidence, {
       grounded_in: g.basis,
@@ -505,7 +526,7 @@ async function processFishingSource(
       numbers_not_found: g.numbersMissing,
       dates_found: g.datesFound,
       dates_not_found: g.datesMissing,
-      page_snippet: r.evidence?.quote ?? null,
+      page_snippet: blankToNull(r.evidence?.quote),
     }, errors)) proposedRules++;
   }
 

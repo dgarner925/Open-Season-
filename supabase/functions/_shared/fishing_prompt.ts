@@ -14,6 +14,17 @@
  * harness can send byte-identical requests to the ones production sends.
  */
 
+/**
+ * Structured outputs allow at most 16 union-typed (nullable) parameters in one
+ * schema; the first cut of this one had 17 and every request came back 400
+ * "too many parameters with union types ... exponential compilation cost".
+ *
+ * So TEXT fields are plain strings and an EMPTY STRING means "the document
+ * does not say". Numbers stay nullable, because "" is not a number and 0 is a
+ * real limit -- a zero daily limit means you may not keep one, which is the
+ * opposite of unknown. That split keeps the schema at eight unions, with room
+ * to add fields later without hitting the ceiling again.
+ */
 export const speciesEnum = (keys: string[]) => ({ type: 'string', enum: keys });
 
 /** The restrictions a state can place on taking fish. Must match the CHECK on
@@ -48,17 +59,17 @@ export const waterItem = () => ({
     // The state's own words. On a regulated stretch these landmarks ARE the
     // regulation -- "450 feet upstream of the Sandy Bottom Canoe Access" --
     // and paraphrasing them paraphrases the law.
-    extent_note: { type: ['string', 'null'] },
+    extent_note: { type: 'string' },
     // The river a named stretch belongs to, by name, or null.
-    parent_water: { type: ['string', 'null'] },
-    county: { type: ['string', 'null'] },
+    parent_water: { type: 'string' },
+    county: { type: 'string' },
     confidence: { type: 'number' },
     evidence: {
       type: 'object',
       additionalProperties: false,
       properties: {
         page: { type: ['integer', 'null'] },
-        quote: { type: ['string', 'null'] },
+        quote: { type: 'string' },
       },
       required: ['page', 'quote'],
     },
@@ -76,7 +87,7 @@ export const fishingRuleItem = (keys: string[]) => ({
     species: { type: 'array', items: speciesEnum(keys) },
     limit_basis: { type: 'string', enum: ['aggregate', 'per_species'] },
     // The water this applies to, by name, or null for statewide.
-    water: { type: ['string', 'null'] },
+    water: { type: 'string' },
     season_year: { type: 'integer' },
 
     size_rule: {
@@ -100,17 +111,17 @@ export const fishingRuleItem = (keys: string[]) => ({
 
     // The window the RULE is in force. Null means all year. This is NOT a
     // season: see the prompt.
-    effective_from: { type: ['string', 'null'] },
-    effective_to: { type: ['string', 'null'] },
+    effective_from: { type: 'string' },
+    effective_to: { type: 'string' },
 
-    notes: { type: ['string', 'null'] },
+    notes: { type: 'string' },
     confidence: { type: 'number' },
     evidence: {
       type: 'object',
       additionalProperties: false,
       properties: {
         page: { type: ['integer', 'null'] },
-        quote: { type: ['string', 'null'] },
+        quote: { type: 'string' },
       },
       required: ['page', 'quote'],
     },
@@ -150,9 +161,15 @@ SCOPE
   "Finfish Seasons, Limits, Sizes", which reads like the main freshwater page.
   Judge by the species and the water, never by the page title.
 - Only report what you can read directly in the document. NEVER guess.
-- NEVER write editorial notes, placeholders or "TODO" text in any field. If the
-  document does not state a value, use null. Fields carry facts from the
-  document only.
+- NEVER write editorial notes, placeholders or "TODO" text in any field.
+  Fields carry facts from the document only.
+- WHEN THE DOCUMENT DOES NOT STATE A VALUE: use an EMPTY STRING "" for text
+  fields (water, notes, extent_note, parent_water, county, the effective
+  dates, the evidence quote) and null for number fields. Never write the word
+  "null", "N/A", "unknown" or "none" as text. An empty string means the
+  document is silent; it does not mean the rule is absent.
+- Numbers are different, because 0 is a real answer: a daily limit of 0 means
+  you may not keep one. Use null for a number the document does not state.
 
 A RULE WINDOW IS NOT A SEASON
 - Most freshwater fishing is open all year. Do NOT infer a closed season from a
