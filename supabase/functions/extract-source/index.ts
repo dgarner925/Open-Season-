@@ -408,6 +408,12 @@ async function processFishingSource(
   let proposedWaters = 0;
   let proposedRules = 0;
   let skipped = 0;
+  // Insert failures are counted, not just logged. A proposal that could not be
+  // written is NOT the same as a page with nothing on it, and for the whole
+  // life of this feature the two were reported identically: review_queue's
+  // target_table CHECK did not allow 'waters' or 'fishing_rules', so every
+  // insert was rejected and every page came back as waters: 0, rules: 0.
+  const insertErrors: string[] = [];
 
   const propose = async (targetTable: string, payload: any, confidence: number,
                          evidence: any, errors: string[]) => {
@@ -436,6 +442,7 @@ async function processFishingSource(
     });
     if (error) {
       console.error(`review_queue insert failed (${targetTable}):`, error.message);
+      if (insertErrors.length < 5) insertErrors.push(`${targetTable}: ${error.message}`);
       return false;
     }
     return true;
@@ -566,6 +573,12 @@ async function processFishingSource(
     rules: proposedRules,
     skipped_as_duplicate: skipped,
     read: waters.length + rules.length,
+    // Present only when writes failed. `read: 44, waters: 0` with no
+    // insert_errors means the page really held nothing we could propose;
+    // with insert_errors it means we read 44 rows and could not store them.
+    ...(insertErrors.length > 0
+      ? { insert_errors: insertErrors, insert_failures: waters.length + rules.length - proposedWaters - proposedRules - skipped }
+      : {}),
   };
 }
 
