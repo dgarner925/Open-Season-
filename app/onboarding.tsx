@@ -163,7 +163,7 @@ export default function Onboarding() {
         </Serif>
         <Sentence style={{ marginTop: space.x12, maxWidth: 320 }}>
           {step === 0
-            ? 'Season dates and draw deadlines for every state you hunt, and a nudge before each one.'
+            ? 'Season dates, draw deadlines and water conditions for every state you hunt and fish, and a nudge before each one.'
             : step === 1
               ? 'Three things, in this order.'
               : step === 2
