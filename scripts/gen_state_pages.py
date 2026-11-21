@@ -95,6 +95,13 @@ os.makedirs(OUT, exist_ok=True)
 
 TODAY = date.today().isoformat()
 
+# Typography used by the pages built below. Spelled as code points rather than
+# as literal characters so this file stays ASCII-safe through any tool that
+# re-encodes it on the way to disk.
+EN = chr(0x2013)   # en dash: date ranges
+EM = chr(0x2014)   # em dash: titles, and "no value here"
+NL = chr(10)
+
 
 def get(path):
     req = urllib.request.Request(f"{BASE}/{path}", headers={"apikey": KEY})
@@ -308,14 +315,37 @@ CTA = f"""
 states = get("states?is_active=eq.true&select=id,code,name,agency_name,license_url&order=name")
 print(f"{len(states)} active states")
 
-# Publish gate: refuse to bake dead license links into the site.
+# Publish gate, graded.
+#
+# This used to abort the entire publish on any license URL that did not answer
+# 200. Four of the last eleven weekly refreshes died that way, always on a
+# transient or bot-protected agency page -- Texas's storefront answers 503 to
+# this checker every single time. The cost of that rule was the whole site
+# going stale for a week because one of fifty links was grumpy, which is a
+# worse outcome than any bad link it prevented.
+#
+# So: a DEAD link (404/410/unresolvable) drops that one state's license block
+# and nothing else. A DEGRADED link (403/429/5xx) is kept, because those pages
+# work in a browser. Only a pile of dead links aborts, because that means the
+# data or this machine's network is broken rather than one agency's page.
 from check_links import check_license_urls  # noqa: E402
+
+SYSTEMIC_DEAD = 5
+
 print("link-health check on license URLs...")
-_failures = check_license_urls(states)
-if _failures:
-    print(f"ABORTING PUBLISH — {len(_failures)} bad license URL(s); fix or update states.license_url first:")
-    for _code, _url, _status in _failures:
-        print(f"  {_code}  {_url}  -> {_status}")
+_problems = check_license_urls(states)
+dead_links = {c for c, _u, _s, k in _problems if k == "dead"}
+_degraded = [(c, u, s) for c, u, s, k in _problems if k == "degraded"]
+for _c, _u, _s in _degraded:
+    print(f"  note: {_c} answered {_s} but is kept -- reachable in a browser")
+for _c in sorted(dead_links):
+    print(f"  note: {_c} license link is dead; its license block is omitted")
+if len(dead_links) > SYSTEMIC_DEAD:
+    print(f"ABORTING PUBLISH -- {len(dead_links)} dead license URLs is not one "
+          f"agency moving a page, it is something broken here:")
+    for _c, _u, _s, _k in _problems:
+        if _k == "dead":
+            print(f"  {_c}  {_u}  -> {_s}")
     raise SystemExit(1)
 
 seasons = get_all(
@@ -342,6 +372,60 @@ for w in windows:
     by_state_windows.setdefault(w["state_id"], []).append(w)
 
 name_by_code = {st["code"]: st["name"] for st in states}
+state_by_id = {st["id"]: st for st in states}
+
+# ---------------------------------------------------------------------------
+# Which state x species pages the data has actually earned.
+#
+# There are 1,036 state x species pairs with at least one published season, and
+# the tempting move is to publish all 1,036. Do not: 699 of them hold exactly
+# one row. A page whose whole body is one line of table is a doorway page, and
+# mass-producing 699 of them is the pattern Google demotes sitewide -- it would
+# put the fifty state pages that currently work at risk to chase pairs nobody
+# searches for ("Vermont crow season" is not a query).
+#
+# So the data decides the page count: a pair earns a page when it has either
+# several seasons (which means genuine zone/method detail worth a page of its
+# own) or an application deadline (which is the highest-intent thing this site
+# knows). Everything else stays a row on its state page, where it reads fine.
+#
+# Grouped over the WHOLE published cycle rather than only what is still open,
+# unlike the state pages above. A species page built from upcoming seasons only
+# would quietly empty itself out as the winter closes each one, and a page that
+# goes blank in February is worse than no page -- it was indexed in October.
+# Closed seasons stay, marked closed, which is also what a reader wants to know.
+MIN_SEASONS_FOR_PAGE = 2
+
+pair_seasons, pair_windows = {}, {}
+for _s in seasons:
+    pair_seasons.setdefault((_s["state_id"], _s["species"]["name"]), []).append(_s)
+for _w in windows:
+    _nm = (_w.get("species") or {}).get("name")
+    if _nm:
+        pair_windows.setdefault((_w["state_id"], _nm), []).append(_w)
+
+published_pairs = sorted(
+    k for k in set(pair_seasons) | set(pair_windows)
+    if len(pair_seasons.get(k, [])) >= MIN_SEASONS_FOR_PAGE or pair_windows.get(k))
+
+pairs_by_state, pairs_by_species = {}, {}
+for _sid, _sp in published_pairs:
+    pairs_by_state.setdefault(_sid, []).append(_sp)
+    pairs_by_species.setdefault(_sp, []).append(_sid)
+
+def pair_url(state_id, species):
+    """Where a reader goes for this species in this state.
+
+    Falls back to the state page when the pair did not earn its own, so no
+    link on this site can ever point at a page that was not written.
+    """
+    st_ = state_by_id[state_id]
+    if (state_id, species) in set(published_pairs):
+        return f"/states/{slugify(st_['name'])}/{slugify(species)}.html"
+    return f"/states/{slugify(st_['name'])}.html"
+
+print(f"{len(published_pairs)} state x species pairs earned a page "
+      f"(of {len(set(pair_seasons) | set(pair_windows))} with any data)")
 
 links = []
 for st in states:
@@ -390,7 +474,7 @@ for st in states:
         if wrows else "")
 
     agency_block = ""
-    if st["license_url"]:
+    if st["license_url"] and st["code"] not in dead_links:
         agency_block = (f"<h2>Licenses &amp; official source</h2>"
                         f"<p>Buy licenses and apply for draws through the official portal: "
                         f"<a href=\"{st['license_url']}\" rel=\"nofollow\">{st['agency_name'] or st['name']}</a>.</p>")
@@ -408,6 +492,23 @@ for st in states:
             f'<div class="nearby"><h2>Nearby states</h2>'
             f'<p class="meta">Season dates for states bordering {st["name"]}.</p>'
             f'<ul>{items_near}</ul></div>')
+
+    # Links down to this state's own species pages. Without these the species
+    # pages are orphans: in the sitemap, reachable by nobody, which is the exact
+    # mistake that left fifty state pages with one of them indexed.
+    species_block = ""
+    _mine = sorted(pairs_by_state.get(st["id"], []))
+    if _mine:
+        _items = "".join(
+            f'<li><a href="{slugify(st["name"])}/{slugify(sp)}.html">{esc(sp)}</a></li>'
+            for sp in _mine)
+        species_block = (
+            f'<div class="nearby"><h2>Dates by species</h2>'
+            f'<p class="meta">Every season, zone and method for the species '
+            f'{st["name"]} publishes in detail'
+            + (", with their application deadlines." if any(
+                pair_windows.get((st["id"], sp)) for sp in _mine) else ".")
+            + f'</p><ul>{_items}</ul></div>')
 
     # Say "draw deadlines" only on the pages that have them.
     #
@@ -437,6 +538,7 @@ for st in states:
 </header>
 {season_block}
 {window_block}
+{species_block}
 {CTA}
 {agency_block}
 {nearby_block}
@@ -444,7 +546,7 @@ for st in states:
     crumbs = [("Open Season", f"{SITE}/"),
               ("Hunting seasons by state", f"{SITE}/states/"),
               (f"{st['name']}", f"{SITE}/states/{slug}.html")]
-    with open(os.path.join(OUT, f"{slug}.html"), "w", encoding="utf-8") as f:
+    with open(os.path.join(OUT, f"{slug}.html"), "w", encoding="utf-8", newline="\n") as f:
         f.write(page(title, desc, f"{SITE}/states/{slug}.html", body,
                      modified=modified, crumbs=crumbs))
     links.append((st["name"], slug, len(ss), len(ws), modified))
@@ -457,7 +559,9 @@ items = "\n".join(
     for name, slug, ns, nw, _mod in links)
 idx_body = f"""
 <header>
-  <p class="brand"><a href="{SITE}">OPEN SEASON</a></p>
+  <p class="brand"><a href="{SITE}">OPEN SEASON</a>
+  &middot; <a href="/species/">BY SPECIES</a>
+  &middot; <a href="/draw-deadlines.html">DRAW DEADLINES</a></p>
   <h1>Hunting seasons by state, 2026–27</h1>
   <p class="meta">Current season dates and draw deadlines for all 50 states, verified against official agency sources.</p>
 </header>
@@ -467,7 +571,7 @@ idx_body = f"""
 {CTA}
 """
 newest_overall = max((m for _, _, _, _, m in links if m), default="")
-with open(os.path.join(OUT, "index.html"), "w", encoding="utf-8") as f:
+with open(os.path.join(OUT, "index.html"), "w", encoding="utf-8", newline="\n") as f:
     f.write(page("Hunting Seasons by State 2026-27 — Open Season",
                  "Hunting season dates and draw deadlines for all 50 states, verified against official sources.",
                  f"{SITE}/states/", idx_body,
@@ -475,24 +579,394 @@ with open(os.path.join(OUT, "index.html"), "w", encoding="utf-8") as f:
                  crumbs=[("Open Season", f"{SITE}/"),
                          ("Hunting seasons by state", f"{SITE}/states/")]))
 
+# ---------------------------------------------------------------------------
+# State x species pages: "colorado elk season dates", one page at a time.
+#
+# This is the volume tier, and the reason to have a website at all. Nobody
+# searches "Colorado hunting seasons"; they search for one animal in one state,
+# and until now the answer to that query was a single row buried in a fifty-row
+# table. These pages answer the question that was actually asked.
+SPECIES_OUT = os.path.join(HERE, "..", "docs", "site", "species")
+os.makedirs(SPECIES_OUT, exist_ok=True)
+
+code_to_state = {s["code"]: s for s in states}
+
+
+def sp_title(name):
+    """Title-case a stored species name for use in a page title.
+
+    "Wild turkey" -> "Wild Turkey", "Ring-necked pheasant" -> "Ring-Necked
+    Pheasant". Uppercases a letter only where one belongs -- at the start, after
+    a space, after a hyphen -- so an apostrophe inside a name survives, which
+    str.title() does not manage ("Cooper's" becomes "Cooper'S").
+    """
+    return re.sub(r"(^|[\s-])([a-z])",
+                  lambda m: m.group(1) + m.group(2).upper(), name)
+
+
+def window_status(w):
+    """Closed / Not yet open / Open now, for an application window.
+
+    Same reason the seasons table has one: these pages carry the whole cycle, so
+    a deadline that has already passed is on the page, and a date printed under
+    "Apply by" with nothing marking it closed reads as something a hunter can
+    still do.
+    """
+    if w.get("closes_at") and w["closes_at"] < TODAY:
+        return "Closed"
+    if w.get("opens_at") and w["opens_at"] > TODAY:
+        return "Not yet open"
+    return "Open now"
+
+
+def season_status(s):
+    """Open now / Upcoming / Closed.
+
+    The status column is what lets these pages carry a whole cycle instead of
+    only the part still ahead of today. "Closed" is information: somebody
+    searching in January for a season that shut in December needs to be told
+    so, not shown a blank page where the answer used to be.
+    """
+    if s["close_date"] and s["close_date"] < TODAY:
+        return "Closed"
+    if s["open_date"] and s["open_date"] > TODAY:
+        return "Upcoming"
+    return "Open now"
+
+
+# A species hub is worth writing when the animal spans enough states that the
+# cross-state table IS the content. Note this bar is about breadth, not depth:
+# coyote is one row in each of 49 states, which makes a poor per-state page and
+# an excellent "coyote season dates by state" table. The two tiers fail in
+# opposite directions, so they get opposite tests.
+MIN_STATES_FOR_HUB = 5
+species_states = {}
+for (_sid, _sp) in set(pair_seasons) | set(pair_windows):
+    species_states.setdefault(_sp, set()).add(_sid)
+hub_species = sorted(sp for sp, sids in species_states.items()
+                     if len(sids) >= MIN_STATES_FOR_HUB)
+hub_set = set(hub_species)
+
+pair_urls = []
+for (sid, sp) in published_pairs:
+    st = state_by_id[sid]
+    st_slug, sp_slug = slugify(st["name"]), slugify(sp)
+    os.makedirs(os.path.join(OUT, st_slug), exist_ok=True)
+
+    ss = sorted(pair_seasons.get((sid, sp), []),
+                key=lambda r: (r["open_date"] or "9999", r["id"]))
+    ws = sorted(pair_windows.get((sid, sp), []),
+                key=lambda r: (r["closes_at"] or "9999", r["id"]))
+    newest = max((x["last_verified_at"] or "" for x in ss + ws), default="")
+    modified, verified_phrase = verified_on(newest)
+
+    rows = ""
+    for s in ss:
+        zone = s["zone"]["name"] if s.get("zone") else ""
+        zone = "" if zone == "Statewide" else zone
+        what = detail((s.get("method") or "").capitalize(),
+                      s.get("label") or "", zone) or "General season"
+        rows += ("<tr><td class=sp>" + esc(what) + "</td><td>"
+                 + fmt(s["open_date"]) + " " + EN + " " + fmt(s["close_date"])
+                 + "</td><td>" + season_status(s) + "</td></tr>" + NL)
+    season_block = ""
+    if rows:
+        season_block = (
+            "<h2>" + esc(sp) + " season dates</h2>"
+            "<table><tr><th>Season</th><th>Dates</th><th>Status</th></tr>" + NL
+            + rows + "</table><p class=stamp>Data " + verified_phrase
+            + " against official "
+            + esc(st["agency_name"] or "state agency") + " sources.</p>")
+
+    wrows, seen = "", set()
+    for w in ws:
+        key = (w.get("name"), w.get("closes_at"))
+        if key in seen:
+            continue
+        seen.add(key)
+        res = fmt(w["results_expected_at"]) if w.get("results_expected_at") else "not published"
+        opens = fmt(w["opens_at"]) if w.get("opens_at") else "see agency portal"
+        closes = fmt(w["closes_at"]) if w.get("closes_at") else "see agency portal"
+        wrows += ("<tr><td class=sp>" + esc(w.get("name") or "Draw") + "</td><td>"
+                  + opens + "</td><td>" + closes + "</td><td>" + res
+                  + "</td><td>" + window_status(w) + "</td></tr>" + NL)
+    window_block = ""
+    if wrows:
+        window_block = (
+            "<h2>Draw &amp; application deadlines</h2>"
+            "<table><tr><th>Draw</th><th>Opens</th><th>Apply by</th>"
+            "<th>Results</th><th>Status</th></tr>" + NL + wrows + "</table>")
+
+    # Same animal, next state over. This is the link a hunter who did not draw
+    # actually wants, and it is also what ties these pages into one crawlable
+    # web instead of several hundred leaves hanging off fifty twigs.
+    near = [n for n in (ADJACENT.get(st["code"]) or [])
+            if n in code_to_state
+            and code_to_state[n]["id"] in species_states.get(sp, set())]
+    near_block = ""
+    if near:
+        items_n = "".join(
+            '<li><a href="' + pair_url(code_to_state[n]["id"], sp) + '">'
+            + esc(name_by_code[n]) + "</a></li>" for n in near)
+        near_block = ('<div class="nearby"><h2>' + esc(sp)
+                      + " in nearby states</h2><p class=\"meta\">Season dates for "
+                      + esc(sp.lower()) + " in states bordering "
+                      + esc(st["name"]) + ".</p><ul>" + items_n + "</ul></div>")
+
+    others = [o for o in sorted(pairs_by_state.get(sid, [])) if o != sp]
+    other_block = ""
+    if others:
+        items_o = "".join('<li><a href="' + slugify(o) + '.html">' + esc(o)
+                          + "</a></li>" for o in others)
+        other_block = ('<div class="nearby"><h2>Other species in '
+                       + esc(st["name"]) + "</h2><ul>" + items_o + "</ul></div>")
+
+    hub_link = ""
+    if sp in hub_set:
+        hub_link = (' &middot; <a href="/species/' + sp_slug + '.html">'
+                    + esc(sp.upper()) + "</a>")
+
+    agency_block = ""
+    if st["license_url"] and st["code"] not in dead_links:
+        agency_block = (
+            "<h2>Licenses &amp; official source</h2><p>Buy licenses and apply "
+            'for draws through the official portal: <a href="'
+            + st["license_url"] + '" rel="nofollow">'
+            + esc(st["agency_name"] or st["name"]) + "</a>.</p>")
+
+    # Promise exactly what is on the page. A pair can earn a page on its draw
+    # window alone (that is the whole point of the content bar), and when it
+    # does there are no season dates here to promise.
+    has_draws = bool(wrows)
+    has_seasons = bool(rows)
+    sp_t = sp_title(sp)
+    agency = st["agency_name"] or "state agency"
+    if has_seasons and has_draws:
+        title = st["name"] + " " + sp_t + " Season Dates & Draw Deadlines 2026-27"
+        desc = (sp_t + " season dates and draw application deadlines in "
+                + st["name"] + " for 2026-27, by zone and method, verified "
+                "against official " + agency + " sources.")
+    elif has_seasons:
+        title = st["name"] + " " + sp_t + " Season Dates 2026-27"
+        desc = (sp_t + " season dates in " + st["name"] + " for 2026-27, by zone "
+                "and method, verified against official " + agency + " sources.")
+    else:
+        title = st["name"] + " " + sp_t + " Draw Application Deadlines 2026-27"
+        desc = (sp_t + " draw and limited-entry application deadlines in "
+                + st["name"] + " for 2026-27, verified against official "
+                + agency + " sources.")
+
+    body = (NL
+            + '<header>' + NL
+            + '  <p class="brand"><a href="' + SITE + '">OPEN SEASON</a>'
+            + ' &middot; <a href="/states/">STATES</a>'
+            + ' &middot; <a href="/states/' + st_slug + '.html">'
+            + esc(st["name"].upper()) + "</a>" + hub_link + "</p>" + NL
+            + "  <h1>" + esc(st["name"]) + " " + esc(sp.lower())
+            + " seasons 2026" + EN + "27</h1>" + NL
+            + '  <p class="meta">' + ("Every published " + esc(sp.lower())
+               + " season in " + esc(st["name"]) + " " + EN
+               + " dates, zones and methods" if has_seasons else
+               esc(sp_title(sp)) + " draw and limited-entry application "
+               + "deadlines in " + esc(st["name"]))
+            + " " + EN + " compiled from official "
+            + esc(agency) + " sources.</p>" + NL
+            + "</header>" + NL
+            + season_block + NL + window_block + NL + CTA + NL
+            + agency_block + NL + near_block + NL + other_block + NL)
+
+    url = SITE + "/states/" + st_slug + "/" + sp_slug + ".html"
+    crumbs = [("Open Season", SITE + "/"),
+              ("Hunting seasons by state", SITE + "/states/"),
+              (st["name"], SITE + "/states/" + st_slug + ".html"),
+              (sp, url)]
+    with open(os.path.join(OUT, st_slug, sp_slug + ".html"), "w",
+              encoding="utf-8", newline=NL) as f:
+        f.write(page(title, desc, url, body, modified=modified, crumbs=crumbs))
+    pair_urls.append((url, modified))
+
+print(f"  {len(pair_urls)} state x species pages")
+
+# ---------------------------------------------------------------------------
+# Species hubs: "deer season dates by state".
+#
+# The query nobody can currently answer in one place. Fifty agencies publish
+# fifty PDFs; this is the table. It is also the spine of the internal link
+# graph -- every hub links every state that has the animal, so a crawler
+# arriving anywhere can reach everything.
+hub_urls = []
+for sp in hub_species:
+    sp_slug = slugify(sp)
+    sids = species_states[sp]
+    rows, newest = "", ""
+    for st in states:
+        if st["id"] not in sids:
+            continue
+        ss = pair_seasons.get((st["id"], sp), [])
+        ws = pair_windows.get((st["id"], sp), [])
+        newest = max([newest] + [x["last_verified_at"] or "" for x in ss + ws])
+        opens = [s["open_date"] for s in ss if s["open_date"]]
+        closes = [s["close_date"] for s in ss if s["close_date"]]
+        span = (fmt(min(opens)) + " " + EN + " " + fmt(max(closes))
+                if opens and closes else "see page")
+        # The earliest deadline still OPEN. Taking the minimum over the whole
+        # cycle put a date from last spring in a column headed "Apply by".
+        dls = [w["closes_at"] for w in ws
+               if w.get("closes_at") and w["closes_at"] >= TODAY]
+        rows += ('<tr><td class=sp><a href="' + pair_url(st["id"], sp) + '">'
+                 + esc(st["name"]) + "</a></td><td>" + str(len(ss)) + "</td><td>"
+                 + span + "</td><td>" + (fmt(min(dls)) if dls else EM)
+                 + "</td></tr>" + NL)
+
+    modified, verified_phrase = verified_on(newest)
+    sp_t = sp[:1].upper() + sp[1:]
+    n_states = len(sids)
+    body = (NL
+            + '<header>' + NL
+            + '  <p class="brand"><a href="' + SITE + '">OPEN SEASON</a>'
+            + ' &middot; <a href="/species/">SPECIES</a>'
+            + ' &middot; <a href="/draw-deadlines.html">DRAW DEADLINES</a></p>' + NL
+            + "  <h1>" + esc(sp_t) + " season dates by state, 2026" + EN + "27</h1>" + NL
+            + '  <p class="meta">' + esc(sp_t) + " seasons in " + str(n_states)
+            + " states " + EN + " opening and closing dates, and application "
+            "deadlines where the state runs a draw.</p>" + NL
+            + "</header>" + NL
+            + "<table><tr><th>State</th><th>Seasons</th><th>Season span</th>"
+            + "<th>Apply by</th></tr>" + NL + rows + "</table>"
+            + "<p class=stamp>Data " + verified_phrase
+            + " against official state agency sources. "
+            "Season span is the earliest opener to the latest close across all "
+            "zones and methods; open the state for the full breakdown.</p>"
+            + CTA)
+    url = SITE + "/species/" + sp_slug + ".html"
+    with open(os.path.join(SPECIES_OUT, sp_slug + ".html"), "w",
+              encoding="utf-8", newline=NL) as f:
+        f.write(page(
+            sp_t + " Season Dates by State 2026-27",
+            sp_t + " hunting season dates for " + str(n_states) + " states, "
+            "2026-27, with draw application deadlines, verified against "
+            "official state agency sources.",
+            url, body, modified=modified,
+            crumbs=[("Open Season", SITE + "/"),
+                    ("Species", SITE + "/species/"),
+                    (sp_t, url)]))
+    hub_urls.append((url, modified))
+
+newest_hub = max((m for _u, m in hub_urls if m), default="")
+items = "".join(
+    '<tr><td class=sp><a href="' + slugify(sp) + '.html">' + esc(sp)
+    + "</a></td><td>" + str(len(species_states[sp])) + " states</td></tr>"
+    for sp in hub_species)
+with open(os.path.join(SPECIES_OUT, "index.html"), "w",
+          encoding="utf-8", newline=NL) as f:
+    f.write(page(
+        "Hunting Season Dates by Species 2026-27",
+        "Hunting season dates by species across all 50 states for 2026-27, "
+        "with draw deadlines, verified against official agency sources.",
+        SITE + "/species/",
+        NL + '<header><p class="brand"><a href="' + SITE + '">OPEN SEASON</a>'
+        + ' &middot; <a href="/states/">BY STATE</a>'
+        + ' &middot; <a href="/draw-deadlines.html">DRAW DEADLINES</a></p>'
+        + "<h1>Season dates by species, 2026" + EN + "27</h1>"
+        + '<p class="meta">Every species we track, with the states that publish '
+        "a season for it.</p></header>"
+        + "<table><tr><th>Species</th><th>Coverage</th></tr>" + NL + items
+        + "</table>" + CTA,
+        modified=newest_hub,
+        crumbs=[("Open Season", SITE + "/"), ("Species", SITE + "/species/")]))
+print(f"  {len(hub_urls)} species hubs + species/index.html")
+
+# ---------------------------------------------------------------------------
+# One draw-deadline page, sorted by what closes soonest.
+#
+# Fifty thin per-state draw pages would be doorway pages; this is the opposite
+# bet, and it is the page this whole site is for. January to April is when
+# hunters decide where to apply, and the question is never "what are Colorado's
+# deadlines" -- it is "what closes next, anywhere". Nobody publishes that.
+upcoming, seen = [], set()
+for w in sorted(windows, key=lambda r: (r["closes_at"] or "9999", r["id"])):
+    if w.get("closes_at") and w["closes_at"] < TODAY:
+        continue
+    sp_nm = (w.get("species") or {}).get("name") or ""
+    key = (w["state_id"], sp_nm, w.get("closes_at"))
+    if key in seen:
+        continue
+    seen.add(key)
+    upcoming.append(w)
+
+drows, newest = "", ""
+for w in upcoming:
+    st = state_by_id.get(w["state_id"])
+    if not st:
+        continue
+    sp_nm = (w.get("species") or {}).get("name") or ""
+    newest = max(newest, w["last_verified_at"] or "")
+    res = fmt(w["results_expected_at"]) if w.get("results_expected_at") else EM
+    link = pair_url(st["id"], sp_nm) if sp_nm else ("/states/" + slugify(st["name"]) + ".html")
+    drows += ("<tr><td class=sp>"
+              + (fmt(w["closes_at"]) if w.get("closes_at") else "see portal")
+              + '</td><td><a href="' + link + '">' + esc(st["name"]) + "</a></td><td>"
+              + esc(sp_nm or EM) + "</td><td>" + esc(w.get("name") or "Draw")
+              + "</td><td>" + res + "</td></tr>" + NL)
+
+modified, verified_phrase = verified_on(newest)
+if drows:
+    intro = ("Every hunting draw and limited-entry application deadline still "
+             "open, across all 50 states, soonest first.")
+    table = ("<table><tr><th>Apply by</th><th>State</th><th>Species</th>"
+             "<th>Draw</th><th>Results</th></tr>" + NL + drows + "</table>"
+             + "<p class=stamp>Data " + verified_phrase
+             + " against official state agency sources.</p>")
+else:
+    intro = ("No application windows are currently open. Most states publish "
+             "the next cycle's deadlines between December and February.")
+    table = ""
+with open(os.path.join(HERE, "..", "docs", "site", "draw-deadlines.html"), "w",
+          encoding="utf-8", newline=NL) as f:
+    f.write(page(
+        "Hunting Draw Deadlines 2027 " + EM + " Every State, Soonest First",
+        "Every open hunting draw and limited-entry application deadline in the "
+        "United States, sorted by closing date and verified against official "
+        "state agency sources.",
+        SITE + "/draw-deadlines.html",
+        NL + '<header><p class="brand"><a href="' + SITE + '">OPEN SEASON</a>'
+        + ' &middot; <a href="/states/">BY STATE</a>'
+        + ' &middot; <a href="/species/">BY SPECIES</a></p>'
+        + "<h1>Hunting draw deadlines, every state</h1>"
+        + '<p class="meta">' + intro + "</p></header>" + table + CTA,
+        modified=modified,
+        crumbs=[("Open Season", SITE + "/"),
+                ("Draw deadlines", SITE + "/draw-deadlines.html")]))
+print(f"  draw-deadlines.html ({len(upcoming)} open windows)")
+
+# ---------------------------------------------------------------------------
 # Sitemap
 #
-# Every URL now carries <lastmod>, taken from the newest last_verified_at on
-# the page itself. Fifty-two URLs went up with no freshness signal at all, and
-# a crawler with no reason to think a page changed has no reason to come back
-# for it -- which is roughly what the index coverage showed.
+# Every URL carries <lastmod>, taken from the newest last_verified_at on the
+# page itself. Fifty-two URLs went up with no freshness signal at all, and a
+# crawler with no reason to think a page changed has no reason to come back.
 #
 # lastmod is the date the DATA was last verified, not the date this script ran.
-# Stamping today on every page every Monday would claim fifty changes a week
-# that did not happen, and a lastmod that always lies gets ignored.
-entries = [(f"{SITE}/", newest_overall), (f"{SITE}/states/", newest_overall)]
-entries += [(f"{SITE}/states/{slug}.html", mod) for _, slug, _, _, mod in links]
-sitemap = '<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'
-sitemap += "\n".join(
-    f"  <url><loc>{u}</loc>" + (f"<lastmod>{m}</lastmod>" if m else "") + "</url>"
+# Stamping today on every page every Monday would claim changes that did not
+# happen, and a lastmod that always lies gets ignored.
+entries = [(SITE + "/", newest_overall), (SITE + "/states/", newest_overall)]
+entries += [(SITE + "/states/" + slug + ".html", mod)
+            for _n, slug, _ns, _nw, mod in links]
+entries += [(SITE + "/species/", newest_hub)]
+entries += hub_urls
+entries += pair_urls
+entries += [(SITE + "/draw-deadlines.html", modified)]
+
+sitemap = ('<?xml version="1.0" encoding="UTF-8"?>' + NL
+           + '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">' + NL)
+sitemap += NL.join(
+    "  <url><loc>" + u + "</loc>"
+    + ("<lastmod>" + m + "</lastmod>" if m else "") + "</url>"
     for u, m in entries)
-sitemap += "\n</urlset>\n"
-with open(os.path.join(OUT, "..", "sitemap.xml"), "w", encoding="utf-8") as f:
+sitemap += NL + "</urlset>" + NL
+with open(os.path.join(OUT, "..", "sitemap.xml"), "w",
+          encoding="utf-8", newline=NL) as f:
     f.write(sitemap)
 
-print(f"done: {len(links)} state pages + states/index.html + sitemap.xml")
+print(f"done: {len(links)} state pages, {len(pair_urls)} species pages, "
+      f"{len(hub_urls)} hubs, 1 draw page {EM} {len(entries)} URLs in sitemap")

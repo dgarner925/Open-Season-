@@ -11,14 +11,16 @@ Validates every active state's license_url against the live web:
   - 15s timeout per URL so one slow agency site can't hang a publish
   - Runs URLs concurrently (10 workers)
 
-Exit code 0 = all healthy. Exit code 1 = failures, listed as CODE URL STATUS.
+Exit code 0 = no DEAD links (404/410/unresolvable). Exit code 1 = dead links,
+listed as CODE URL STATUS. Links that are merely degraded (403/429/5xx: bot
+protection or a transient wobble) are reported but do not fail the run.
 
 Run manually:
     python scripts/check_links.py            # all active states
     python scripts/check_links.py CO GA MT   # just these state codes
 
-Also imported by gen_state_pages.py, which refuses to publish pages when any
-license link is dead.
+Also imported by gen_state_pages.py, which omits a state's license block when
+that state's link is dead, and publishes the rest of the site regardless.
 """
 import json
 import socket
@@ -113,6 +115,40 @@ def status_is_ok(status):
     return isinstance(status, str) and status.startswith("OK")
 
 
+# Statuses that mean "nothing is served here": the URL is wrong and a hunter
+# clicking it lands nowhere. Those are the only ones worth changing a page for.
+DEAD_CODES = (404, 410)
+DEAD_ERRORS = ("gaierror", "ConnectionRefusedError", "NXDOMAIN")
+
+
+def classify(status):
+    """'ok' | 'dead' | 'degraded'.
+
+    The distinction this function exists to draw: between an agency URL that is
+    WRONG and one whose server is merely having a bad minute.
+
+    Until 2026-11-20 every non-200 was treated the same, and any one of them
+    aborted the whole site publish. Four of the last eleven weekly refreshes
+    died that way -- Texas's license storefront answers 503 to this checker on
+    every attempt, so the entire fifty-state site stopped updating because one
+    page sits behind a load balancer that dislikes us. Freezing fifty states'
+    season dates is a far worse outcome than showing one link that may be slow.
+
+    403 and 429 are bot protection, not breakage: those pages work in a
+    browser. 5xx and timeouts are transient by definition. Only a 404/410, or a
+    hostname that does not resolve, means the link itself is wrong.
+    """
+    if status_is_ok(status):
+        return "ok"
+    if isinstance(status, int):
+        return "dead" if status in DEAD_CODES else "degraded"
+    if isinstance(status, str):
+        if status == "missing" or any(k in status for k in DEAD_ERRORS):
+            return "dead"
+        return "degraded"
+    return "degraded"
+
+
 def fetch_states(codes=None):
     q = f"{BASE}/states?is_active=eq.true&select=code,license_url&order=code"
     req = urllib.request.Request(q, headers={"apikey": KEY})
@@ -125,30 +161,41 @@ def fetch_states(codes=None):
 
 
 def check_license_urls(states):
-    """Check each state's license_url. Returns list of (code, url, status) failures."""
+    """Check each state's license_url.
+
+    Returns a list of (code, url, status, kind), kind being 'dead' or
+    'degraded' per classify(). Healthy URLs are not returned.
+    """
     targets = [(s["code"], s["license_url"]) for s in states if s.get("license_url")]
-    failures = []
+    problems = []
     with ThreadPoolExecutor(max_workers=10) as ex:
         results = ex.map(lambda t: (t[0], t[1], check_url(t[1])), targets)
         for code, url, status in results:
-            ok = status_is_ok(status)
-            print(f"  {'OK  ' if ok else 'FAIL'} {code}  {status}  {url}")
-            if not ok:
-                failures.append((code, url, status))
+            kind = classify(status)
+            label = {"ok": "OK  ", "degraded": "WARN", "dead": "DEAD"}[kind]
+            print(f"  {label} {code}  {status}  {url}")
+            if kind != "ok":
+                problems.append((code, url, status, kind))
     missing = [s["code"] for s in states if not s.get("license_url")]
     for code in missing:
-        print(f"  FAIL {code}  no license_url set")
-        failures.append((code, "(none)", "missing"))
-    return failures
+        print(f"  DEAD {code}  no license_url set")
+        problems.append((code, "(none)", "missing", "dead"))
+    return problems
 
 
 if __name__ == "__main__":
     states = fetch_states(sys.argv[1:] or None)
     print(f"checking {len(states)} state license URLs...")
-    failures = check_license_urls(states)
-    if failures:
-        print(f"\nLINK CHECK FAILED — {len(failures)} bad license URL(s):")
-        for code, url, status in failures:
+    problems = check_license_urls(states)
+    dead = [x for x in problems if x[3] == "dead"]
+    degraded = [x for x in problems if x[3] == "degraded"]
+    if degraded:
+        print(f"\n{len(degraded)} reachable-but-unhappy link(s) (bot protection or transient):")
+        for code, url, status, _ in degraded:
+            print(f"  {code}  {url}  -> {status}")
+    if dead:
+        print(f"\nLINK CHECK FAILED — {len(dead)} dead license URL(s):")
+        for code, url, status, _ in dead:
             print(f"  {code}  {url}  -> {status}")
         sys.exit(1)
-    print("\nall license links healthy")
+    print("\nno dead license links")
