@@ -14,11 +14,15 @@ import {
   expandCompressedRanges,
   groundDates,
   distinctiveNameTokens,
+  groundFishingRule,
   groundWindow,
   headingFor,
   nameMatchScore,
+  numberToken,
+  scoreFishingRuleConfidence,
   textBlocks,
   scoreWindowConfidence,
+  validateFishingRule,
   validateWindow,
   type CurrentSeason,
   type ExtractedSeason,
@@ -658,5 +662,172 @@ describe('headingFor', () => {
     const vague = groundWindow(blocks, text, null, 'Phase I', ['2026-09-14'], '2026-09-14');
     expect(vague.rowMatch).toBe(1);
     expect(vague.nameTokens).toBe(1);
+  });
+});
+
+// --------------------------------------------------------------- fishing ---
+
+describe('validateFishingRule', () => {
+  const ok = {
+    species: ['largemouth-bass'], limit_basis: 'aggregate',
+    size_rule: 'none', daily_limit_kind: 'count', daily_limit: 10,
+    evidence: { page: null, quote: 'Total daily limit of 10 black bass' },
+  };
+
+  it('accepts a rule the database would accept', () => {
+    expect(validateFishingRule(ok).ok).toBe(true);
+  });
+
+  it('refuses a rule about nothing', () => {
+    const v = validateFishingRule({ ...ok, species: [] });
+    expect(v.errors).toContain('names no species');
+  });
+
+  it('refuses a slot with only one end', () => {
+    const v = validateFishingRule({ ...ok, size_rule: 'slot_release', min_length_inches: 18 });
+    expect(v.ok).toBe(false);
+    expect(v.errors.join(' ')).toContain('both a minimum and a maximum');
+  });
+
+  it('refuses a count with no count, and a no_limit with one', () => {
+    expect(validateFishingRule({ ...ok, daily_limit: null }).ok).toBe(false);
+    expect(validateFishingRule({ ...ok, daily_limit_kind: 'no_limit' }).ok).toBe(false);
+  });
+
+  it('accepts no_limit and prohibited stated properly', () => {
+    expect(validateFishingRule({ ...ok, daily_limit_kind: 'no_limit', daily_limit: null }).ok).toBe(true);
+    expect(validateFishingRule({ ...ok, daily_limit_kind: 'prohibited', daily_limit: 0 }).ok).toBe(true);
+  });
+
+  it('refuses a trophy allowance with no length behind it', () => {
+    const v = validateFishingRule({ ...ok, trophy_allowance: 2 });
+    expect(v.errors.join(' ')).toContain('no length');
+    expect(validateFishingRule({
+      ...ok, trophy_allowance: 2, trophy_min_length_inches: 22,
+    }).ok).toBe(true);
+  });
+
+  it('refuses a fish eight feet long', () => {
+    const v = validateFishingRule({ ...ok, size_rule: 'minimum', min_length_inches: 220 });
+    expect(v.errors.join(' ')).toContain('implausible');
+  });
+
+  it('refuses half an effective window', () => {
+    const v = validateFishingRule({ ...ok, effective_from: '2026-11-01' });
+    expect(v.errors.join(' ')).toContain('both dates or neither');
+  });
+
+  it('refuses a restriction we cannot store', () => {
+    const v = validateFishingRule({ ...ok, restrictions: ['use_dynamite'] });
+    expect(v.errors.join(' ')).toContain('unknown restriction');
+  });
+});
+
+describe('numberToken', () => {
+  it('prints an integer as a page prints it', () => {
+    expect(numberToken(10)).toBe('10');
+    expect(numberToken(22)).toBe('22');
+  });
+  it('keeps a real fraction', () => {
+    expect(numberToken(12.5)).toBe('12.5');
+  });
+});
+
+describe('groundFishingRule', () => {
+  // Georgia's own wording, reduced to the structure that matters: the hunt
+  // name sits in a heading and the numbers sit in the row beneath it.
+  const html =
+    '<h3>Waters Creek</h3>' +
+    '<p>Size limits: 22 inches for brown and rainbow trout and 18 inches for brook trout.</p>' +
+    '<h3>Noontootla Creek and its tributaries on Blue Ridge WMA</h3>' +
+    '<p>Size limit: 16 inches for all mountain trout.</p>' +
+    '<h3>Dockery Lake</h3>' +
+    '<p>Fishing hours are 30 minutes before sunrise until 30 minutes after sunset.</p>';
+  const blocks = textBlocks(html);
+  const text = blocks.join(' ');
+
+  it('finds the number on the row that names the water', () => {
+    const g = groundFishingRule(blocks, text, null, 'Waters Creek', [22], []);
+    expect(g.nameMatch).toBeGreaterThanOrEqual(0.6);
+    expect(g.numbersMissing).toEqual([]);
+    expect(g.rowText).toContain('Waters Creek');
+  });
+
+  it('refuses a number that belongs to a different water', () => {
+    // 16 inches is Noontootla's limit, not Waters Creek's. Both numbers are
+    // on the page, so a page-level check would have passed this.
+    const g = groundFishingRule(blocks, text, null, 'Waters Creek', [16], []);
+    expect(g.nameMatch).toBeGreaterThanOrEqual(0.6);  // we found the right row
+    expect(g.numbersMissing).toEqual(['16']);         // the number is not on it
+  });
+
+  it('reports a water the page never names', () => {
+    const g = groundFishingRule(blocks, text, null, 'Lake Nowhere', [22], []);
+    expect(g.nameMatch).toBe(0);
+    expect(g.numbersMissing).toEqual(['22']);
+  });
+
+  it('grounds a rule that asserts no numbers at all', () => {
+    const g = groundFishingRule(blocks, text, null, 'Dockery Lake', [], []);
+    expect(g.nameMatch).toBeGreaterThanOrEqual(0.6);
+    expect(g.numbersMissing).toEqual([]);
+  });
+
+  it('checks dates against the whole document, not the water row', () => {
+    // Georgia states the delayed-harvest window once, in a paragraph, then
+    // lists the waters. Requiring the dates on each water row would fail
+    // every correctly-read stream.
+    const dh = textBlocks(
+      '<p>Anglers must release all trout and use only artificial lures with one ' +
+      'single hook per lure from Nov. 1 - May 14 annually.</p>' +
+      '<p>Amicalola Creek from County Road 192 downstream to GA Hwy 53.</p>');
+    const g = groundFishingRule(dh, dh.join(' '), null, 'Amicalola Creek',
+      [], ['2026-11-01']);
+    expect(g.datesMissing).toEqual([]);
+    expect(g.nameMatch).toBeGreaterThanOrEqual(0.6);
+  });
+
+  it('leaves nameMatch null when there are no blocks (a PDF)', () => {
+    const g = groundFishingRule(null, null, 'Waters Creek: 22 inches', 'Waters Creek', [22], []);
+    expect(g.nameMatch).toBeNull();
+  });
+});
+
+describe('scoreFishingRuleConfidence', () => {
+  const html =
+    '<h3>Waters Creek</h3>' +
+    '<p>Size limits: 22 inches for brown and rainbow trout and 18 inches for brook trout.</p>' +
+    '<h3>Noontootla Creek and its tributaries on Blue Ridge WMA</h3>' +
+    '<p>Size limit: 16 inches for all mountain trout.</p>';
+  const blocks = textBlocks(html);
+  const text = blocks.join(' ');
+
+  const score = (subject: string, inches: number, extra: Record<string, unknown> = {}) => {
+    const row = {
+      species: ['brown-trout'], limit_basis: 'per_species', water: subject,
+      size_rule: 'minimum', min_length_inches: inches,
+      daily_limit_kind: 'unknown', confidence: 0.9,
+      evidence: { page: null, quote: 'Size limits: 22 inches for brown and rainbow trout' },
+      ...extra,
+    };
+    const v = validateFishingRule(row);
+    const g = groundFishingRule(blocks, text, row.evidence.quote, subject, [inches], []);
+    return scoreFishingRuleConfidence(row, v, g);
+  };
+
+  it('auto-approves a size limit found beside its own water', () => {
+    expect(score('Waters Creek', 22)).toBeGreaterThanOrEqual(0.85);
+  });
+
+  it('holds back a number that belongs to another water', () => {
+    expect(score('Waters Creek', 16)).toBeLessThanOrEqual(0.3);
+  });
+
+  it('holds back a water the page does not name', () => {
+    expect(score('Lake Nowhere', 22)).toBeLessThanOrEqual(0.3);
+  });
+
+  it('holds back a rule that fails validation however well grounded', () => {
+    expect(score('Waters Creek', 22, { trophy_allowance: 2 })).toBeLessThanOrEqual(0.3);
   });
 });

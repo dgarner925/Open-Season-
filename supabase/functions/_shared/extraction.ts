@@ -768,3 +768,265 @@ export function accuracyReport(extracted: ExtractedSeason[], current: CurrentSea
     accuracy: curRows.length === 0 ? 0 : Math.round((exact / curRows.length) * 1000) / 1000,
   };
 }
+
+// ---------------------------------------------------------------- fishing ---
+
+export type ExtractedFishingRule = {
+  species?: string[] | null;
+  limit_basis?: string | null;
+  water?: string | null;
+  season_year?: number | null;
+  size_rule?: string | null;
+  min_length_inches?: number | null;
+  max_length_inches?: number | null;
+  daily_limit_kind?: string | null;
+  daily_limit?: number | null;
+  possession_limit?: number | null;
+  trophy_allowance?: number | null;
+  trophy_min_length_inches?: number | null;
+  restrictions?: string[] | null;
+  effective_from?: string | null;
+  effective_to?: string | null;
+  notes?: string | null;
+  evidence?: { page?: number | null; quote?: string | null } | null;
+};
+
+export const FISHING_RESTRICTIONS = new Set([
+  'artificial_only', 'flies_only', 'single_hook', 'barbless', 'no_live_bait',
+  'one_pole_handheld', 'catch_and_release', 'reservation_required',
+  'daylight_only', 'no_night_fishing', 'youth_senior_disabled_only',
+  'trout_licence_required',
+]);
+
+/**
+ * Check a proposed fishing rule against the shapes the database will enforce.
+ *
+ * Every one of these mirrors a CHECK constraint. Catching them here turns a
+ * failed insert -- which surfaces as a stack trace a long way from the page
+ * that caused it -- into a validation error on the review card, next to the
+ * quote it came from.
+ */
+export function validateFishingRule(row: ExtractedFishingRule): WindowValidation {
+  const errors: string[] = [];
+  const species = row.species ?? [];
+  if (species.length === 0) errors.push('names no species');
+  if (row.limit_basis && !['aggregate', 'per_species'].includes(row.limit_basis)) {
+    errors.push(`unknown limit_basis ${row.limit_basis}`);
+  }
+
+  const sizeRule = row.size_rule ?? 'none';
+  const min = row.min_length_inches ?? null;
+  const max = row.max_length_inches ?? null;
+  if (sizeRule === 'minimum' && min === null) errors.push('minimum size rule with no minimum length');
+  if (sizeRule === 'maximum' && max === null) errors.push('maximum size rule with no maximum length');
+  if ((sizeRule === 'slot_release' || sizeRule === 'slot_keep') && (min === null || max === null)) {
+    errors.push(`${sizeRule} needs both a minimum and a maximum length`);
+  }
+  if (min !== null && max !== null && max < min) {
+    errors.push(`maximum length ${max} is below the minimum ${min}`);
+  }
+  for (const [label, v] of [['minimum', min], ['maximum', max]] as [string, number | null][]) {
+    // A freshwater fish longer than eight feet is a misread table, not a fish.
+    if (v !== null && (v <= 0 || v > 96)) errors.push(`implausible ${label} length ${v} inches`);
+  }
+
+  const kind = row.daily_limit_kind ?? 'unknown';
+  const daily = row.daily_limit ?? null;
+  if (kind === 'count' && daily === null) errors.push('daily limit kind is count but no number given');
+  if (kind === 'no_limit' && daily !== null) errors.push('daily limit kind is no_limit but a number was given');
+  if (kind === 'prohibited' && (daily ?? 0) !== 0) errors.push('prohibited but a non-zero limit was given');
+  for (const [label, v] of [
+    ['daily', daily], ['possession', row.possession_limit ?? null],
+    ['trophy', row.trophy_allowance ?? null],
+  ] as [string, number | null][]) {
+    if (v !== null && (v < 0 || v > 1000)) errors.push(`implausible ${label} limit ${v}`);
+  }
+
+  // A trophy allowance without its length is half a rule, and the half that
+  // is missing is the half that tells you which fish it is about.
+  if ((row.trophy_allowance ?? null) !== null && (row.trophy_min_length_inches ?? null) === null) {
+    errors.push('trophy allowance with no length to measure it against');
+  }
+
+  for (const r of row.restrictions ?? []) {
+    if (!FISHING_RESTRICTIONS.has(r)) errors.push(`unknown restriction ${r}`);
+  }
+
+  const from = row.effective_from ?? null;
+  const to = row.effective_to ?? null;
+  if ((from === null) !== (to === null)) {
+    errors.push('an effective window needs both dates or neither');
+  }
+  for (const [label, d] of [['effective_from', from], ['effective_to', to]] as [string, string | null][]) {
+    if (d !== null && !/^\d{4}-\d{2}-\d{2}$/.test(d)) errors.push(`${label} is not an ISO date: ${d}`);
+  }
+
+  return { ok: errors.length === 0, errors };
+}
+
+/** How a number appears when a page prints it. */
+export function numberToken(n: number): string {
+  return Number.isInteger(n) ? String(n) : String(n).replace(/0+$/, '').replace(/\.$/, '');
+}
+
+export type FishingGrounding = {
+  basis: 'document' | 'quote' | 'none';
+  /** How much of the rule's subject -- its water, or its species -- the row we
+   *  matched actually names. Null when there were no blocks to check. */
+  nameMatch: number | null;
+  nameTokens: number;
+  rowText: string | null;
+  numbersFound: string[];
+  numbersMissing: string[];
+  datesFound: string[];
+  datesMissing: string[];
+};
+
+/**
+ * Ground a fishing rule, anchoring on its NAME and checking its numbers.
+ *
+ * This is the reverse of how a draw deadline is grounded, and the reason is
+ * worth keeping. For an application window the date is the distinctive thing:
+ * "2027-02-24" appears on a page a handful of times, so finding it and then
+ * asking whether the row names the right hunt is a real test.
+ *
+ * A fishing rule's facts are small integers. "10" appears all over a
+ * regulations page -- in limits, in highway numbers, in dates. Anchoring on
+ * the number would be the page-level mistake again, in a worse form, because
+ * every row would corroborate every other row's limit.
+ *
+ * So: find the row that names this water (or this species), then check the
+ * numbers appear THERE. The name is the anchor and the number is the test.
+ *
+ * Dates are different again, and are checked against the whole document on
+ * purpose. A state states a rule window once, in a paragraph -- "artificial
+ * lures only with one single hook per lure from Nov. 1 - May 14" -- and then
+ * lists the waters it applies to. Requiring those dates on each water's own
+ * row would fail every correctly-read delayed-harvest stream in Georgia.
+ */
+export function groundFishingRule(
+  blocks: string[] | null,
+  text: string | null,
+  quote: string | null,
+  subject: string | null,
+  numbers: (number | null)[],
+  dates: (string | null)[],
+): FishingGrounding {
+  const wantNumbers = numbers.filter((n): n is number => n !== null && n !== undefined)
+    .map(numberToken);
+  const dateCheck = groundDates(text, quote, dates);
+
+  const haystack = text ?? quote ?? null;
+  const basis: FishingGrounding['basis'] = text ? 'document' : quote ? 'quote' : 'none';
+
+  if (!blocks || blocks.length === 0 || !subject) {
+    // Without rows we can still say whether the numbers appear at all, which
+    // is weak and is scored as weak.
+    const hay = haystack ? words(expandCompressedRanges(haystack)) : [];
+    const set = new Set(hay);
+    return {
+      basis,
+      nameMatch: null,
+      nameTokens: distinctiveNameTokens(subject).length,
+      rowText: null,
+      numbersFound: wantNumbers.filter((n) => set.has(n)),
+      numbersMissing: wantNumbers.filter((n) => !set.has(n)),
+      datesFound: dateCheck.found,
+      datesMissing: dateCheck.missing,
+    };
+  }
+
+  // The row that names this subject, preferring one that also carries the
+  // numbers -- so a page naming a water twice is judged on the mention that
+  // actually states the rule.
+  let best = 0;
+  let bestText: string | null = null;
+  let bestFound: string[] = [];
+  for (let i = 0; i < blocks.length; i++) {
+    const context = `${headingFor(blocks, i)} ${blocks[i]}`;
+    const m = nameMatchScore(context, subject);
+    if (m < ROW_NAME_THRESHOLD) continue;
+    const set = new Set(words(context));
+    const found = wantNumbers.filter((n) => set.has(n));
+    if (m > best || (m === best && found.length > bestFound.length)) {
+      best = m;
+      bestFound = found;
+      bestText = context.trim().slice(0, 300);
+    }
+  }
+
+  if (bestText === null) {
+    // Nothing on the page looks like this subject at all.
+    return {
+      basis,
+      nameMatch: 0,
+      nameTokens: distinctiveNameTokens(subject).length,
+      rowText: null,
+      numbersFound: [],
+      numbersMissing: wantNumbers,
+      datesFound: dateCheck.found,
+      datesMissing: dateCheck.missing,
+    };
+  }
+
+  return {
+    basis,
+    nameMatch: best,
+    nameTokens: distinctiveNameTokens(subject).length,
+    rowText: bestText,
+    numbersFound: bestFound,
+    numbersMissing: wantNumbers.filter((n) => !bestFound.includes(n)),
+    datesFound: dateCheck.found,
+    datesMissing: dateCheck.missing,
+  };
+}
+
+/**
+ * Score a fishing rule, 0 to 1. 0.85 is the auto-approve gate.
+ *
+ *   named row carries every
+ *     number, dates on page    -> up to 0.90
+ *   a rule that asserts no
+ *     numbers at all (gear or
+ *     access only)             -> up to 0.90 if the row is named
+ *   row found but a number
+ *     is not on it             -> capped 0.30: the number is the rule
+ *   no row names this subject  -> capped 0.40
+ *   subject too vague to match -> capped 0.60
+ *   quote only (a PDF)         -> capped 0.80
+ *   a date not on the page     -> capped 0.30
+ *   validation failed          -> capped 0.30
+ */
+export function scoreFishingRuleConfidence(
+  row: ExtractedFishingRule,
+  v: WindowValidation,
+  g: FishingGrounding,
+): number {
+  let c = typeof (row as { confidence?: number }).confidence === 'number'
+    ? Math.max(0, Math.min(1, (row as { confidence: number }).confidence))
+    : 0.5;
+
+  if (g.datesMissing.length > 0) {
+    c = Math.min(c, 0.3);
+  } else if (g.numbersMissing.length > 0) {
+    // The number IS the rule. A limit we cannot find beside the thing it
+    // limits is not a limit we can publish.
+    c = Math.min(c, 0.3);
+  } else if (g.basis === 'quote') {
+    c = Math.min(c, 0.8);
+  } else if (g.nameMatch === null) {
+    c = Math.min(c, 0.5);
+  } else if (g.nameMatch === 0) {
+    c = Math.min(c, 0.4);
+  } else if (g.nameTokens < 2) {
+    c = Math.min(c, 0.6);
+  } else if (g.basis === 'document' && g.nameMatch >= ROW_NAME_THRESHOLD) {
+    c = Math.max(c, 0.9);
+  } else {
+    c = Math.min(c, 0.6);
+  }
+
+  if (!v.ok) c = Math.min(c, 0.3);
+  if (!row.evidence?.quote) c = Math.min(c, 0.6);
+  return Math.round(c * 100) / 100;
+}

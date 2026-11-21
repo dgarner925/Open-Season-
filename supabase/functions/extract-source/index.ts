@@ -25,8 +25,11 @@ import {
   normalizeLabel,
   scoreConfidence,
   validateSeason,
+  groundFishingRule,
   groundWindow,
   ROW_NAME_THRESHOLD,
+  scoreFishingRuleConfidence,
+  validateFishingRule,
   scoreWindowConfidence,
   textBlocks,
   validateWindow,
@@ -39,6 +42,11 @@ import {
   speciesCatalog,
   SYSTEM,
 } from '../_shared/extract_prompt.ts';
+import {
+  FISHING_SYSTEM,
+  fishingSchema,
+  fishingSpeciesCatalog,
+} from '../_shared/fishing_prompt.ts';
 import { normaliseForHash, sha256Hex } from '../_shared/leftover.ts';
 
 const ANTHROPIC_API_KEY = Deno.env.get('ANTHROPIC_API_KEY')!;
@@ -186,7 +194,13 @@ async function logUsage(
   }
 }
 
-async function extract(doc: any, agency: string, catalog: string, schema: unknown): Promise<{ seasons: any[]; application_windows: any[]; regulation_summaries: any[] }> {
+async function extract(
+  doc: any,
+  agency: string,
+  catalog: string,
+  schema: unknown,
+  system: string = SYSTEM,
+): Promise<Record<string, any[]>> {
   const res = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
     headers: {
@@ -197,7 +211,7 @@ async function extract(doc: any, agency: string, catalog: string, schema: unknow
     body: JSON.stringify({
       model: MODEL,
       max_tokens: 16000,
-      system: SYSTEM + catalog,
+      system: system + catalog,
       output_config: { format: { type: 'json_schema', schema } },
       messages: [{
         role: 'user',
@@ -306,6 +320,207 @@ async function propose(
     tally.lost_reasons.push(why);
   }
   console.error('[extract] review_queue refused a proposal:', why);
+}
+
+/** A stable, readable slug, used as the water's identity within a state and
+ *  as its URL segment on the site. */
+function slugify(name: string): string {
+  return name
+    .toLowerCase()
+    .replace(/&/g, ' and ')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 80);
+}
+
+/**
+ * Read a freshwater fishing page.
+ *
+ * Kept apart from processSource rather than threaded through it with a flag:
+ * the two produce different tables, ask different questions of the page, and
+ * are grounded in opposite directions (a draw deadline is anchored on its
+ * date and checked by its name; a fishing rule is anchored on its name and
+ * checked by its numbers, because small integers are everywhere on a
+ * regulations page). A shared function with branches at every step would hide
+ * that, and the next person would "simplify" one into the other.
+ */
+async function processFishingSource(
+  source: any,
+  runId: string,
+  speciesByKey: Record<string, string>,
+  catalog: string,
+  schema: unknown,
+  force = false,
+) {
+  await admin.from('sources').update({ last_extracted_at: new Date().toISOString() })
+    .eq('id', source.id);
+  const { doc, hash, blocks } = await fetchDocumentBlock(source.url);
+  const text = doc?.type === 'text' ? (doc.text as string) : null;
+
+  const out = await extract(doc, source.agency_name, catalog, schema, FISHING_SYSTEM);
+  const waters = (out.waters ?? []) as any[];
+  const rules = (out.fishing_rules ?? []) as any[];
+
+  // A page the model judged to be saltwater returns both lists empty. That is
+  // a real and correct answer, not a failure, and it is the only defence
+  // against the page whose title says freshwater and whose contents do not.
+  if (waters.length === 0 && rules.length === 0) {
+    return {
+      source: source.url, pursuit: 'fishing', waters: 0, rules: 0,
+      note: 'nothing freshwater on this page',
+    };
+  }
+
+  let proposedWaters = 0;
+  let proposedRules = 0;
+  let skipped = 0;
+
+  const propose = async (targetTable: string, payload: any, confidence: number,
+                         evidence: any, errors: string[]) => {
+    // Idempotency without a natural key: an identical proposal from the same
+    // source is the same proposal. Re-reading an unchanged page must not grow
+    // the queue, or the queue becomes the thing nobody can face again.
+    const { data: dupe } = await admin.from('review_queue')
+      .select('id')
+      .eq('target_table', targetTable)
+      .eq('source_id', source.id)
+      .eq('proposed_payload', payload)
+      .in('status', ['pending', 'approved'])
+      .limit(1);
+    if (dupe && dupe.length > 0) { skipped++; return false; }
+
+    const { error } = await admin.from('review_queue').insert({
+      target_table: targetTable,
+      change_type: 'create',
+      proposed_payload: payload,
+      source_id: source.id,
+      extraction_run_id: runId,
+      confidence,
+      evidence,
+      validation_errors: errors,
+      status: 'pending',
+    });
+    if (error) {
+      console.error(`review_queue insert failed (${targetTable}):`, error.message);
+      return false;
+    }
+    return true;
+  };
+
+  for (const w of waters) {
+    const name = typeof w.name === 'string' ? w.name.trim() : '';
+    if (!name) continue;
+    // A water is grounded by its own name appearing on the page, and by its
+    // extent being quoted rather than summarised.
+    const g = groundFishingRule(blocks, text, w.evidence?.quote ?? null, name, [], []);
+    const errors: string[] = [];
+    if (g.nameMatch === 0) errors.push('the page does not name this water');
+    if (w.extent_note && text && !text.includes(String(w.extent_note).slice(0, 40))) {
+      // The extent IS the regulation. A paraphrase of it is a different rule.
+      errors.push('extent_note is not quoted verbatim from the page');
+    }
+    let c = typeof w.confidence === 'number' ? Math.max(0, Math.min(1, w.confidence)) : 0.5;
+    if (errors.length > 0) c = Math.min(c, 0.3);
+    else if (g.nameMatch !== null && g.nameMatch >= ROW_NAME_THRESHOLD) c = Math.max(c, 0.9);
+    else c = Math.min(c, 0.6);
+
+    if (await propose('waters', {
+      state_id: source.state_id,
+      name,
+      slug: slugify(name),
+      kind: w.kind ?? 'other',
+      extent_note: w.extent_note ?? null,
+      parent_water_name: w.parent_water ?? null,
+      county: w.county ?? null,
+      source_id: source.id,
+    }, Math.round(c * 100) / 100, {
+      grounded_in: g.basis,
+      name_match: g.nameMatch,
+      row_text: g.rowText,
+      page_snippet: w.evidence?.quote ?? null,
+    }, errors)) proposedWaters++;
+  }
+
+  for (const r of rules) {
+    const v = validateFishingRule(r);
+    const keys: string[] = Array.isArray(r.species) ? r.species : [];
+    const unknown = keys.filter((k) => !speciesByKey[k]);
+    const errors = [...v.errors];
+    if (unknown.length > 0) errors.push(`species not in this state's list: ${unknown.join(', ')}`);
+
+    // What this rule is ABOUT, for grounding: its water if it has one,
+    // otherwise the species it covers. A statewide limit has no water to
+    // anchor on, so the species names carry it.
+    const subject: string | null = r.water
+      ? String(r.water)
+      : keys.length > 0
+        ? keys.map((k) => k.replace(/-/g, ' ')).join(' ')
+        : null;
+
+    const numbers = [
+      r.daily_limit_kind === 'count' ? r.daily_limit ?? null : null,
+      r.min_length_inches ?? null,
+      r.max_length_inches ?? null,
+      r.trophy_min_length_inches ?? null,
+    ];
+    const g = groundFishingRule(
+      blocks, text, r.evidence?.quote ?? null, subject, numbers,
+      [r.effective_from ?? null, r.effective_to ?? null],
+    );
+    if (g.numbersMissing.length > 0) {
+      errors.push(
+        `not stated beside ${subject ?? 'this rule'}: ${g.numbersMissing.join(', ')}`);
+    }
+    if (g.datesMissing.length > 0) {
+      errors.push(`not found on the page: ${g.datesMissing.join(', ')}`);
+    }
+
+    const confidence = scoreFishingRuleConfidence(r, { ok: errors.length === 0, errors }, g);
+
+    if (await propose('fishing_rules', {
+      state_id: source.state_id,
+      water_name: r.water ?? null,
+      species_keys: keys,
+      limit_basis: r.limit_basis ?? 'aggregate',
+      season_year: r.season_year ?? null,
+      size_rule: r.size_rule ?? 'none',
+      min_length_inches: r.min_length_inches ?? null,
+      max_length_inches: r.max_length_inches ?? null,
+      daily_limit_kind: r.daily_limit_kind ?? 'unknown',
+      daily_limit: r.daily_limit ?? null,
+      possession_limit: r.possession_limit ?? null,
+      trophy_allowance: r.trophy_allowance ?? null,
+      trophy_min_length_inches: r.trophy_min_length_inches ?? null,
+      restrictions: r.restrictions ?? [],
+      effective_from: r.effective_from ?? null,
+      effective_to: r.effective_to ?? null,
+      notes: r.notes ?? null,
+      source_id: source.id,
+    }, confidence, {
+      grounded_in: g.basis,
+      subject,
+      name_match: g.nameMatch,
+      row_text: g.rowText,
+      numbers_found: g.numbersFound,
+      numbers_not_found: g.numbersMissing,
+      dates_found: g.datesFound,
+      dates_not_found: g.datesMissing,
+      page_snippet: r.evidence?.quote ?? null,
+    }, errors)) proposedRules++;
+  }
+
+  if (hash) {
+    await admin.from('sources').update({ notes: source.notes ?? null }).eq('id', source.id);
+  }
+
+  return {
+    source: source.url,
+    pursuit: 'fishing',
+    waters: proposedWaters,
+    rules: proposedRules,
+    skipped_as_duplicate: skipped,
+    read: waters.length + rules.length,
+  };
 }
 
 async function processSource(
@@ -804,8 +1019,11 @@ Deno.serve(async (req) => {
     const { data: species } = await admin.from('species').select('id, key, name')
         .eq('pursuit', forPursuit).order('sort_order');
     const speciesByKey = Object.fromEntries((species ?? []).map((s: any) => [s.key, s.id]));
-const catalog = speciesCatalog((species ?? []) as { key: string; name: string }[]);
-    const schema = extractionSchema((species ?? []).map((s: any) => s.key));
+const keys = (species ?? []).map((s: any) => s.key);
+    const catalog = forPursuit === 'fishing'
+      ? fishingSpeciesCatalog((species ?? []) as { key: string; name: string }[])
+      : speciesCatalog((species ?? []) as { key: string; name: string }[]);
+    const schema = forPursuit === 'fishing' ? fishingSchema(keys) : extractionSchema(keys);
 
     // Process sequentially; isolate per-source errors so one bad source doesn't
     // abort the whole run.
@@ -823,7 +1041,9 @@ const catalog = speciesCatalog((species ?? []) as { key: string; name: string }[
       }
       const t0 = Date.now();
       try {
-        results.push(await processSource(source, runId, speciesByKey, catalog, schema, force === true));
+        results.push(forPursuit === 'fishing'
+          ? await processFishingSource(source, runId, speciesByKey, catalog, schema, force === true)
+          : await processSource(source, runId, speciesByKey, catalog, schema, force === true));
       } catch (e) {
         await admin.from('sources').update({ last_extracted_at: new Date().toISOString() }).eq('id', source.id);
         results.push({ source: source.agency_name, url: source.url, error: e instanceof Error ? e.message : String(e) });
