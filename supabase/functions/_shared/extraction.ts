@@ -29,7 +29,18 @@ export type ExtractedSeason = {
 };
 
 /** Strict calendar-day check. No times, no zones, no Date construction. */
-export function isLocalISODate(value: unknown): value is string {
+/**
+ * Returns `boolean`, deliberately, and not `value is string`.
+ *
+ * A predicate asserting `value is string` tells TypeScript that anything
+ * failing the check is NOT a string -- so on an argument already known to be
+ * one, the false branch narrows to `never` and every line after it goes
+ * unchecked. normalizeExtractedDate below was unchecked from its second line
+ * down, which is the last function in this pipeline that should be. This
+ * function validates a shape, not a type; the two callers that wanted the
+ * narrowing already cast instead.
+ */
+export function isLocalISODate(value: unknown): boolean {
   if (typeof value !== 'string') return false;
   const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
   if (!m) return false;

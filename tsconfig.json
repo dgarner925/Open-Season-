@@ -13,5 +13,6 @@
     "expo-env.d.ts"
   ],
   "comment": "*.test.ts is checked by supabase/vitest.config.ts, not here: vitest lives in supabase/package.json and must never become an app dependency (it rewrote the lockfile and broke the native build on 2026-10-31).",
-  "exclude": ["node_modules", "supabase", "**/*.test.ts"]
+  "comment2": "scratch-eval is an untracked local harness that imports .ts paths directly for esbuild; left in, its 3 errors are most of what `tsc --noEmit` prints and the gate stops meaning anything.",
+  "exclude": ["node_modules", "supabase", "scratch-eval", "**/*.test.ts"]
 }
