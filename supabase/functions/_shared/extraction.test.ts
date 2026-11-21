@@ -13,6 +13,11 @@ import {
   dateRenderings,
   expandCompressedRanges,
   groundDates,
+  distinctiveNameTokens,
+  groundWindow,
+  headingFor,
+  nameMatchScore,
+  textBlocks,
   scoreWindowConfidence,
   validateWindow,
   type CurrentSeason,
@@ -423,8 +428,13 @@ describe('scoreWindowConfidence', () => {
     return scoreWindowConfidence(row, v, g);
   };
 
-  it('clears the auto-approve gate when the page states every date', () => {
-    expect(score({}, 'open March 1, 2027 close April 7, 2027')).toBeGreaterThanOrEqual(0.85);
+  // Page-level grounding alone no longer clears the gate: it says the date is
+  // printed somewhere on the site, not that it belongs to this hunt. Only
+  // groundWindow, which checks the row, can reach 0.9 -- see below.
+  it('holds a page-level match below the gate', () => {
+    const s = score({}, 'open March 1, 2027 close April 7, 2027');
+    expect(s).toBeLessThanOrEqual(0.6);
+    expect(s).toBeGreaterThan(0.3);
   });
 
   it('refuses a date the page does not contain, however sure the model is', () => {
@@ -480,5 +490,173 @@ describe('groundDates with compressed ranges', () => {
   it('still refuses a date the range does not cover', () => {
     const g = groundDates(tn, null, ['2027-02-25']);
     expect(g.missing).toEqual(['2027-02-25']);
+  });
+});
+
+describe('textBlocks', () => {
+  it('keeps a table row whole, cells and all', () => {
+    const html = '<table><tr><td>Spring Turkey Phase I</td><td>Nov 30, 2026</td></tr>' +
+                 '<tr><td>Quail Quota Phase I</td><td>Dec 14, 2026</td></tr></table>';
+    const b = textBlocks(html);
+    expect(b.some((x) => x.includes('Spring Turkey Phase I') && x.includes('Nov 30, 2026'))).toBe(true);
+    expect(b.some((x) => x.includes('Spring Turkey') && x.includes('Dec 14'))).toBe(false);
+  });
+
+  it('drops scripts and styles', () => {
+    expect(textBlocks('<p>real</p><script>var x = "fake"</script>').join(' ')).not.toContain('fake');
+  });
+});
+
+describe('nameMatchScore', () => {
+  it('scores a row that says the name', () => {
+    expect(nameMatchScore('Statewide Alligator Harvest Phase I', 'Statewide Alligator Harvest Permits Phase I'))
+      .toBeGreaterThan(0.6);
+  });
+
+  it('matches a word by prefix, so hunt finds hunts', () => {
+    expect(nameMatchScore('the elk quota hunts close soon', 'Elk Quota Hunt')).toBe(1);
+  });
+
+  it('ignores generic hunting words, so unrelated rows do not match', () => {
+    expect(nameMatchScore('Dove Hunt Permits application', 'Alligator Harvest Permits')).toBeLessThan(0.6);
+  });
+
+  it('requires the phase marker, so Phase I is not Phase II', () => {
+    const row = 'Statewide Alligator Harvest Permits Phase II Applications: 5/22/2026 - 6/1/2026';
+    expect(nameMatchScore(row, 'Statewide Alligator Harvest Permits Phase II')).toBe(1);
+    // Everything matches except the one character that matters.
+    expect(nameMatchScore(row, 'Statewide Alligator Harvest Permits Phase I')).toBe(0);
+  });
+
+  it('requires a period letter the same way', () => {
+    const row = 'Regular Season Waterfowl Period B Phase I Applications';
+    expect(nameMatchScore(row, 'Regular Season Waterfowl Period B Phase I')).toBe(1);
+    expect(nameMatchScore(row, 'Regular Season Waterfowl Period C Phase I')).toBe(0);
+  });
+
+  it('does not match a marker inside a longer word', () => {
+    // "Island" starts with "i"; the marker is a word, not a prefix.
+    expect(nameMatchScore('Merritt Island Waterfowl Applications', 'Merritt Island Waterfowl Phase I')).toBe(0);
+  });
+
+  it('is zero without a name', () => {
+    expect(nameMatchScore('anything', null)).toBe(0);
+  });
+
+  it('counts only the words that say what the hunt is', () => {
+    expect(distinctiveNameTokens('Phase I')).toEqual(['phase']);
+    expect(distinctiveNameTokens('Statewide Alligator Harvest Permits Phase I'))
+      .toEqual(['statewide', 'alligator', 'harvest', 'phase']);
+  });
+});
+
+describe('groundWindow', () => {
+  const html =
+    '<table>' +
+    '<tr><td>Spring Turkey Phase I</td><td>Nov 2 - Nov 30, 2026</td></tr>' +
+    '<tr><td>Quail Quota Phase I</td><td>Nov 2 - Dec 14, 2026</td></tr>' +
+    '</table>';
+  const blocks = textBlocks(html);
+  const text = textBlocks(html).join(' ');
+
+  it('recognises the row that names the hunt', () => {
+    const g = groundWindow(blocks, text, null, 'Spring Turkey Phase I',
+      ['2026-11-30'], '2026-11-30');
+    expect(g.missing).toEqual([]);
+    expect(g.rowMatch).toBeGreaterThanOrEqual(0.6);
+    expect(g.rowText).toContain('Spring Turkey');
+  });
+
+  it('refuses to credit a date that sits on another hunt row', () => {
+    // Dec 14 is on the page, but it is Quail's date, not Spring Turkey's.
+    const g = groundWindow(blocks, text, null, 'Spring Turkey Phase I',
+      ['2026-12-14'], '2026-12-14');
+    expect(g.missing).toEqual([]);          // the date IS on the page
+    expect(g.rowMatch).toBeLessThan(0.6);   // but not on this hunt's row
+  });
+
+  it('still reports a date that is nowhere on the page', () => {
+    const g = groundWindow(blocks, text, null, 'Spring Turkey Phase I',
+      ['2026-12-25'], '2026-12-25');
+    expect(g.missing).toEqual(['2026-12-25']);
+  });
+
+  it('leaves rowMatch null when there are no blocks (a PDF)', () => {
+    const g = groundWindow(null, null, 'closes Nov 30, 2026', 'Spring Turkey',
+      ['2026-11-30'], '2026-11-30');
+    expect(g.rowMatch).toBeNull();
+  });
+});
+
+describe('scoreWindowConfidence with rows', () => {
+  const html =
+    '<table>' +
+    '<tr><td>Spring Turkey Phase I</td><td>Nov 2 - Nov 30, 2026</td></tr>' +
+    '<tr><td>Quail Quota Phase I</td><td>Nov 2 - Dec 14, 2026</td></tr>' +
+    '</table>';
+  const blocks = textBlocks(html);
+  const text = blocks.join(' ');
+
+  const scoreRow = (name: string, closes: string) => {
+    const row = win({ name, opens_at: '2026-11-02', closes_at: closes, season_year: 2026 });
+    const v = validateWindow(row);
+    const g = groundWindow(blocks, text, row.evidence?.quote ?? null, name,
+      [row.opens_at, row.closes_at, row.results_expected_at], closes);
+    return scoreWindowConfidence(row, v, g);
+  };
+
+  it('auto-approves a date found on its own row', () => {
+    expect(scoreRow('Spring Turkey Phase I', '2026-11-30')).toBeGreaterThanOrEqual(0.85);
+  });
+
+  it('holds back a date that belongs to a different hunt', () => {
+    expect(scoreRow('Spring Turkey Phase I', '2026-12-14')).toBeLessThanOrEqual(0.6);
+  });
+});
+
+describe('headingFor', () => {
+  // Florida's limited-entry page, reduced: the hunt is named once in a
+  // heading and its phases are listed under it, so the row carrying the date
+  // never says which hunt it belongs to.
+  const html =
+    '<h3>Statewide Alligator Harvest Permits</h3>' +
+    '<p>Phase I Applications: 5/8/2026 - 5/18/2026</p>' +
+    '<p>Phase II Applications: 5/22/2026 - 6/1/2026</p>' +
+    '<h3>Snipe Permit</h3>' +
+    '<p>Phase I Applications: 9/4/2026 - 9/14/2026</p>';
+  const blocks = textBlocks(html);
+
+  it('walks back to the nearest block with no date in it', () => {
+    const i = blocks.findIndex((b) => b.includes('5/18/2026'));
+    expect(headingFor(blocks, i)).toContain('Statewide Alligator Harvest Permits');
+  });
+
+  it('does not reach past a nearer heading', () => {
+    const i = blocks.findIndex((b) => b.includes('9/14/2026'));
+    expect(headingFor(blocks, i)).toContain('Snipe');
+    expect(headingFor(blocks, i)).not.toContain('Alligator');
+  });
+
+  it('is empty for the first block', () => {
+    expect(headingFor(blocks, 0)).toBe('');
+  });
+
+  it('grounds a window whose name lives in the heading above it', () => {
+    const text = blocks.join(' ');
+    const ok = groundWindow(blocks, text, null, 'Statewide Alligator Harvest Permits Phase I',
+      ['2026-05-18'], '2026-05-18');
+    expect(ok.rowMatch).toBe(1);
+    expect(ok.nameTokens).toBeGreaterThanOrEqual(2);
+
+    // Phase II's date under Phase I's name: everything matches but the marker.
+    const shuffled = groundWindow(blocks, text, null, 'Statewide Alligator Harvest Permits Phase I',
+      ['2026-06-01'], '2026-06-01');
+    expect(shuffled.missing).toEqual([]);   // the date is on the page
+    expect(shuffled.rowMatch).toBe(0);      // but it is not this phase's
+
+    // And a name too vague to verify cannot clear the gate on a perfect match.
+    const vague = groundWindow(blocks, text, null, 'Phase I', ['2026-09-14'], '2026-09-14');
+    expect(vague.rowMatch).toBe(1);
+    expect(vague.nameTokens).toBe(1);
   });
 });

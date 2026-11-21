@@ -25,8 +25,10 @@ import {
   normalizeLabel,
   scoreConfidence,
   validateSeason,
-  groundDates,
+  groundWindow,
+  ROW_NAME_THRESHOLD,
   scoreWindowConfidence,
+  textBlocks,
   validateWindow,
 } from '../_shared/extraction.ts';
 import { staleProposal } from '../_shared/licence_year.ts';
@@ -111,7 +113,14 @@ const BROWSER_HEADERS: Record<string, string> = {
   'upgrade-insecure-requests': '1',
 };
 
-async function fetchDocumentBlock(url: string): Promise<{ doc: any; hash: string | null }> {
+/**
+ * `blocks` is the page cut into rows, used only for grounding -- what reaches
+ * the model is unchanged, so this costs nothing and alters no extraction.
+ * Null for a PDF, which has no markup to cut.
+ */
+async function fetchDocumentBlock(
+  url: string,
+): Promise<{ doc: any; hash: string | null; blocks: string[] | null }> {
   const res = await fetch(url, { headers: BROWSER_HEADERS });
   if (!res.ok) throw new Error(`fetch ${url} failed: ${res.status}`);
   if (url.toLowerCase().endsWith('.pdf') || res.headers.get('content-type')?.includes('pdf')) {
@@ -125,6 +134,7 @@ async function fetchDocumentBlock(url: string): Promise<{ doc: any; hash: string
     return {
       doc: { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: bytesToBase64(buf) } },
       hash: await sha256Hex(bytesToBase64(buf)),
+      blocks: null,
     };
   }
   const html = await res.text();
@@ -133,7 +143,11 @@ async function fetchDocumentBlock(url: string): Promise<{ doc: any; hash: string
   // Hash the NORMALISED page, not the raw HTML: agency sites stamp a render
   // time into the markup, so a raw hash changes every night and would make
   // this check useless -- exactly the trap normaliseForHash exists for.
-  return { doc: { type: 'text', text }, hash: await sha256Hex(normaliseForHash(html)) };
+  return {
+    doc: { type: 'text', text },
+    hash: await sha256Hex(normaliseForHash(html)),
+    blocks: textBlocks(html),
+  };
 }
 
 /**
@@ -307,7 +321,7 @@ async function processSource(
   // 150s wall clock). Otherwise last_extracted_at stays null and the same poison
   // source gets re-picked forever, stalling the sweep.
   await admin.from('sources').update({ last_extracted_at: new Date().toISOString() }).eq('id', source.id);
-  const { doc, hash } = await fetchDocumentBlock(source.url);
+  const { doc, hash, blocks } = await fetchDocumentBlock(source.url);
 
   // Do not pay to read a page that has not changed.
   //
@@ -484,10 +498,13 @@ async function processSource(
     // has no text here, so it falls back to the model's quote and is capped
     // below the auto-approve gate on purpose.
     const wv = validateWindow(row);
-    const grounding = groundDates(
+    const grounding = groundWindow(
+      blocks,
       doc?.type === 'text' ? (doc.text as string) : null,
       (row.evidence as { quote?: string } | null)?.quote ?? null,
+      row.name ?? null,
       [opens_at, closes_at, results_expected_at],
+      closes_at,
     );
     const wConfidence = scoreWindowConfidence(row, wv, grounding);
 
@@ -516,9 +533,19 @@ async function processSource(
         dates_found: grounding.found,
         dates_not_found: grounding.missing,
         page_snippet: grounding.quote,
+        // How much of this window's name the row carrying its closing date
+        // actually says. This is the number that separates a table read
+        // correctly from one read sideways; null means there were no rows to
+        // check (a PDF).
+        row_name_match: grounding.rowMatch,
+        row_text: grounding.rowText,
       },
       validation_errors: grounding.missing.length
         ? [...wv.errors, `not found on the page: ${grounding.missing.join(', ')}`]
+        : grounding.rowMatch !== null && grounding.rowMatch < ROW_NAME_THRESHOLD
+        ? [...wv.errors,
+           `the date is on the page but not on a row naming this draw (${
+             Math.round(grounding.rowMatch * 100)}% name match)`]
         : wv.errors,
     };
 

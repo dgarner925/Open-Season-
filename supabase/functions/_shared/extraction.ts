@@ -314,9 +314,6 @@ export function dateRenderings(iso: string): string[] {
   ];
 }
 
-const MONTH_RE =
-  '(Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?' +
-  '|Aug(?:ust)?|Sep(?:t)?(?:ember)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)';
 
 /**
  * Write out the end of a compressed date range, so a literal search can find it.
@@ -348,6 +345,143 @@ export function expandCompressedRanges(text: string): string {
   return extra.length ? `${text} ${extra.join(' ')}` : text;
 }
 
+const MONTH_RE =
+  '(Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?' +
+  '|Aug(?:ust)?|Sep(?:t)?(?:ember)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)';
+
+/**
+ * Cut a page into the blocks a reader would call rows.
+ *
+ * Grounding originally searched the whole page flattened into one string,
+ * which answers "is this date printed somewhere on this site" -- and on a page
+ * like Florida's limited-entry table, which lists 34 hunts and their phases,
+ * that is nearly free to satisfy. Measured on 2026-11-21: all 34 proposed
+ * closing dates appeared on the page, and only 8 appeared anywhere near the
+ * hunt they were attached to. The check could not tell a correctly read table
+ * from a shuffled one.
+ *
+ * Splitting on the tags that close a row keeps each hunt with its own dates.
+ * `</td>` is deliberately NOT a split point: a table row holds the name in one
+ * cell and the dates in another, and splitting cells apart would throw away
+ * the exact adjacency this is for.
+ */
+export function textBlocks(html: string): string[] {
+  return html
+    .replace(/<script[\s\S]*?<\/script>/gi, ' ')
+    .replace(/<style[\s\S]*?<\/style>/gi, ' ')
+    .split(/<\/(?:tr|li|p|h[1-6]|section|article|dd|dt)>/i)
+    .map((b) => b.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim())
+    .filter((b) => b.length > 0)
+    .slice(0, 5000)
+    .map((b) => b.slice(0, 2000));
+}
+
+const STOPWORDS = new Set([
+  'the', 'and', 'for', 'with', 'from', 'this', 'that', 'hunt', 'hunts',
+  'permit', 'permits', 'season', 'seasons', 'application', 'applications',
+]);
+
+/**
+ * How much of a proposed window's name this block actually says, 0 to 1.
+ *
+ * Fuzzy on purpose. A name is often assembled by the model rather than copied
+ * ("Statewide Alligator Harvest Permits Phase I"), so requiring it verbatim
+ * fails on 19 of Florida's 34 rows while the underlying read is fine. Matching
+ * on distinctive words, by prefix so "hunt" finds "hunts", asks the question
+ * that matters: is this row about this thing?
+ *
+ * Generic hunting words are dropped, or every row on a hunting page would look
+ * like every name.
+ */
+/**
+ * A phase, period or unit marker: "Phase I", "Period B", "Unit 3".
+ *
+ * These are the whole difference between one row and the next, and they are
+ * one or two characters long -- so an earlier version of this check, which
+ * dropped short words and averaged the rest, could not tell Phase I from
+ * Phase II at all. Measured on Florida's page: with the marker merely averaged
+ * in, 18% of deliberately shuffled name/date pairs still passed; with it
+ * required, 1%.
+ */
+const QUALIFIER = /^(?:i|ii|iii|iv|v|vi|vii|viii|ix|x|[a-f]|\d{1,2})$/;
+
+function words(s: string): string[] {
+  return s.toLowerCase().match(/[a-z0-9]+/g) ?? [];
+}
+
+/** Every word of a name that carries meaning, markers included. */
+export function usefulNameTokens(name: string | null): string[] {
+  return words(name ?? '').filter((t) => !STOPWORDS.has(t));
+}
+
+/**
+ * The words that say what the hunt IS, excluding markers.
+ *
+ * A name with fewer than two of these -- a bare "Phase I" -- matches almost
+ * any row of a page, so a match on it means nothing. Two of Florida's
+ * proposals are named exactly that, and under row matching alone they were the
+ * ONLY two that passed: a perfect score earned by being too vague to fail.
+ */
+export function distinctiveNameTokens(name: string | null): string[] {
+  return usefulNameTokens(name).filter((t) => t.length >= 3 && !QUALIFIER.test(t));
+}
+
+/**
+ * How much of a proposed window's name this block actually says, 0 to 1.
+ *
+ * Fuzzy on the descriptive words, strict on the markers:
+ *   - a descriptive word matches by prefix, so "hunt" finds "hunts" and a name
+ *     the model assembled rather than copied still matches its own row;
+ *   - a marker must appear as its own word, or the block scores zero. Averaging
+ *     it in would let a four-word name outvote the one character that says
+ *     which phase this is.
+ *
+ * Generic hunting words are dropped, or every row on a hunting page would look
+ * like every name.
+ */
+export function nameMatchScore(block: string, name: string | null): number {
+  const parts = usefulNameTokens(name);
+  if (parts.length === 0) return 0;
+  const main = distinctiveNameTokens(name);
+  const quals = parts.filter((t) => QUALIFIER.test(t));
+  const hay = words(block);
+  const set = new Set(hay);
+  if (quals.some((q) => !set.has(q))) return 0;
+  if (main.length === 0) return quals.length > 0 ? 1 : 0;
+  return main.filter((t) => hay.some((w) => w.startsWith(t))).length / main.length;
+}
+
+/** Does this block state a date? Used to tell a heading from a data row. */
+export function looksLikeDateRow(block: string): boolean {
+  return /\d{1,2}\s*\/\s*\d{1,2}\s*\/\s*\d{2,4}/.test(block) ||
+    new RegExp(MONTH_RE + '\\.?\\s*\\d{1,2}', 'i').test(block);
+}
+
+/**
+ * The heading a row sits under.
+ *
+ * Florida's page -- and most agency pages -- name the hunt once, in a heading,
+ * and then list its phases beneath:
+ *
+ *     Statewide Alligator Harvest Permits         <- the name
+ *     Phase I Applications: 5/8/2026 - 5/18/2026  <- the row with the date
+ *
+ * Matching a proposal's name against the row alone therefore failed on 32 of
+ * Florida's 34 windows, and the only two that passed did so because their
+ * names ("Phase I", "Phase II") are too vague to fail. Walking back to the
+ * nearest block that carries no date gives the row the name it belongs to.
+ */
+export function headingFor(blocks: string[], i: number): string {
+  for (let k = i - 1; k >= 0 && k >= i - 8; k--) {
+    const b = blocks[k];
+    if (b && b.length <= 160 && !looksLikeDateRow(b)) return b;
+  }
+  return '';
+}
+
+/** A row has to say most of the name before it counts as that row. */
+export const ROW_NAME_THRESHOLD = 0.6;
+
 export type Grounding = {
   /** 'document' = checked against the page we fetched; 'quote' = only against
    *  the model's own evidence quote; 'none' = could not check at all. */
@@ -355,6 +489,17 @@ export type Grounding = {
   found: string[];
   missing: string[];
   quote: string | null;
+  /** Best name-match of any block that also carries the closing date, or null
+   *  when the page was never cut into blocks (a PDF, or a quote-only check).
+   *  This is the difference between "printed on this page" and "printed on
+   *  this row", and it is the one that says the table was read correctly. */
+  rowMatch: number | null;
+  /** The row that matched, for a human checking the card. */
+  rowText: string | null;
+  /** How many words the proposed name has that say what the hunt IS, markers
+   *  like "Phase I" excluded. Fewer than two and a row match means nothing,
+   *  because almost any row would match. */
+  nameTokens: number;
 };
 
 /**
@@ -382,7 +527,11 @@ export function groundDates(
   const haystack = text ?? quote ?? null;
   const basis: Grounding['basis'] = text ? 'document' : quote ? 'quote' : 'none';
   if (!haystack || wanted.length === 0) {
-    return { basis: haystack ? basis : 'none', found: [], missing: wanted, quote: null };
+    return {
+      basis: haystack ? basis : 'none',
+      found: [], missing: wanted, quote: null, rowMatch: null, rowText: null,
+      nameTokens: 0,
+    };
   }
 
   // Collapse whitespace and drop the comma/period noise agencies vary on, so
@@ -417,14 +566,66 @@ export function groundDates(
     snippet = flat.slice(Math.max(0, at - 60), at + 120).trim();
   }
 
-  return { basis, found, missing, quote: snippet };
+  return { basis, found, missing, quote: snippet, rowMatch: null, rowText: null, nameTokens: 0 };
+}
+
+/**
+ * Ground one application window against the rows of its page.
+ *
+ * Two questions, not one:
+ *   is the date printed on this page at all  -- groundDates, as before
+ *   is it printed on the row for THIS hunt   -- the part that was missing
+ *
+ * The second is what distinguishes a table read correctly from a table read
+ * sideways, and on a dense page it is the only one worth much.
+ */
+export function groundWindow(
+  blocks: string[] | null,
+  text: string | null,
+  quote: string | null,
+  name: string | null,
+  dates: (string | null)[],
+  closesAt: string | null,
+): Grounding {
+  const g = groundDates(text, quote, dates);
+  if (!blocks || blocks.length === 0 || !closesAt) return g;
+
+  // Only rows that carry the closing date can be this window's row.
+  const renderings = dateRenderings(closesAt).map((r) =>
+    r.toLowerCase().replace(/[.,]/g, '').replace(/\s+/g, ' '));
+  let best = 0;
+  let bestText: string | null = null;
+  for (let i = 0; i < blocks.length; i++) {
+    const raw = blocks[i];
+    const flat = expandCompressedRanges(raw).toLowerCase().replace(/[.,]/g, '').replace(/\s+/g, ' ');
+    if (!renderings.some((r) => flat.includes(r))) continue;
+    // The row plus the heading it sits under: agency pages name the hunt once
+    // and list its phases below, so the row by itself rarely says what it is.
+    const context = `${headingFor(blocks, i)} ${raw}`;
+    const m = nameMatchScore(context, name);
+    if (m > best) {
+      best = m;
+      bestText = context.trim().slice(0, 300);
+    }
+  }
+  return {
+    ...g,
+    rowMatch: best,
+    rowText: bestText,
+    nameTokens: distinctiveNameTokens(name).length,
+  };
 }
 
 /**
  * Confidence for a draw deadline, led by grounding rather than by self-report.
  *
  * The tiers, and why each is where it is:
- *   every date on the page      -> up to 0.95, can auto-approve
+ *   date on the row that names
+ *     this hunt (and the name
+ *     is specific enough to
+ *     mean anything)            -> up to 0.95, can auto-approve
+ *   date on the page but not on
+ *     that row                  -> capped 0.60, a person decides
  *   dates only in the model's
  *     own quote (PDF source)    -> capped 0.80, below the 0.85 gate on purpose:
  *                                  this only proves the model did not
@@ -441,10 +642,25 @@ export function scoreWindowConfidence(
     ? row.confidence
     : 0.5;
 
-  if (g.basis === 'document' && g.missing.length === 0 && g.found.length > 0) {
-    c = Math.max(c, 0.9);
-  } else if (g.missing.length > 0) {
+  if (g.missing.length > 0) {
+    // A date the page does not contain. Nothing else matters.
     c = Math.min(c, 0.3);
+  } else if (
+    g.basis === 'document' && g.rowMatch !== null &&
+    g.rowMatch >= ROW_NAME_THRESHOLD && g.nameTokens >= 2
+  ) {
+    // The date is on the row that names this hunt. This is the only case that
+    // clears the gate on its own.
+    c = Math.max(c, 0.9);
+  } else if (g.basis === 'document' && g.rowMatch !== null) {
+    // The date is on the page but not on a row that looks like this hunt.
+    // Measured on Florida: 26 of 34 proposals land here, and the read may well
+    // be right -- but "this date appears somewhere on a page listing 34 hunts"
+    // does not show it belongs to this one, so a person decides.
+    c = Math.min(c, 0.6);
+  } else if (g.basis === 'document') {
+    // Page text, but no rows to check against (no closing date to anchor on).
+    c = Math.min(c, 0.6);
   } else if (g.basis === 'quote') {
     c = Math.min(c, 0.8);
   } else {
