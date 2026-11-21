@@ -4,6 +4,7 @@ import { useEffect } from 'react';
 import { ActivityIndicator, StyleSheet, View, type ColorValue } from 'react-native';
 import { useAuth } from '@/providers/AuthProvider';
 import { useAppGate } from '@/hooks/useAppGate';
+import { useMode } from '@/providers/ModeProvider';
 import { pushPermissionState, syncPushToken } from '@/lib/push';
 import { useFollows } from '@/features/follows/queries';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -18,6 +19,7 @@ function icon(base: keyof typeof Ionicons.glyphMap) {
 export default function TabsLayout() {
   const { session } = useAuth();
   const gate = useAppGate();
+  const { mode, ready } = useMode();
 
   const router = useRouter();
   const { data: follows = [] } = useFollows();
@@ -59,7 +61,7 @@ export default function TabsLayout() {
   // The decision lives in useAppGate so (otw) cannot answer it differently.
   // What is rendered while it waits stays here: the spinner is copper in the
   // woods, and river on the water.
-  if (gate.status === 'loading') {
+  if (gate.status === 'loading' || !ready) {
     return (
       <View style={styles.gate}>
         <ActivityIndicator color={lang.color.copper} size="large" />
@@ -68,6 +70,17 @@ export default function TabsLayout() {
   }
 
   if (gate.status === 'redirect') return <Redirect href={gate.href} />;
+
+  // The persisted mode decides which group you land in on launch. Inert for
+  // every hunting user -- 'hunt' is the default and the only value until the
+  // toggle ships -- and the mirror of this lives in (otw)/_layout.tsx. The
+  // two conditions are exact opposites, so they cannot ping-pong.
+  //
+  // Deep links and push notifications are unaffected: routeForNotification
+  // pushes /season/[id], /window/[id] and /leftover/[id], which are root
+  // stack routes outside both groups, so they land in hunting screens from
+  // either mode.
+  if (mode === 'otw') return <Redirect href="/(otw)" />;
 
   return (
     <Tabs
