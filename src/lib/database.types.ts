@@ -381,6 +381,98 @@ export type ReviewQueueRow = Timestamps & {
   review_notes: string | null;
 };
 
+// ---------------------------------------------------------------------------
+// On the Water (fishing). The tables are live in production; see the
+// migrations from 20261122. Hand-written here, like everything else in this
+// file, rather than generated.
+
+export type WaterKind =
+  | 'lake' | 'reservoir' | 'pond' | 'river' | 'stream' | 'creek'
+  | 'tailwater' | 'impoundment' | 'canal' | 'bay' | 'other';
+
+export type WaterRow = Timestamps & {
+  id: string;
+  state_id: string;
+  name: string;
+  slug: string;
+  kind: WaterKind;
+  /**
+   * The state's own words for where a regulated stretch runs -- "450 feet
+   * upstream of the Sandy Bottom Canoe Access". These landmarks ARE the
+   * regulation, so they are stored verbatim and must be shown verbatim.
+   */
+  extent_note: string | null;
+  county: string | null;
+  parent_water_id: string | null;
+  source_id: string | null;
+  last_verified_at: string | null;
+  status: ContentStatus;
+};
+
+/** What the daily number means when several species share one row. */
+export type LimitBasis = 'aggregate' | 'per_species';
+
+/**
+ * Four different answers, because 0 is a real limit. "unknown" means this
+ * document did not say; "prohibited" means you may not keep one.
+ */
+export type DailyLimitKind = 'count' | 'no_limit' | 'prohibited' | 'unknown';
+
+export type SizeRule = 'none' | 'minimum' | 'maximum' | 'slot_release' | 'slot_keep' | 'see_notes';
+
+export type FishingRestriction =
+  | 'artificial_only' | 'flies_only' | 'single_hook' | 'barbless'
+  | 'no_live_bait' | 'one_pole_handheld' | 'catch_and_release'
+  | 'reservation_required' | 'daylight_only' | 'no_night_fishing'
+  | 'youth_senior_disabled_only' | 'trout_licence_required';
+
+export type FishingRuleRow = Timestamps & {
+  id: string;
+  state_id: string;
+  /** Always null: the species set lives in fishing_rule_species, even for one. */
+  species_id: string | null;
+  zone_id: string | null;
+  /** Null means the rule is statewide. */
+  water_id: string | null;
+  season_year: number;
+  size_rule: SizeRule;
+  min_length_inches: number | null;
+  max_length_inches: number | null;
+  daily_limit_kind: DailyLimitKind;
+  daily_limit: number | null;
+  possession_limit: number | null;
+  trophy_allowance: number | null;
+  trophy_min_length_inches: number | null;
+  limit_basis: LimitBasis;
+  restrictions: FishingRestriction[];
+  /**
+   * The window the RULE is in force -- NOT a season. Null means all year,
+   * which is the common case: most freshwater fishing is open year round,
+   * and a rule window must never be rendered as a closure.
+   */
+  effective_from: string | null;
+  effective_to: string | null;
+  notes: string | null;
+  source_id: string | null;
+  last_verified_at: string | null;
+  status: ContentStatus;
+};
+
+export type FishingRuleSpeciesRow = {
+  rule_id: string;
+  species_id: string;
+};
+
+export type StockingRow = Timestamps & {
+  id: string;
+  water_id: string;
+  species_id: string;
+  stocked_on: string;
+  quantity: number | null;
+  source_id: string | null;
+  status: ContentStatus;
+};
+
 /**
  * Insert = row minus DB-managed defaults; Update = all optional.
  * Relationships is required by supabase-js's GenericTable shape — without it
@@ -397,6 +489,10 @@ export type Database = {
       species: Table<SpeciesRow, Omit<SpeciesRow, 'id' | 'created_at'> & { id?: string }>;
       zones: Table<ZoneRow, Omit<ZoneRow, Gen> & { id?: string }>;
       seasons: Table<SeasonRow, Omit<SeasonRow, Gen> & { id?: string }>;
+      waters: Table<WaterRow, Omit<WaterRow, Gen> & { id?: string }>;
+      fishing_rules: Table<FishingRuleRow, Omit<FishingRuleRow, Gen> & { id?: string }>;
+      fishing_rule_species: Table<FishingRuleSpeciesRow, FishingRuleSpeciesRow>;
+      stockings: Table<StockingRow, Omit<StockingRow, Gen> & { id?: string }>;
       application_windows: Table<ApplicationWindowRow, Omit<ApplicationWindowRow, Gen> & { id?: string }>;
       regulation_summaries: Table<RegulationSummaryRow, Omit<RegulationSummaryRow, Gen> & { id?: string }>;
       profiles: Table<

@@ -7,11 +7,21 @@
  * headline, one card that outranks everything, then sections -- in the other
  * mode's voice.
  *
- * EVERY NUMBER ON THIS SCREEN IS PLACEHOLDER DATA in Phase 1, which is why it
- * carries a visible EXAMPLE DATA marker. The screen looks finished, and a
- * screen that looks finished while inventing flows and limits is exactly the
- * thing that gets shown to someone and believed. The marker comes off when
- * placeholder.ts does.
+ * WHAT IS REAL AND WHAT IS NOT, which the screen says out loud:
+ *
+ *   Seasons & stocking   REAL, from the published fishing_rules already in
+ *                        production -- Georgia's 29 waters and 33 rules were
+ *                        transcribed from the agency pages by hand.
+ *   The Today card       PLACEHOLDER. Flow, water temperature, the release
+ *                        window and the almanac are invented until Phase 2
+ *                        wires USGS and NWS.
+ *   Licence banner       PLACEHOLDER. There is no licence-expiry model yet.
+ *   Field plates         PLACEHOLDER. "Your species" implies a follow model
+ *                        that fishing does not have.
+ *
+ * The marker in the header reflects which of those is true, because a screen
+ * that looks finished while inventing limits is the thing that gets shown to
+ * someone and believed.
  */
 import { useRouter } from 'expo-router';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
@@ -25,6 +35,10 @@ import { TodayOnTheWaterCard } from '@/components/otw/TodayOnTheWaterCard';
 import { WavyRule } from '@/components/otw/WavyRule';
 import { MODE_LABEL } from '@/content/brand';
 import { useAuth } from '@/providers/AuthProvider';
+import { useBrowseStateCode } from '@/lib/browseState';
+import { useActiveStates } from '@/features/reference/queries';
+import { useFishingRules } from '@/features/otw/queries';
+import { ruleInForce, ruleSubtitle, speciesPhrase, windowPhrase } from '@/features/otw/format';
 import {
   PLACEHOLDER_ALMANAC,
   PLACEHOLDER_GAUGE,
@@ -35,6 +49,7 @@ import {
   PLACEHOLDER_SUBLINE,
 } from '@/features/otw/placeholder';
 import { conditionSentence, otwHeadlineSize, sentenceText } from '@/features/otw/sentences';
+import { useMemo } from 'react';
 import { otwLang, OTW_DISCLAIMER } from '@/theme/otwTokens';
 
 const { color, space, type } = otwLang;
@@ -56,6 +71,35 @@ export default function OtwHome() {
   // Same field and same split as the hunting Home, so a name that renders in
   // one mode renders in the other.
   const firstName = (profile?.display_name ?? '').trim().split(' ')[0];
+  const todayISO = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+
+  // The same order the hunting Home uses: the state you said you live in,
+  // else the one you are browsing. The header used to say "Georgia" whatever
+  // you had picked, which was a lie for everyone else.
+  const { code: browseCode } = useBrowseStateCode();
+  const { data: states = [] } = useActiveStates();
+  const stateCode =
+    states.find((st) => st.id === profile?.resident_state_id)?.code ?? browseCode ?? null;
+  const stateName = states.find((st) => st.code === stateCode)?.name ?? stateCode ?? '';
+
+  const { data: ruleData } = useFishingRules(stateCode);
+
+  /**
+   * The three rules worth leading with: a named water before statewide, and a
+   * rule in force today before one that is not. A rule outside its window is
+   * NOT a closed water -- see ruleInForce -- so it still earns a place, just a
+   * lower one, and it shows its window instead of a status.
+   */
+  const realRows = useMemo(() => {
+    if (!ruleData || !ruleData.speciesResolved) return null;
+    const usable = ruleData.rules.filter((r) => r.speciesNames.length > 0);
+    if (usable.length === 0) return null;
+    const rank = (r: (typeof usable)[number]) =>
+      (r.waterName ? 0 : 2) + (ruleInForce(r, todayISO) ? 0 : 1);
+    return [...usable].sort((a, b) => rank(a) - rank(b)).slice(0, 3);
+  }, [ruleData, todayISO]);
+
+  const regsAreReal = !!realRows;
 
   const sentence = conditionSentence(PLACEHOLDER_GAUGE.waterName, PLACEHOLDER_GAUGE.reading);
   const size = otwHeadlineSize(sentenceText(sentence));
@@ -70,7 +114,7 @@ export default function OtwHome() {
             <View style={styles.locChip}>
               <View style={styles.locDot} />
               <Text style={styles.locText} numberOfLines={1}>
-                Georgia
+                {stateName || 'Pick a state'}
               </Text>
             </View>
           </View>
@@ -79,7 +123,9 @@ export default function OtwHome() {
 
         {/* Phase 1 only. See the header comment. */}
         <View style={styles.notice}>
-          <Text style={styles.noticeText}>{PLACEHOLDER_NOTICE}</Text>
+          <Text style={styles.noticeText}>
+            {regsAreReal ? 'EXAMPLE CONDITIONS' : PLACEHOLDER_NOTICE}
+          </Text>
         </View>
 
         <View style={styles.hero}>
@@ -129,16 +175,37 @@ export default function OtwHome() {
             All waters ›
           </Text>
         </View>
-        {PLACEHOLDER_LEDGER.map((row, i) => (
-          <OtwLedgerRow
-            key={row.id}
-            kind={row.kind}
-            title={row.title}
-            subtitle={row.subtitle}
-            status={row.status}
-            first={i === 0}
-          />
-        ))}
+        {realRows
+          ? realRows.map((r, i) => {
+              const inForce = ruleInForce(r, todayISO);
+              const window = windowPhrase(r);
+              return (
+                <OtwLedgerRow
+                  key={r.id}
+                  kind={r.waterName ? 'rule' : 'season'}
+                  title={[r.waterName ?? 'Statewide', speciesPhrase(r.speciesNames)]
+                    .filter(Boolean)
+                    .join(' · ')}
+                  subtitle={ruleSubtitle(r) || r.extentNote || 'See the regulations'}
+                  status={
+                    inForce
+                      ? { text: 'In force', tone: 'open' }
+                      : { text: window ?? '—', tone: 'date' }
+                  }
+                  first={i === 0}
+                />
+              );
+            })
+          : PLACEHOLDER_LEDGER.map((row, i) => (
+              <OtwLedgerRow
+                key={row.id}
+                kind={row.kind}
+                title={row.title}
+                subtitle={row.subtitle}
+                status={row.status}
+                first={i === 0}
+              />
+            ))}
 
         <WavyRule tone="river" style={styles.rule} />
 
