@@ -904,6 +904,53 @@ export type FishingGrounding = {
  * lists the waters it applies to. Requiring those dates on each water's own
  * row would fail every correctly-read delayed-harvest stream in Georgia.
  */
+/**
+ * The blocks of one page, tokenised once.
+ *
+ * groundFishingRule is called once per proposed row, and its inner loop ran
+ * nameMatchScore over every block -- which built `${heading} ${block}`, called
+ * words() on it and allocated a Set, for EVERY block on EVERY row. On North
+ * Carolina's warm-water page (near the 5000-block cap, ~100 proposed rows)
+ * that is on the order of a billion character operations and gigabytes of
+ * transient strings, and the worker died with WORKER_RESOURCE_LIMIT.
+ *
+ * None of it varies by row. Cached on the blocks array itself, so the page is
+ * tokenised once however many rows are grounded against it. WeakMap because
+ * the entry should die with the page, not accumulate across invocations.
+ */
+type BlockEntry = { context: string; hay: string[]; set: Set<string> };
+const BLOCK_INDEX = new WeakMap<string[], BlockEntry[]>();
+
+export function blockIndex(blocks: string[]): BlockEntry[] {
+  const cached = BLOCK_INDEX.get(blocks);
+  if (cached) return cached;
+  const built: BlockEntry[] = new Array(blocks.length);
+  for (let i = 0; i < blocks.length; i++) {
+    const context = `${headingFor(blocks, i)} ${blocks[i]}`;
+    const hay = words(context);
+    built[i] = { context, hay, set: new Set(hay) };
+  }
+  BLOCK_INDEX.set(blocks, built);
+  return built;
+}
+
+/**
+ * nameMatchScore against a pre-tokenised block, with the NAME's tokens also
+ * hoisted out by the caller. Identical arithmetic to nameMatchScore -- that
+ * function stays as the single-shot form and the two must not drift.
+ */
+function nameMatchScoreIndexed(
+  entry: BlockEntry,
+  main: string[],
+  quals: string[],
+  hasParts: boolean,
+): number {
+  if (!hasParts) return 0;
+  if (quals.some((q) => !entry.set.has(q))) return 0;
+  if (main.length === 0) return quals.length > 0 ? 1 : 0;
+  return main.filter((t) => entry.hay.some((w) => w.startsWith(t))).length / main.length;
+}
+
 export function groundFishingRule(
   blocks: string[] | null,
   text: string | null,
@@ -942,16 +989,21 @@ export function groundFishingRule(
   let best = 0;
   let bestText: string | null = null;
   let bestFound: string[] = [];
-  for (let i = 0; i < blocks.length; i++) {
-    const context = `${headingFor(blocks, i)} ${blocks[i]}`;
-    const m = nameMatchScore(context, subject);
+  // Hoisted: these depend on the subject, not the block, but nameMatchScore
+  // recomputed all three on every one of up to 5000 blocks.
+  const parts = usefulNameTokens(subject);
+  const main = distinctiveNameTokens(subject);
+  const quals = parts.filter((t) => QUALIFIER.test(t));
+  const index = blockIndex(blocks);
+  for (let i = 0; i < index.length; i++) {
+    const entry = index[i];
+    const m = nameMatchScoreIndexed(entry, main, quals, parts.length > 0);
     if (m < ROW_NAME_THRESHOLD) continue;
-    const set = new Set(words(context));
-    const found = wantNumbers.filter((n) => set.has(n));
+    const found = wantNumbers.filter((n) => entry.set.has(n));
     if (m > best || (m === best && found.length > bestFound.length)) {
       best = m;
       bestFound = found;
-      bestText = context.trim().slice(0, 300);
+      bestText = entry.context.trim().slice(0, 300);
     }
   }
 

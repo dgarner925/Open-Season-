@@ -831,3 +831,64 @@ describe('scoreFishingRuleConfidence', () => {
     expect(score('Waters Creek', 22, { trophy_allowance: 2 })).toBeLessThanOrEqual(0.3);
   });
 });
+
+describe('grounding a page the size of North Carolina', () => {
+  // North Carolina's warm-water page killed the worker with
+  // WORKER_RESOURCE_LIMIT. Not a logic bug: groundFishingRule's inner loop
+  // rebuilt `${heading} ${block}`, re-tokenised it and allocated a Set for
+  // EVERY block on EVERY proposed row, and re-derived the subject's own tokens
+  // each time too. Near the 5000-block cap with ~100 rows that is on the order
+  // of a billion character operations per page.
+  //
+  // Nothing caught it because every existing test grounds a handful of rows
+  // against a handful of blocks, where the waste is invisible. This one works
+  // at the scale the bug needs.
+  // Blocks must be REALISTIC LENGTH or this proves nothing. textBlocks caps a
+  // block at 2000 characters and an agency table row runs to hundreds; a first
+  // version of this test used ~70-character blocks and passed against the
+  // unoptimised code in 1.4s, catching nothing. The cost being guarded here is
+  // per-character, so the characters have to be there.
+  const filler = 'inland and joint waters creel possession statewide provisions apply '.repeat(20);
+  const bigPage = () => {
+    const blocks: string[] = [];
+    for (let i = 0; i < 2500; i++) {
+      blocks.push(`County ${i} Regulations ${filler}`.slice(0, 2000));
+      blocks.push(
+        `Smallmouth bass ${i} daily limit 5 minimum size 14 inches on Lake Number ${i} ${filler}`
+          .slice(0, 2000),
+      );
+    }
+    return blocks.slice(0, 5000);
+  };
+
+  it('finds the right row among thousands, and does not take all day', () => {
+    const blocks = bigPage();
+    const text = blocks.join(' ');
+    const started = Date.now();
+    // 100 rows against the same page: the shape that killed the worker.
+    let last = null as ReturnType<typeof groundFishingRule> | null;
+    for (let r = 0; r < 100; r++) {
+      last = groundFishingRule(blocks, text, null, `Lake Number ${r}`, [5, 14], []);
+    }
+    const elapsed = Date.now() - started;
+
+    expect(last).not.toBeNull();
+    expect(last!.nameMatch).toBeGreaterThanOrEqual(0.6);
+    expect(last!.numbersFound).toContain('5');
+    expect(last!.numbersFound).toContain('14');
+    // The threshold sits between two populations, measured on this workload:
+    // unoptimised ~9.4s, with the per-page block index ~0.5s. 5s gives the
+    // fixed path 10x headroom on a slow box while still failing the quadratic
+    // path outright. A first attempt used 10s and the broken code squeaked
+    // under it -- a regression test that does not catch the regression.
+    expect(elapsed).toBeLessThan(5_000);
+  });
+
+  it('still reports an honest miss on a page that does not name the subject', () => {
+    const blocks = bigPage();
+    const g = groundFishingRule(blocks, blocks.join(' '), null, 'Chattooga River', [10], []);
+    expect(g.nameMatch).toBe(0);
+    expect(g.rowText).toBeNull();
+    expect(g.numbersMissing).toContain('10');
+  });
+});
