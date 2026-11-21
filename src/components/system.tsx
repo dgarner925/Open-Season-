@@ -282,13 +282,28 @@ export function Sentence({
  * holds the top-left of Home, where the serif "Open season." masthead used to
  * sit before the opener took that space (David, 2026-11-08).
  */
-export function Monogram({ size = 24 }: { size?: number }) {
+/**
+ * O·S.
+ *
+ * `tint` and `dotTint` default to copper, so every existing caller renders
+ * exactly as it did. On the Water passes river and brass -- see the mockup's
+ * header, where the mark and the location dot are different colours.
+ */
+export function Monogram({
+  size = 24,
+  tint = color.copper,
+  dotTint,
+}: {
+  size?: number;
+  tint?: string;
+  dotTint?: string;
+}) {
   const dot = Math.max(3, Math.round(size * 0.15));
   const letter = {
     fontFamily: type.display,
     fontSize: size,
     lineHeight: Math.round(size * 1.16),
-    color: color.copper,
+    color: tint,
   } as const;
   return (
     <View
@@ -298,7 +313,7 @@ export function Monogram({ size = 24 }: { size?: number }) {
       accessibilityLabel="Open Season"
     >
       <Text style={letter}>O</Text>
-      <View style={{ width: dot, height: dot, borderRadius: dot / 2, backgroundColor: color.copper }} />
+      <View style={{ width: dot, height: dot, borderRadius: dot / 2, backgroundColor: dotTint ?? tint }} />
       <Text style={letter}>S</Text>
     </View>
   );
