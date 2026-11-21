@@ -11,6 +11,7 @@ import {
   seasonIdentity,
   validateSeason,
   dateRenderings,
+  expandCompressedRanges,
   groundDates,
   scoreWindowConfidence,
   validateWindow,
@@ -443,5 +444,41 @@ describe('scoreWindowConfidence', () => {
   it('caps a row with no evidence quote', () => {
     expect(score({ evidence: null }, 'open March 1, 2027 close April 7, 2027'))
       .toBeLessThanOrEqual(0.6);
+  });
+});
+
+describe('expandCompressedRanges', () => {
+  it('writes out the far end of a same-month range', () => {
+    const out = expandCompressedRanges('application period is Feb. 3–24, 2027');
+    expect(out).toContain('Feb 24, 2027');
+  });
+
+  it('handles a plain hyphen and a full month name', () => {
+    expect(expandCompressedRanges('March 1-15, 2027')).toContain('March 15, 2027');
+  });
+
+  it('leaves text with no range untouched', () => {
+    const s = 'closes April 7, 2027';
+    expect(expandCompressedRanges(s)).toBe(s);
+  });
+
+  it('does not invent a month that is not there', () => {
+    expect(expandCompressedRanges('3-24')).toBe('3-24');
+  });
+});
+
+describe('groundDates with compressed ranges', () => {
+  // The real sentence from eregulations.com/tennessee, which scored 0.30 on
+  // 2026-11-21 for a deadline the page states.
+  const tn = 'The application period for the elk quota hunts is Feb. 3–24, 2027.';
+
+  it('finds both ends of the range', () => {
+    const g = groundDates(tn, null, ['2027-02-03', '2027-02-24']);
+    expect(g.missing).toEqual([]);
+  });
+
+  it('still refuses a date the range does not cover', () => {
+    const g = groundDates(tn, null, ['2027-02-25']);
+    expect(g.missing).toEqual(['2027-02-25']);
   });
 });

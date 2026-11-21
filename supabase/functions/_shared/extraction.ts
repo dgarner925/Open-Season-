@@ -314,6 +314,40 @@ export function dateRenderings(iso: string): string[] {
   ];
 }
 
+const MONTH_RE =
+  '(Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?' +
+  '|Aug(?:ust)?|Sep(?:t)?(?:ember)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)';
+
+/**
+ * Write out the end of a compressed date range, so a literal search can find it.
+ *
+ * Agencies write a window as "Feb. 3-24, 2027", and the closing date -- the one
+ * thing a hunter needs -- appears nowhere on the page as "Feb 24". A search for
+ * the renderings of 2027-02-24 therefore missed it, scored a correct deadline
+ * at 0.30, and would have held Tennessee's elk quota hunt out of the site while
+ * reporting it as ungrounded.
+ *
+ * Found 2026-11-21 by checking the page by hand instead of believing the
+ * checker, which is the only way this class of error ever surfaces: a
+ * verification step that is too strict does not announce itself, it just
+ * quietly refuses good data.
+ *
+ * Only the same-month form needs this. "Sept. 26-Oct. 16" already states both
+ * ends in full, so an ordinary search finds them.
+ */
+export function expandCompressedRanges(text: string): string {
+  const re = new RegExp(
+    MONTH_RE + '\\.?\\s*(\\d{1,2})\\s*[\\u2010-\\u2015\\u2212-]\\s*(\\d{1,2})(?:\\s*,?\\s*(\\d{4}))?',
+    'gi',
+  );
+  const extra: string[] = [];
+  for (const m of text.matchAll(re)) {
+    const [, month, , d2, year] = m;
+    extra.push(year ? `${month} ${d2}, ${year}` : `${month} ${d2}`);
+  }
+  return extra.length ? `${text} ${extra.join(' ')}` : text;
+}
+
 export type Grounding = {
   /** 'document' = checked against the page we fetched; 'quote' = only against
    *  the model's own evidence quote; 'none' = could not check at all. */
@@ -354,7 +388,10 @@ export function groundDates(
   // Collapse whitespace and drop the comma/period noise agencies vary on, so
   // "Nov. 23 , 2026" and "Nov 23 2026" compare equal.
   const norm = (s: string) => s.toLowerCase().replace(/[.,]/g, '').replace(/\s+/g, ' ');
-  const hay = norm(haystack);
+  // Expand "Feb. 3-24, 2027" into something that also says "Feb 24, 2027"
+  // before searching, or the closing date of every compressed range reads as
+  // absent from a page that plainly states it.
+  const hay = norm(expandCompressedRanges(haystack));
 
   const found: string[] = [];
   const missing: string[] = [];
