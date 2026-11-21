@@ -1,6 +1,12 @@
 /**
  * Can the auto-approve gate FAIL?
  *
+ * HISTORY: the last two tests were written asserting the OPPOSITE -- that the
+ * gate let a swapped limit/length and an ungrounded possession limit through at
+ * 0.90 clean. Both holes were real and both are now closed; the tests were
+ * inverted in the same commit that closed them. Keep them pointed at the fix,
+ * not at the bug.
+ *
  * 472 fishing proposals scored >= 0.90 with no validation errors; of the 438 of
  * those David decided, he approved 438 and rejected none. That is either a gate
  * worth trusting with 4,000 more rows, or a gate that cannot say no. The 549
@@ -29,7 +35,11 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { groundFishingRule, scoreFishingRuleConfidence } from './extraction.ts';
+import {
+  groundFishingRule,
+  scoreFishingRuleConfidence,
+  type FishingNumber,
+} from './extraction.ts';
 
 const MS_BLOCKS = [
   'Freshwater Creel And Size Limits',
@@ -46,19 +56,34 @@ const MS_BLOCKS = [
 ];
 const MS_TEXT = MS_BLOCKS.join('\n');
 
-/** The numbers array, assembled the way extract-source assembles it. */
+/**
+ * The numbers array, assembled the way extract-source assembles it -- each
+ * number tagged with the FIELD claiming it. Passing bare numbers here instead
+ * would exercise the legacy 'any' path and prove nothing about the real gate,
+ * which is how the first run of this probe came out green after the fix.
+ */
 function numbersFor(r: {
   daily_limit_kind?: string;
   daily_limit?: number | null;
   min_length_inches?: number | null;
   max_length_inches?: number | null;
   trophy_min_length_inches?: number | null;
-}): (number | null)[] {
+  possession_limit?: number | null;
+  trophy_allowance?: number | null;
+}): (FishingNumber | null)[] {
   return [
-    r.daily_limit_kind === 'count' ? r.daily_limit ?? null : null,
-    r.min_length_inches ?? null,
-    r.max_length_inches ?? null,
-    r.trophy_min_length_inches ?? null,
+    r.daily_limit_kind === 'count' && r.daily_limit != null
+      ? { value: r.daily_limit, kind: 'count' } : null,
+    r.min_length_inches != null
+      ? { value: r.min_length_inches, kind: 'length' } : null,
+    r.max_length_inches != null
+      ? { value: r.max_length_inches, kind: 'length' } : null,
+    r.trophy_min_length_inches != null
+      ? { value: r.trophy_min_length_inches, kind: 'length' } : null,
+    r.possession_limit != null
+      ? { value: r.possession_limit, kind: 'count' } : null,
+    r.trophy_allowance != null
+      ? { value: r.trophy_allowance, kind: 'count' } : null,
   ];
 }
 
@@ -147,7 +172,7 @@ describe('the auto-approve gate, probed with wrong rows', () => {
   // bless the behaviour.
   // ===========================================================================
 
-  it('LETS THROUGH a daily limit and a length swapped for each other', () => {
+  it('CATCHES a daily limit and a length swapped for each other', () => {
     // "6 a day, 15-inch minimum" becomes "15 a day, 6-inch minimum". Both
     // numbers are still somewhere in the matched row, and the gate pools all
     // four numbers into one unordered bag and asks only whether each appears.
@@ -157,18 +182,22 @@ describe('the auto-approve gate, probed with wrong rows', () => {
     // striped bass on a 6-a-day water is over by nine fish.
     const swapped = { ...STRIPER_TRUE, daily_limit: 15, min_length_inches: 6 };
     const r = gate(swapped, 'striped bass');
-    expect(r.errors).toEqual([]);
-    expect(r.confidence).toBeGreaterThanOrEqual(0.9);
-    expect(r.autoApproved).toBe(true); // <-- invert when numbers are field-checked
+    expect(r.autoApproved).toBe(false);
+    expect(r.confidence).toBeLessThanOrEqual(0.3);
+    // Both halves of the swap are named, and a length is marked so the message
+    // says which field is wrong rather than only which digits.
+    expect(r.errors.join(' ')).toContain('15');
+    expect(r.errors.join(' ')).toContain('6"');
   });
 
-  it('LETS THROUGH an invented possession limit, never grounded at all', () => {
+  it('CATCHES an invented possession limit, which was never grounded at all', () => {
     // possession_limit and trophy_allowance are not in the numbers array, so no
     // value of either is ever compared against the page. 14 and 9 appear
     // nowhere here; the gate has no opinion about either.
     const invented = { ...STRIPER_TRUE, possession_limit: 14, trophy_allowance: 9 };
     const r = gate(invented, 'striped bass');
-    expect(r.errors).toEqual([]);
-    expect(r.autoApproved).toBe(true); // <-- invert when those fields are grounded
+    expect(r.autoApproved).toBe(false);
+    expect(r.errors.join(' ')).toContain('14');
+    expect(r.errors.join(' ')).toContain('9');
   });
 });

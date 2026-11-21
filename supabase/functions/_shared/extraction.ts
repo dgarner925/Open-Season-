@@ -918,7 +918,69 @@ export type FishingGrounding = {
  * tokenised once however many rows are grounded against it. WeakMap because
  * the entry should die with the page, not accumulate across invocations.
  */
-type BlockEntry = { context: string; hay: string[]; set: Set<string> };
+/**
+ * What a number in a proposed rule CLAIMS to be.
+ *
+ * The gate used to pool every number into one unordered bag and ask only
+ * whether each appeared SOMEWHERE in the matched row, so a creel limit swapped
+ * with a length passed at 0.90 clean. Mississippi's striped bass row carries
+ * both 6 and 15, which made "6 a day, 15-inch minimum" and "15 a day, 6-inch
+ * minimum" indistinguishable -- and the second triples a creel limit.
+ *
+ * So a number is now checked against the FIELD that claims it: a 'length' has
+ * to appear qualified by an inch marker, a 'count' has to appear NOT so
+ * qualified. A number occurring both ways in one row satisfies either, which is
+ * correct -- "15 inches, 15 per day" is a real shape.
+ *
+ * A bare number still means 'any' (appears at all). That is the pre-2026-11-21
+ * behaviour, kept so a caller that cannot say which field a number belongs to
+ * is no worse off than before. extract-source does not use it.
+ */
+export type FishingNumber = { value: number; kind: 'count' | 'length' };
+
+type Claim = { tok: string; label: string; kind: 'count' | 'length' | 'any' };
+
+/** An inch marker, as agency tables write it. */
+const INCH = String.raw`(?:inch(?:es)?\b|in\.|")`;
+/**
+ * A length reading: the number, optionally carrying on into a range -- in
+ * "18-22 inches" the 18 is as much a length as the 22 -- then the marker.
+ * Anchored and applied to a bounded slice, never scanned over the whole row.
+ */
+const LENGTH_TAIL_RE = new RegExp(
+  String.raw`^\s*(?:(?:-|\u2013|to|and)\s*\d+(?:\.\d+)?\s*)?` + INCH, 'i');
+const NUMBER_RE = /\d+(?:\.\d+)?/g;
+
+/**
+ * Split a block's numbers into the ones written as lengths and the ones not.
+ *
+ * Done ONCE per block when the page is indexed, never per proposed row. A
+ * regex per number per row against up to 5000 blocks is the shape that killed
+ * the worker on North Carolina; the whole point of the block index is that
+ * per-row work stays set lookups.
+ */
+function classifyNumbers(context: string): { lengths: Set<string>; counts: Set<string> } {
+  const lengths = new Set<string>();
+  const counts = new Set<string>();
+  NUMBER_RE.lastIndex = 0;
+  let m: RegExpExecArray | null;
+  while ((m = NUMBER_RE.exec(context)) !== null) {
+    const tok = numberToken(parseFloat(m[0]));
+    const at = m.index + m[0].length;
+    // 24 chars is enough for "-22 inches" and bounds the work per number.
+    if (LENGTH_TAIL_RE.test(context.slice(at, at + 24))) lengths.add(tok);
+    else counts.add(tok);
+  }
+  return { lengths, counts };
+}
+
+type BlockEntry = {
+  context: string;
+  hay: string[];
+  set: Set<string>;
+  lengths: Set<string>;
+  counts: Set<string>;
+};
 const BLOCK_INDEX = new WeakMap<string[], BlockEntry[]>();
 
 export function blockIndex(blocks: string[]): BlockEntry[] {
@@ -928,10 +990,39 @@ export function blockIndex(blocks: string[]): BlockEntry[] {
   for (let i = 0; i < blocks.length; i++) {
     const context = `${headingFor(blocks, i)} ${blocks[i]}`;
     const hay = words(context);
-    built[i] = { context, hay, set: new Set(hay) };
+    const { lengths, counts } = classifyNumbers(context);
+    built[i] = { context, hay, set: new Set(hay), lengths, counts };
   }
   BLOCK_INDEX.set(blocks, built);
   return built;
+}
+
+/** Normalise the caller's numbers into claims, dropping nulls. */
+function toClaims(numbers: (number | FishingNumber | null)[]): Claim[] {
+  const out: Claim[] = [];
+  for (const n of numbers) {
+    if (n === null || n === undefined) continue;
+    if (typeof n === 'number') {
+      const tok = numberToken(n);
+      out.push({ tok, label: tok, kind: 'any' });
+    } else {
+      const tok = numberToken(n.value);
+      // A length renders with an inch mark so a validation error names the
+      // field, not just the digits: `not stated beside striped bass: 15"`.
+      out.push({ tok, label: n.kind === 'length' ? `${tok}"` : tok, kind: n.kind });
+    }
+  }
+  return out;
+}
+
+/** Is this claim borne out by one indexed block? */
+function claimMet(
+  e: { set: Set<string>; lengths: Set<string>; counts: Set<string> },
+  c: Claim,
+): boolean {
+  if (c.kind === 'length') return e.lengths.has(c.tok);
+  if (c.kind === 'count') return e.counts.has(c.tok);
+  return e.set.has(c.tok);
 }
 
 /**
@@ -956,11 +1047,10 @@ export function groundFishingRule(
   text: string | null,
   quote: string | null,
   subject: string | null,
-  numbers: (number | null)[],
+  numbers: (number | FishingNumber | null)[],
   dates: (string | null)[],
 ): FishingGrounding {
-  const wantNumbers = numbers.filter((n): n is number => n !== null && n !== undefined)
-    .map(numberToken);
+  const claims = toClaims(numbers);
   const dateCheck = groundDates(text, quote, dates);
 
   const haystack = text ?? quote ?? null;
@@ -969,15 +1059,17 @@ export function groundFishingRule(
   if (!blocks || blocks.length === 0 || !subject) {
     // Without rows we can still say whether the numbers appear at all, which
     // is weak and is scored as weak.
-    const hay = haystack ? words(expandCompressedRanges(haystack)) : [];
-    const set = new Set(hay);
+    const expanded = haystack ? expandCompressedRanges(haystack) : '';
+    const set = new Set(haystack ? words(expanded) : []);
+    // Same field-aware rule, against the whole document instead of one row.
+    const whole = { set, ...classifyNumbers(expanded) };
     return {
       basis,
       nameMatch: null,
       nameTokens: distinctiveNameTokens(subject).length,
       rowText: null,
-      numbersFound: wantNumbers.filter((n) => set.has(n)),
-      numbersMissing: wantNumbers.filter((n) => !set.has(n)),
+      numbersFound: claims.filter((c) => claimMet(whole, c)).map((c) => c.label),
+      numbersMissing: claims.filter((c) => !claimMet(whole, c)).map((c) => c.label),
       datesFound: dateCheck.found,
       datesMissing: dateCheck.missing,
     };
@@ -999,7 +1091,7 @@ export function groundFishingRule(
     const entry = index[i];
     const m = nameMatchScoreIndexed(entry, main, quals, parts.length > 0);
     if (m < ROW_NAME_THRESHOLD) continue;
-    const found = wantNumbers.filter((n) => entry.set.has(n));
+    const found = claims.filter((c) => claimMet(entry, c)).map((c) => c.label);
     if (m > best || (m === best && found.length > bestFound.length)) {
       best = m;
       bestFound = found;
@@ -1015,7 +1107,7 @@ export function groundFishingRule(
       nameTokens: distinctiveNameTokens(subject).length,
       rowText: null,
       numbersFound: [],
-      numbersMissing: wantNumbers,
+      numbersMissing: claims.map((c) => c.label),
       datesFound: dateCheck.found,
       datesMissing: dateCheck.missing,
     };
@@ -1027,7 +1119,7 @@ export function groundFishingRule(
     nameTokens: distinctiveNameTokens(subject).length,
     rowText: bestText,
     numbersFound: bestFound,
-    numbersMissing: wantNumbers.filter((n) => !bestFound.includes(n)),
+    numbersMissing: claims.map((c) => c.label).filter((l) => !bestFound.includes(l)),
     datesFound: dateCheck.found,
     datesMissing: dateCheck.missing,
   };

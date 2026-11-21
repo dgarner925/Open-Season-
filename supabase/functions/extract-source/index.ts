@@ -27,6 +27,7 @@ import {
   validateSeason,
   groundFishingRule,
   groundWindow,
+  type FishingNumber,
   ROW_NAME_THRESHOLD,
   scoreFishingRuleConfidence,
   validateFishingRule,
@@ -588,11 +589,26 @@ async function processFishingSource(
         ? keys.map((k) => k.replace(/-/g, ' ')).join(' ')
         : null;
 
-    const numbers = [
-      r.daily_limit_kind === 'count' ? r.daily_limit ?? null : null,
-      r.min_length_inches ?? null,
-      r.max_length_inches ?? null,
-      r.trophy_min_length_inches ?? null,
+    // Each number is tagged with the FIELD claiming it, so grounding can tell a
+    // creel limit from a length instead of pooling both into one bag. A swapped
+    // pair used to score 0.90 clean; see autoapprove_probe.test.ts.
+    //
+    // possession_limit and trophy_allowance are in this list for the first
+    // time. They were absent, so no value of either had ever been compared to a
+    // page -- an invented possession limit of 14 scored 0.90.
+    const numbers: (FishingNumber | null)[] = [
+      r.daily_limit_kind === 'count' && r.daily_limit != null
+        ? { value: r.daily_limit, kind: 'count' } : null,
+      r.min_length_inches != null
+        ? { value: r.min_length_inches, kind: 'length' } : null,
+      r.max_length_inches != null
+        ? { value: r.max_length_inches, kind: 'length' } : null,
+      r.trophy_min_length_inches != null
+        ? { value: r.trophy_min_length_inches, kind: 'length' } : null,
+      r.possession_limit != null
+        ? { value: r.possession_limit, kind: 'count' } : null,
+      r.trophy_allowance != null
+        ? { value: r.trophy_allowance, kind: 'count' } : null,
     ];
     const from = blankToNull(r.effective_from);
     const to = blankToNull(r.effective_to);
