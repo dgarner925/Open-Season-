@@ -68,9 +68,33 @@ export default function OtwTabsLayout() {
       {/* Ionicons has no triple-wave glyph; the mockup's is custom art. The
           droplet reads as water and holds the slot until that ships. */}
       <Tabs.Screen name="waters" options={{ title: 'Waters', tabBarIcon: icon('water') }} />
-      <Tabs.Screen name="stocking" options={{ title: 'Stocking', tabBarIcon: icon('calendar') }} />
+      {/*
+        STOCKING AND PROFILE ARE OFF THE BAR, not deleted.
+
+        `href: null` keeps each route reachable by link and keeps the file,
+        while taking the slot out of the tab bar. Deleting the files would
+        drop routes that deep links and Home still reference.
+
+        Profile re-exports app/(tabs)/settings, which imports `lang`
+        statically -- so it renders the woods' near-black under this cream
+        tab bar. That mismatch is why it read as out of place here. Settings
+        is one tap away through the ModeToggle in the Home header, which is
+        where account, sign-out and alerts now live.
+
+        Stocking was an OtwPlaceholder over a `stockings` table holding ZERO
+        rows: a tab that costs a fifth of the bar to tell the reader there is
+        nothing here yet. It comes back when a stocking feed is loaded.
+
+        Regs is still on the bar but is ALSO a placeholder -- see the note by
+        its line below.
+      */}
+      <Tabs.Screen name="stocking" options={{ href: null }} />
+      <Tabs.Screen name="profile" options={{ href: null }} />
+      {/* Placeholder too. Left on the bar only because the Home screen links
+          to it; under the State -> Water -> Fish model the Waters tab IS the
+          regulations browser, so this slot is the one to re-use rather than
+          fill. */}
       <Tabs.Screen name="regs" options={{ title: 'Regs', tabBarIcon: icon('document-text') }} />
-      <Tabs.Screen name="profile" options={{ title: 'Profile', tabBarIcon: icon('person') }} />
     </Tabs>
   );
 }
