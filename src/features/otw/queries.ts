@@ -7,19 +7,20 @@
  * put that on the screen in place of placeholder.ts.
  *
  * ---------------------------------------------------------------------------
- * ONE POLICY STANDS IN FRONT OF THE SPECIES NAMES
+ * THE SPECIES GATE IS OPEN. THIS COMMENT USED TO SAY IT WAS SHUT.
  *
- * `species` is gated to `pursuit = 'hunting'` for anon and authenticated --
- * the launch gate, so fishing could not leak before it was ready. waters,
- * fishing_rules, fishing_rule_species and stockings are all world-readable
- * already, so a rule and its limits come back fine; only the NAMES on it do
- * not.
+ * It said `species` was gated to `pursuit = 'hunting'` for anon and
+ * authenticated -- a launch gate, so fishing names could not leak before the
+ * data was ready. Checked against production on 2026-11-21:
+ * `species_public_read` is `using (true)`, permissive, for anon and
+ * authenticated, and there are 72 fishing species behind it. The gate is not
+ * there, and the OTW ledger has been showing real Georgia rules.
  *
- * Rather than render a rule with no subject -- which would be a row saying
- * "15/day combined" about nothing -- useFishingRules reports whether the
- * names resolved, and the Home falls back to placeholder content when they
- * did not. That keeps this code correct both before and after the policy
- * changes, instead of quietly producing nonsense in between.
+ * `speciesResolved` stays, demoted from load-bearing to defensive. Rendering
+ * a rule whose subject did not resolve would be a row saying "15/day
+ * combined" about nothing, and that is worth a guard whether or not a policy
+ * is currently in the way. It is no longer the reason the Home has a
+ * placeholder path -- it is a seatbelt.
  */
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';

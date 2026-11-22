@@ -49,6 +49,23 @@ describe('the gauge config itself', () => {
   it('gives every gauge a note saying where it physically is', () => {
     for (const g of GAUGES) expect(g.note.length).toBeGreaterThan(10);
   });
+
+  it('uses USGS site numbers, which are all digits', () => {
+    for (const g of GAUGES) expect(g.siteNo).toMatch(/^\d{8,15}$/);
+  });
+
+  /**
+   * Shape only. This cannot prove a slug EXISTS -- the first draft of
+   * gauges.ts mapped Buford Dam to "chattahoochee-river-buford-dam-tailwater",
+   * which is well-formed and is not a row. Only the database can catch that,
+   * and the proposed waters.usgs_site_no column makes it a foreign key's job
+   * instead of a comment's.
+   */
+  it('maps to well-formed water slugs', () => {
+    for (const g of GAUGES) {
+      for (const slug of g.servesWaters) expect(slug).toMatch(/^[a-z0-9]+(-[a-z0-9]+)*$/);
+    }
+  });
 });
 
 describe('conditionsFrom', () => {

@@ -39,6 +39,18 @@
  * a gauge can later be offered on the water's own screen. It is not a claim
  * that the gauge sits inside the regulated stretch; `note` says where it
  * actually is.
+ *
+ * Every slug below was read back from the published `waters` rows on
+ * 2026-11-21. The first draft of this file guessed one from memory --
+ * "chattahoochee-river-buford-dam-tailwater" -- and the real slug has no
+ * "dam" in it, so the mapping pointed at a row that does not exist. Nothing
+ * consumed it yet, which is the only reason it cost nothing.
+ *
+ * Deliberately empty where the right gauge is a judgement call rather than a
+ * fact: the Chattahoochee delayed-harvest reach runs from Sope Creek to US
+ * 41, with Morgan Falls (02335815) immediately above it and Atlanta
+ * (02336000) at its downstream end. Either is defensible and neither is
+ * correct, so the stretch gets no gauge until David picks one.
  */
 
 /** A USGS instantaneous-values gauge the picker can offer. */
@@ -77,7 +89,7 @@ export const GAUGES: Gauge[] = [
     // number did not silently change meaning when the data became real.
     wadeableMax: 1000,
     note: 'Chattahoochee River at Buford Dam, below Lake Lanier',
-    servesWaters: ['chattahoochee-river-buford-dam-tailwater'],
+    servesWaters: ['chattahoochee-river-buford-tailwater'],
   },
   {
     siteNo: '02335000',
@@ -88,7 +100,10 @@ export const GAUGES: Gauge[] = [
     reportsWaterTemp: true,
     wadeableMax: null,
     note: 'Chattahoochee River near Norcross, below the tailwater',
-    servesWaters: [],
+    // Norcross sits inside this regulated reach, so it is the nearest reading
+    // for it -- though the gauge is intermittent: it returned nothing on one
+    // of two probes today.
+    servesWaters: ['chattahoochee-river-buford-dam-to-peachtree-creek'],
   },
   {
     siteNo: '02335815',
