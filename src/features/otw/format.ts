@@ -120,7 +120,19 @@ export function sizePhrase(rule: RuleForDisplay): string | null {
     case 'see_notes':
       return 'special size rule';
     case 'none':
+      // A STATEMENT, and often the entire content of the rule: Georgia names
+      // Lake Blue Ridge, Lake Burton and Lake Juliette as having no minimum
+      // on largemouth bass, against a statewide 12". Rendering that as null
+      // -- which this did until migration 20261212000000 gave `unknown` a
+      // value of its own -- left those three cards blank, so the only
+      // largemouth size rule visible in the app was the statewide one the
+      // lakes exist to cancel.
+      return 'No size limit';
+    case 'unknown':
     default:
+      // Silence, because the source did not address size. Saying "no size
+      // limit" here would invent permission; the statewide rule still
+      // applies and resolve.ts is what surfaces it.
       return null;
   }
 }

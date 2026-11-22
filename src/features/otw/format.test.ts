@@ -18,7 +18,9 @@ const rule = (over: Partial<RuleForDisplay> = {}): RuleForDisplay => ({
   limitBasis: 'aggregate',
   dailyLimitKind: 'count',
   dailyLimit: 8,
-  sizeRule: 'none',
+  // `unknown`, not `none`: the default fixture is a rule that does not
+  // ADDRESS size. `none` is now the positive claim "no size limit".
+  sizeRule: 'unknown',
   minLengthInches: null,
   maxLengthInches: null,
   trophyAllowance: null,
@@ -125,8 +127,17 @@ describe('sizes and trophies', () => {
     expect(sizePhrase(rule(over))).toBe(expected);
   });
 
-  it('says nothing when the rule sets no size', () => {
-    expect(sizePhrase(rule({ sizeRule: 'none' }))).toBeNull();
+  it('says nothing when the rule does not address size', () => {
+    expect(sizePhrase(rule({ sizeRule: 'unknown' }))).toBeNull();
+  });
+
+  it('SAYS SO when the source states there is no size limit', () => {
+    // These two were the same value until migration 20261212000000. While
+    // they were, Lake Burton -- which Georgia names as having no minimum on
+    // largemouth against a statewide 12" -- rendered a blank subtitle, so
+    // the only largemouth size rule visible in the app was the very one that
+    // lake exists to cancel.
+    expect(sizePhrase(rule({ sizeRule: 'none' }))).toBe('No size limit');
   });
 
   it('will not print a slot with only one end of it', () => {

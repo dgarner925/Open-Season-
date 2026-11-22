@@ -433,7 +433,29 @@ export type LimitBasis = 'aggregate' | 'per_species';
  */
 export type DailyLimitKind = 'count' | 'no_limit' | 'prohibited' | 'unknown';
 
-export type SizeRule = 'none' | 'minimum' | 'maximum' | 'slot_release' | 'slot_keep' | 'see_notes';
+/**
+ * `none` and `unknown` are NOT interchangeable, and the difference is the
+ * whole reason the resolver can work.
+ *
+ *   none     the source states there is no size limit here. A positive
+ *            claim that CANCELS a broader one -- Georgia names Lake Burton
+ *            as having no minimum on largemouth, against a statewide 12".
+ *   unknown  the source did not address size. The rule is about something
+ *            else (hours, gear, a creel limit), so a broader size rule
+ *            still applies.
+ *
+ * Added in migration 20261212000000, which demoted all 172 pre-existing
+ * `none` rows to `unknown` and promoted back only the 3 that are evidenced.
+ * Same fix daily_limit_kind already had: see DailyLimitKind.
+ */
+export type SizeRule =
+  | 'none'
+  | 'unknown'
+  | 'minimum'
+  | 'maximum'
+  | 'slot_release'
+  | 'slot_keep'
+  | 'see_notes';
 
 export type FishingRestriction =
   | 'artificial_only' | 'flies_only' | 'single_hook' | 'barbless'
