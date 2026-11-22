@@ -101,11 +101,22 @@ export function statesLimit(rule: FishingRuleWithRefs): boolean {
   return rule.dailyLimitKind !== 'unknown';
 }
 
-function mentions(rule: FishingRuleWithRefs, species: string): boolean {
+/**
+ * Does this rule name this species?
+ *
+ * Exported because the water screen needs the same question answered when it
+ * decides which species a water regulates itself, and a second copy of this
+ * comparison is a second chance to disagree about whitespace or case. One
+ * normaliser or the screen and the resolver will eventually differ about
+ * whether a rule applies.
+ */
+export function ruleMentions(rule: FishingRuleWithRefs, species: string): boolean {
   const want = species.trim().toLowerCase();
   if (!want) return false;
   return rule.speciesNames.some((n) => n.trim().toLowerCase() === want);
 }
+
+const mentions = ruleMentions;
 
 /**
  * Merge the statewide rules with one water's rules for a single species.

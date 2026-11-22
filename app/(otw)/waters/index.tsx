@@ -22,12 +22,17 @@
  * and only one of them is safe to act on. waters.rules_complete_at tells them
  * apart; see watersList.ts and migration 20261213000000.
  *
- * Tapping a water expands its rules in place. There is no water detail route
- * yet, and a row that navigates nowhere is worse than one that opens.
+ * Tapping a water opens it. Rows used to expand in place, which was the right
+ * shape for "which waters does this state regulate differently" -- a question
+ * about our table -- and the wrong one for "what may I keep here". The answer
+ * to that is never just the water's own rules: Lake Burton carries exactly
+ * one, and every other species on it is governed by Georgia's statewide
+ * limits, which an expanding row has no room to repeat. See waters/[slug].
  */
 import { useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useRouter } from 'expo-router';
 import { WavyRule } from '@/components/otw/WavyRule';
 import { useActiveStates } from '@/features/reference/queries';
 import { ruleInForce, ruleSubtitle, speciesPhrase, windowPhrase } from '@/features/otw/format';
@@ -86,33 +91,42 @@ function RuleLine({ rule, today }: { rule: FishingRuleWithRefs; today: string })
  * regulations we had written down and hidden -- which is worse than not
  * holding them, because nobody would go looking.
  */
-function PlainWaterRow({ water }: { water: WaterRow }) {
+function PlainWaterRow({ water, onOpen }: { water: WaterRow; onOpen: () => void }) {
   const subtitle = waterSubtitle(water);
   return (
-    <View style={styles.plainRow}>
-      <Text style={styles.plainName}>{water.name}</Text>
-      {subtitle ? (
-        <Text style={styles.plainSub} numberOfLines={1}>
-          {subtitle}
-        </Text>
-      ) : null}
-      {water.notes ? <Text style={styles.plainNote}>{water.notes}</Text> : null}
-    </View>
+    <Pressable
+      onPress={onOpen}
+      accessibilityRole="button"
+      accessibilityLabel={`${water.name}. Open for the rules that apply here.`}
+      style={({ pressed }) => [styles.plainRow, pressed && styles.pressed]}
+    >
+      <View style={styles.plainBody}>
+        <Text style={styles.plainName}>{water.name}</Text>
+        {subtitle ? (
+          <Text style={styles.plainSub} numberOfLines={1}>
+            {subtitle}
+          </Text>
+        ) : null}
+        {water.notes ? <Text style={styles.plainNote}>{water.notes}</Text> : null}
+      </View>
+      {/* A water with no rules of its own is still worth opening: the
+          statewide rules ARE its rules, and the detail screen is where that
+          gets said per species. A row that looked inert was the old bug. */}
+      <Text style={styles.chevron}>›</Text>
+    </Pressable>
   );
 }
 
-function WaterCard({ entry, today }: { entry: WaterWithRules; today: string }) {
-  const [open, setOpen] = useState(false);
+function WaterCard({ entry, onOpen }: { entry: WaterWithRules; onOpen: () => void }) {
   const subtitle = waterSubtitle(entry.water);
   const n = entry.rules.length;
 
   return (
     <View style={styles.card}>
       <Pressable
-        onPress={() => setOpen((v) => !v)}
+        onPress={onOpen}
         accessibilityRole="button"
-        accessibilityState={{ expanded: open }}
-        accessibilityLabel={`${entry.water.name}. ${n} ${n === 1 ? 'rule' : 'rules'}.`}
+        accessibilityLabel={`${entry.water.name}. ${n} ${n === 1 ? 'rule' : 'rules'}. Open for the rules that apply here.`}
         style={({ pressed }) => [styles.cardHead, pressed && styles.pressed]}
       >
         <View style={styles.cardHeadBody}>
@@ -124,28 +138,16 @@ function WaterCard({ entry, today }: { entry: WaterWithRules; today: string }) {
           ) : null}
         </View>
         <Text style={styles.count}>
-          {n} {n === 1 ? 'rule' : 'rules'} {open ? '⌃' : '⌄'}
+          {n} {n === 1 ? 'rule' : 'rules'}
         </Text>
+        <Text style={styles.chevron}>›</Text>
       </Pressable>
-
-      {open ? (
-        <View style={styles.rules}>
-          {/* Before the rules, not after: on a border water the note says
-              which state's agreement governs here, and that frames every
-              number underneath it. */}
-          {entry.water.notes ? (
-            <Text style={styles.cardNote}>{entry.water.notes}</Text>
-          ) : null}
-          {entry.rules.map((rule) => (
-            <RuleLine key={rule.id} rule={rule} today={today} />
-          ))}
-        </View>
-      ) : null}
     </View>
   );
 }
 
 export default function OtwWaters() {
+  const router = useRouter();
   const { profile } = useAuth();
   const { code: browseCode } = useBrowseStateCode();
   const { data: states = [] } = useActiveStates();
@@ -300,7 +302,16 @@ export default function OtwWaters() {
               Regulated waters · {list.regulated.length}
             </Text>
             {list.regulated.map((entry) => (
-              <WaterCard key={entry.water.id} entry={entry} today={today} />
+              <WaterCard
+                key={entry.water.id}
+                entry={entry}
+                onOpen={() =>
+                  router.push({
+                    pathname: '/(otw)/waters/[slug]',
+                    params: { slug: entry.water.slug },
+                  })
+                }
+              />
             ))}
           </>
         ) : null}
@@ -322,7 +333,16 @@ export default function OtwWaters() {
               above are the ones that govern them. That is a checked answer, not a gap.
             </Text>
             {list.noExceptions.map((water) => (
-              <PlainWaterRow key={water.id} water={water} />
+              <PlainWaterRow
+                key={water.id}
+                water={water}
+                onOpen={() =>
+                  router.push({
+                    pathname: '/(otw)/waters/[slug]',
+                    params: { slug: water.slug },
+                  })
+                }
+              />
             ))}
           </>
         ) : null}
@@ -339,7 +359,16 @@ export default function OtwWaters() {
               you fish one.
             </Text>
             {list.notTranscribed.map((water) => (
-              <PlainWaterRow key={water.id} water={water} />
+              <PlainWaterRow
+                key={water.id}
+                water={water}
+                onOpen={() =>
+                  router.push({
+                    pathname: '/(otw)/waters/[slug]',
+                    params: { slug: water.slug },
+                  })
+                }
+              />
             ))}
           </>
         ) : null}
@@ -466,10 +495,19 @@ const styles = StyleSheet.create({
   ruleDated: { color: color.brassText },
 
   plainRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space.x8,
     paddingVertical: 9,
     borderBottomWidth: 1,
     borderBottomColor: color.hair,
-    gap: 1,
+  },
+  plainBody: { flex: 1, gap: 1 },
+  chevron: {
+    fontFamily: type.ui,
+    fontSize: 18,
+    color: color.dim,
+    flexShrink: 0,
   },
   plainName: { fontFamily: type.uiMedium, fontSize: 14.5, color: color.ink },
   plainSub: { fontFamily: type.ui, fontSize: 12, color: color.dim },
