@@ -1,89 +1,25 @@
-// PLACEHOLDER DATA — not real conditions or regulations.
+// PLACEHOLDER DATA — not real regulations.
 //
-// Everything On the Water shows in Phase 1 comes from this file, so there is
-// exactly one thing to delete when the real sources land. Nothing here has
-// been checked against Georgia DNR or against a gauge, and nothing here may
-// be presented to a user as though it had been: the OTW Home renders an
-// "EXAMPLE DATA" marker for as long as this module is its source.
+// What is left in this file after Phase 2, and what is now real:
 //
-// What is deliberately NOT in here:
+//   conditions   GONE. The Today card reads a verified USGS gauge and the NWS
+//                grid at that gauge's own coordinates. See gauges.ts,
+//                usgs.ts, conditions.ts and useGaugeConditions.ts. Sunrise,
+//                sunset and the moon are computed on-device from the gauge's
+//                latitude and longitude.
+//   seasons      REAL when the species gate is open -- the published
+//                fishing_rules for Georgia, read by useFishingRules. The
+//                ledger below is the fallback for when it is not.
+//   licence      STILL PLACEHOLDER. There is no licence-expiry model.
+//   plates       STILL PLACEHOLDER. "Your species" implies a follow model
+//                that fishing does not have.
 //
-//   A USGS site number. Phase 2 needs verified ones, and a plausible-looking
-//   identifier sitting in placeholder data is exactly the sort of thing that
-//   gets copied into real code because it looks checked. There is no site
-//   number here to copy.
+// Nothing remaining here has been checked against Georgia DNR, and nothing
+// here may be presented as though it had been: the OTW Home names whichever
+// of these is still its source in the marker under the header.
 //
 // What IS real, because it is a fact rather than a regulation: the Latin
 // names on the species plates.
-//
-// Replaced by:
-//   conditions  -> useGaugeConditions (Phase 2, USGS + NWS)
-//   ledger/regs -> the fishing_rules and stockings already loaded for Georgia
-//                  (Phase 3)
-
-import type { FlowReading } from './sentences';
-
-/** The marker the Home renders while this module is its source. */
-export const PLACEHOLDER_NOTICE = 'EXAMPLE DATA';
-
-export type PlaceholderGauge = {
-  /** The gauge's own name, shown top-right of the Today card. */
-  gaugeName: string;
-  /** The water, as the headline says it -- carries its own article. */
-  waterName: string;
-  reading: FlowReading;
-  waterTempF: number | null;
-  sky: string;
-  /** Dam release window. Static in Phase 1; USACE schedules are out of scope. */
-  releaseLabel: string | null;
-  /**
-   * The last 24 hours of discharge, oldest first, for the sparkline. The last
-   * point is "now".
-   */
-  history: number[];
-  /** The scheduled release, drawn as the dashed tail after "now". */
-  projection: number[];
-};
-
-export const PLACEHOLDER_GAUGE: PlaceholderGauge = {
-  gaugeName: 'Buford Dam Tailwater',
-  waterName: 'The Hooch',
-  reading: { cfs: 650, wadeableMax: 1000, trend: 'steady' },
-  waterTempF: 51,
-  sky: 'clear',
-  releaseLabel: 'Release 2:00 – 6:00 PM',
-  // Flat overnight, a morning bump, back down to the current reading.
-  history: [
-    420, 420, 415, 418, 420, 422, 430, 520, 690, 710, 715, 712,
-    700, 660, 650, 648, 650, 652, 650, 650, 648, 650, 651, 650,
-  ],
-  // The afternoon generation run, which has not happened yet.
-  projection: [650, 900, 1450, 1480, 1460, 1200, 820],
-};
-
-export type PlaceholderAlmanac = {
-  airTempF: number;
-  sky: string;
-  sunrise: string;
-  sunset: string;
-  moonPct: number;
-  moonWaxing: boolean;
-};
-
-/**
- * Phase 1 only. Sunrise, sunset and the moon need no network -- src/lib/sun.ts
- * and the moon maths in useDawnConditions already compute them -- so Phase 2
- * takes these from there rather than from a feed. They are frozen here only
- * so the whole card has one source while it is being built.
- */
-export const PLACEHOLDER_ALMANAC: PlaceholderAlmanac = {
-  airTempF: 48,
-  sky: 'P.Cloudy',
-  sunrise: '7:13',
-  sunset: '5:31',
-  moonPct: 62,
-  moonWaxing: true,
-};
 
 export type PlaceholderLicense = {
   /** Days until it expires. The banner hides itself above 60. */

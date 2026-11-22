@@ -12,7 +12,7 @@
  * The values are Instrument Serif in both modes, which is the family tie.
  */
 import { StyleSheet, Text, View } from 'react-native';
-import type { PlaceholderAlmanac } from '@/features/otw/placeholder';
+import { skyLabel, type OtwAlmanac } from '@/features/otw/conditions';
 import { otwLang } from '@/theme/otwTokens';
 
 const { color, type } = otwLang;
@@ -30,12 +30,17 @@ function Col({ value, label, first }: { value: string; label: string; first?: bo
   );
 }
 
-export function AlmanacColumns({ almanac }: { almanac: PlaceholderAlmanac }) {
+export function AlmanacColumns({ almanac }: { almanac: OtwAlmanac }) {
   const { airTempF, sky, sunrise, sunset, moonPct, moonWaxing } = almanac;
+  // The air column is the only one that needs a network, so it is the only
+  // one that can be absent. It LEAVES rather than printing "—°" under a
+  // label reading AIR, which is a measurement of nothing dressed as one. The
+  // remaining three widen to fill, because they are all still true.
+  const hasAir = airTempF !== null;
   return (
     <View style={styles.row}>
-      <Col first value={`${airTempF}°`} label={`AIR · ${sky.toUpperCase()}`} />
-      <Col value={sunrise} label="SUNRISE" />
+      {hasAir ? <Col first value={`${airTempF}°`} label={skyLabel(sky)} /> : null}
+      <Col first={!hasAir} value={sunrise} label="SUNRISE" />
       <Col value={sunset} label="SUNSET" />
       <Col value={`${moonPct}%`} label={`MOON · ${moonWaxing ? 'WAX' : 'WANE'}`} />
     </View>

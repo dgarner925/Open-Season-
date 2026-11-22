@@ -11,11 +11,11 @@
  * the readings that give the headline no verdict. A missing gauge shows no
  * pill rather than an encouraging one.
  */
-import { StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { AlmanacColumns } from './AlmanacColumns';
 import { Sparkline } from './Sparkline';
 import { flowStatus, formatCfs, type FlowReading } from '@/features/otw/sentences';
-import type { PlaceholderAlmanac } from '@/features/otw/placeholder';
+import type { OtwAlmanac } from '@/features/otw/conditions';
 import { otwLang } from '@/theme/otwTokens';
 
 const { color, radius, space, type } = otwLang;
@@ -29,15 +29,20 @@ export function TodayOnTheWaterCard({
   history,
   projection,
   almanac,
+  pending = false,
+  onPickGauge,
 }: {
   gaugeName: string;
   reading: FlowReading;
   waterTempF: number | null;
-  sky: string;
+  sky: string | null;
   releaseLabel: string | null;
   history: number[];
   projection: number[];
-  almanac: PlaceholderAlmanac;
+  almanac: OtwAlmanac;
+  /** The gauge has been asked but has not answered yet. Not the same as silent. */
+  pending?: boolean;
+  onPickGauge?: () => void;
 }) {
   const status = flowStatus(reading);
   const cfs = reading.cfs !== null && Number.isFinite(reading.cfs) && reading.cfs >= 0 ? reading.cfs : null;
@@ -55,9 +60,18 @@ export function TodayOnTheWaterCard({
 
       <View style={styles.topRow}>
         <Text style={styles.micro}>TODAY ON THE WATER</Text>
-        <Text style={styles.gauge} numberOfLines={1}>
-          {gaugeName} ›
-        </Text>
+        <Pressable
+          onPress={onPickGauge}
+          disabled={!onPickGauge}
+          hitSlop={8}
+          accessibilityRole="button"
+          accessibilityLabel={`Gauge: ${gaugeName}. Choose a different gauge.`}
+          style={({ pressed }) => [styles.gaugeHit, pressed && !!onPickGauge && styles.gaugePressed]}
+        >
+          <Text style={styles.gauge} numberOfLines={1}>
+            {gaugeName} ›
+          </Text>
+        </Pressable>
       </View>
 
       <View style={styles.valueRow}>
@@ -68,7 +82,10 @@ export function TodayOnTheWaterCard({
               <Text style={styles.unit}>cfs</Text>
             </View>
           ) : (
-            <Text style={styles.noReading}>No reading</Text>
+            // "Reading…" while the request is out, "No reading" once it has
+            // come back empty. Showing the second during the first would
+            // report a silent gauge that nobody has asked yet.
+            <Text style={styles.noReading}>{pending ? 'Reading…' : 'No reading'}</Text>
           )}
           {detail ? <Text style={styles.detail}>{detail}</Text> : null}
         </View>
@@ -127,6 +144,8 @@ const styles = StyleSheet.create({
     letterSpacing: type.microTracking,
     color: color.brassOnRiver,
   },
+  gaugeHit: { flexShrink: 1 },
+  gaugePressed: { opacity: 0.6 },
   gauge: {
     fontFamily: type.uiMedium,
     fontSize: type.size.micro,

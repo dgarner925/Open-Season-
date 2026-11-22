@@ -40,14 +40,13 @@ import { useActiveStates } from '@/features/reference/queries';
 import { useFishingRules } from '@/features/otw/queries';
 import { ruleInForce, ruleSubtitle, speciesPhrase, windowPhrase } from '@/features/otw/format';
 import {
-  PLACEHOLDER_ALMANAC,
-  PLACEHOLDER_GAUGE,
   PLACEHOLDER_LEDGER,
   PLACEHOLDER_LICENSE,
-  PLACEHOLDER_NOTICE,
   PLACEHOLDER_PLATES,
-  PLACEHOLDER_SUBLINE,
 } from '@/features/otw/placeholder';
+import { sublineFor } from '@/features/otw/conditions';
+import { useGaugeConditions, useOtwAlmanac } from '@/features/otw/useGaugeConditions';
+import { useGaugeSiteNo } from '@/lib/otwGauge';
 import { conditionSentence, otwHeadlineSize, sentenceText } from '@/features/otw/sentences';
 import { useMemo } from 'react';
 import { otwLang, OTW_DISCLAIMER } from '@/theme/otwTokens';
@@ -101,8 +100,31 @@ export default function OtwHome() {
 
   const regsAreReal = !!realRows;
 
-  const sentence = conditionSentence(PLACEHOLDER_GAUGE.waterName, PLACEHOLDER_GAUGE.reading);
-  const size = otwHeadlineSize(sentenceText(sentence));
+  /**
+   * What on this screen is still invented, in the order it appears. The
+   * conditions came off the list in Phase 2; the licence banner has no model
+   * behind it and "Your species" implies a follow model fishing does not have.
+   */
+  const stillExample = useMemo(() => {
+    const parts = [
+      ...(regsAreReal ? [] : ['seasons']),
+      'licence',
+      'plates',
+    ];
+    const last = parts.pop()!;
+    return (parts.length ? `${parts.join(', ')} & ${last}` : last).toUpperCase();
+  }, [regsAreReal]);
+
+  // Live conditions: USGS for the flow, NWS at the gauge's own coordinates
+  // for air and sky, suncalc on-device for the sun and the moon.
+  const { siteNo } = useGaugeSiteNo();
+  const { conditions, isPending } = useGaugeConditions(siteNo);
+  const almanac = useOtwAlmanac(conditions?.gauge ?? null);
+
+  const sentence = conditions
+    ? conditionSentence(conditions.gauge.waterName, conditions.reading)
+    : null;
+  const size = sentence ? otwHeadlineSize(sentenceText(sentence)) : 37;
 
   return (
     <SafeAreaView style={styles.screen} edges={['top']}>
@@ -121,12 +143,15 @@ export default function OtwHome() {
           <ModeToggle />
         </View>
 
-        {/* Phase 1 only. See the header comment. */}
-        <View style={styles.notice}>
-          <Text style={styles.noticeText}>
-            {regsAreReal ? 'EXAMPLE CONDITIONS' : PLACEHOLDER_NOTICE}
-          </Text>
-        </View>
+        {/* Names what is STILL example, which as of Phase 2 is no longer the
+            conditions. A blanket "EXAMPLE DATA" over a card now showing a real
+            USGS reading would be false in the other direction, and a marker
+            that is wrong either way stops being read. */}
+        {stillExample ? (
+          <View style={styles.notice}>
+            <Text style={styles.noticeText}>EXAMPLE {stillExample}</Text>
+          </View>
+        ) : null}
 
         <View style={styles.hero}>
           <Text style={styles.micro}>
@@ -142,30 +167,42 @@ export default function OtwHome() {
           )}
 
           {/* One headline per screen, with one accent word in italic river. */}
-          <Text
-            style={[styles.headline, { fontSize: size, lineHeight: Math.round(size * 1.12) }]}
-            accessibilityRole="header"
-            accessibilityLabel={sentenceText(sentence)}
-          >
-            {sentence.lead}
-            <Text style={styles.headlineAccent}>{sentence.emphasis}</Text>
-            {sentence.tail}
-          </Text>
-          <Text style={styles.subline}>{PLACEHOLDER_SUBLINE}</Text>
+          {sentence ? (
+            <Text
+              style={[styles.headline, { fontSize: size, lineHeight: Math.round(size * 1.12) }]}
+              accessibilityRole="header"
+              accessibilityLabel={sentenceText(sentence)}
+            >
+              {sentence.lead}
+              <Text style={styles.headlineAccent}>{sentence.emphasis}</Text>
+              {sentence.tail}
+            </Text>
+          ) : null}
+          {conditions ? <Text style={styles.subline}>{sublineFor(conditions)}</Text> : null}
         </View>
 
         <OtwLicenseBanner daysLeft={PLACEHOLDER_LICENSE.daysLeft} renewUrl={PLACEHOLDER_LICENSE.renewUrl} />
 
-        <TodayOnTheWaterCard
-          gaugeName={PLACEHOLDER_GAUGE.gaugeName}
-          reading={PLACEHOLDER_GAUGE.reading}
-          waterTempF={PLACEHOLDER_GAUGE.waterTempF}
-          sky={PLACEHOLDER_GAUGE.sky}
-          releaseLabel={PLACEHOLDER_GAUGE.releaseLabel}
-          history={PLACEHOLDER_GAUGE.history}
-          projection={PLACEHOLDER_GAUGE.projection}
-          almanac={PLACEHOLDER_ALMANAC}
-        />
+        {conditions && almanac ? (
+          <TodayOnTheWaterCard
+            gaugeName={conditions.gauge.name}
+            reading={conditions.reading}
+            waterTempF={conditions.waterTempF}
+            sky={almanac.sky}
+            // TODO (Phase 2+): USACE generation schedules are out of scope, so
+            // there is no release window to show. Hidden rather than static --
+            // a frozen "Release 2:00 – 6:00 PM" beside a live flow reads as
+            // today's schedule because everything around it is today's.
+            releaseLabel={null}
+            history={conditions.history}
+            // The dashed tail is the scheduled release, which needs the same
+            // schedules. Nothing is projected, so nothing is drawn.
+            projection={[]}
+            almanac={almanac}
+            pending={isPending}
+            onPickGauge={() => router.push('/otw-gauge')}
+          />
+        ) : null}
 
         <WavyRule tone="brass" style={styles.rule} />
 
