@@ -84,6 +84,12 @@ export default function RootLayout() {
             <Stack.Screen name="(auth)" options={{ headerShown: false }} />
             <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
             <Stack.Screen name="(otw)" options={{ headerShown: false }} />
+            {/* Creek paper, so it must not inherit the dark hunting header
+                above. Presented as a sheet: it is a choice, not a place. */}
+            <Stack.Screen
+              name="otw-gauge"
+              options={{ headerShown: false, presentation: 'modal' }}
+            />
             <Stack.Screen name="onboarding" options={{ headerShown: false }} />
             <Stack.Screen name="pick-state" options={{ headerShown: false }} />
           </Stack>
