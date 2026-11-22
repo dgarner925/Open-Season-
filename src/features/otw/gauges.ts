@@ -51,6 +51,32 @@
  * 41, with Morgan Falls (02335815) immediately above it and Atlanta
  * (02336000) at its downstream end. Either is defensible and neither is
  * correct, so the stretch gets no gauge until David picks one.
+ *
+ * ---------------------------------------------------------------------------
+ * THE MAPPING NOW ALSO EXISTS IN THE DATABASE, AND THE TWO ARE NOT IN SYNC
+ *
+ * Migration 20261209000000 was applied on 2026-11-21. It added
+ * `waters.usgs_site_no` and `waters.wadeable_cfs_max` and backfilled two
+ * rows: buford-tailwater -> 02334430 / 1000.0, and
+ * buford-dam-to-peachtree-creek -> 02335000 / null.
+ *
+ * So `servesWaters` and `wadeableMax` are duplicated in production for those
+ * two waters, and this file is still the only place the other six gauges
+ * exist at all. Nothing reads the columns yet.
+ *
+ * That is deliberate, not an oversight. Switching the picker to read the
+ * database today would cut it from eight gauges to two, because the columns
+ * hold only the mappings that are facts -- a water can have a gauge nearby
+ * without that gauge being the right one for its regulated stretch, and this
+ * file carries six such gauges with `wadeableMax: null` precisely so they can
+ * be offered without a verdict attached.
+ *
+ * The ordering when it is time to reconcile: the DATABASE wins on the
+ * water -> gauge mapping, because the column has a foreign key and this file
+ * has a string that was already wrong once (see the slug above). This file
+ * keeps the gauge catalogue -- site numbers, coordinates, reportsWaterTemp,
+ * note -- until there is a gauges table to hold it, which the migration
+ * deliberately did not create.
  */
 
 /** A USGS instantaneous-values gauge the picker can offer. */

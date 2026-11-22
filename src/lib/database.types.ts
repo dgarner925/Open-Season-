@@ -407,6 +407,21 @@ export type WaterRow = Timestamps & {
   source_id: string | null;
   last_verified_at: string | null;
   status: ContentStatus;
+  /**
+   * The USGS gauge that reads this water, 8 to 15 digits. A fact about the
+   * water, constrained in the database, and null for most of them: there is
+   * no gauge inside most regulated stretches.
+   */
+  usgs_site_no: string | null;
+  /**
+   * The flow at or below which this water is usually wadeable, in cfs.
+   *
+   * EDITORIAL, not a safety claim, and null is the preferred value until
+   * somebody has actually judged it -- the app reads null as "no verdict" and
+   * reports the bare flow instead of saying "fishable". Seven of the eight
+   * configured gauges are null today.
+   */
+  wadeable_cfs_max: number | null;
 };
 
 /** What the daily number means when several species share one row. */
@@ -474,6 +489,39 @@ export type StockingRow = Timestamps & {
 };
 
 /**
+ * A water somebody follows.
+ *
+ * Fishing's equivalent of `follows`, which is (user_id, state_id, species_id)
+ * because a hunting season belongs to a species. A fishing rule belongs to a
+ * water, so this is its own table rather than a nullable water_id on
+ * `follows` that every hunting row would carry and never use.
+ */
+export type UserWaterRow = {
+  id: string;
+  user_id: string;
+  water_id: string;
+  created_at: string;
+};
+
+export type LicenseKind = 'fishing' | 'hunting' | 'combination';
+
+/**
+ * When somebody's licence runs out, and nothing else.
+ *
+ * Deliberately only a date, a state and a kind. No licence number, no name,
+ * no document: none of it is needed to say "your licence expires in three
+ * weeks", and a licence number is a government identifier that would make
+ * this row worth stealing.
+ */
+export type UserLicenseRow = Timestamps & {
+  id: string;
+  user_id: string;
+  state_id: string;
+  kind: LicenseKind;
+  expires_on: string;
+};
+
+/**
  * Insert = row minus DB-managed defaults; Update = all optional.
  * Relationships is required by supabase-js's GenericTable shape — without it
  * the client's insert/update types collapse to `never`.
@@ -489,10 +537,22 @@ export type Database = {
       species: Table<SpeciesRow, Omit<SpeciesRow, 'id' | 'created_at'> & { id?: string }>;
       zones: Table<ZoneRow, Omit<ZoneRow, Gen> & { id?: string }>;
       seasons: Table<SeasonRow, Omit<SeasonRow, Gen> & { id?: string }>;
-      waters: Table<WaterRow, Omit<WaterRow, Gen> & { id?: string }>;
+      // usgs_site_no and wadeable_cfs_max are optional on insert: both default
+      // to null in the database, and a water is published long before anyone
+      // knows which gauge reads it.
+      waters: Table<
+        WaterRow,
+        Omit<WaterRow, Gen | 'usgs_site_no' | 'wadeable_cfs_max'> & {
+          id?: string;
+          usgs_site_no?: string | null;
+          wadeable_cfs_max?: number | null;
+        }
+      >;
       fishing_rules: Table<FishingRuleRow, Omit<FishingRuleRow, Gen> & { id?: string }>;
       fishing_rule_species: Table<FishingRuleSpeciesRow, FishingRuleSpeciesRow>;
       stockings: Table<StockingRow, Omit<StockingRow, Gen> & { id?: string }>;
+      user_waters: Table<UserWaterRow, Omit<UserWaterRow, 'id' | 'created_at'> & { id?: string }>;
+      user_licenses: Table<UserLicenseRow, Omit<UserLicenseRow, Gen> & { id?: string; kind?: LicenseKind }>;
       application_windows: Table<ApplicationWindowRow, Omit<ApplicationWindowRow, Gen> & { id?: string }>;
       regulation_summaries: Table<RegulationSummaryRow, Omit<RegulationSummaryRow, Gen> & { id?: string }>;
       profiles: Table<
