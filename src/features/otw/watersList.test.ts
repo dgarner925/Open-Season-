@@ -10,6 +10,7 @@ import { describe, expect, it } from 'vitest';
 import {
   buildWatersList,
   filterWatersList,
+  statewideFallback,
   waterCount,
   waterSubtitle,
 } from './watersList';
@@ -187,5 +188,44 @@ describe('waterSubtitle', () => {
       extent_note: 'Sope Creek to US Hwy 41',
     });
     expect(waterSubtitle(w)).toBe('River · Sope Creek to US Hwy 41');
+  });
+});
+
+describe('statewideFallback', () => {
+  const full = buildWatersList(
+    [HOOCH, SMITH, LANIER],
+    [rule('r1', 'chattahoochee-river'), rule('statewide-1', null)],
+  );
+
+  it('answers a search that matched no water with the statewide rules', () => {
+    // Lake Sinclair is not in `waters` because Georgia publishes no exception
+    // for it -- the regs are statewide rules plus named exceptions. Searching
+    // for it used to say "Nothing matching", which reads as "not covered".
+    // The statewide rules on this screen ARE its rules.
+    const filtered = filterWatersList(full, 'sinclair');
+    expect(waterCount(filtered)).toBe(0);
+    expect(statewideFallback(full, filtered, 'sinclair').map((r) => r.id)).toEqual([
+      'statewide-1',
+    ]);
+  });
+
+  it('stays silent when the search DID match a water', () => {
+    // That water's own rules are the answer. Showing the statewide list
+    // underneath would imply the search had found those too.
+    const filtered = filterWatersList(full, 'chatta');
+    expect(waterCount(filtered)).toBe(1);
+    expect(statewideFallback(full, filtered, 'chatta')).toEqual([]);
+  });
+
+  it('stays silent when there is no search at all', () => {
+    // The unfiltered screen already renders the statewide card at the top.
+    expect(statewideFallback(full, full, '')).toEqual([]);
+    expect(statewideFallback(full, full, '   ')).toEqual([]);
+  });
+
+  it('returns nothing when the state has no statewide rules to offer', () => {
+    const bare = buildWatersList([SMITH], []);
+    const filtered = filterWatersList(bare, 'sinclair');
+    expect(statewideFallback(bare, filtered, 'sinclair')).toEqual([]);
   });
 });

@@ -33,6 +33,7 @@ import { useFishingRules, useWaters, type FishingRuleWithRefs } from '@/features
 import {
   buildWatersList,
   filterWatersList,
+  statewideFallback,
   waterCount,
   waterSubtitle,
   type WaterWithRules,
@@ -131,6 +132,13 @@ export default function OtwWaters() {
   const pending = watersPending || rulesPending;
   const shown = waterCount(list);
 
+  // When a search matches no water, the statewide rules are usually the
+  // correct answer rather than an empty result -- see statewideFallback.
+  const fallback = useMemo(
+    () => statewideFallback(full, list, query),
+    [full, list, query],
+  );
+
   return (
     <SafeAreaView style={styles.screen} edges={['top']}>
       <ScrollView
@@ -140,8 +148,18 @@ export default function OtwWaters() {
       >
         <Text style={styles.label}>ON THE WATER</Text>
         <Text style={styles.title}>Waters</Text>
+        {/*
+          "Every water Georgia publishes rules for" was literally true and
+          read as "every water". A reader who did not find Lake Sinclair
+          concluded the app did not cover it; in fact Georgia publishes no
+          exception for Sinclair, so the statewide rules govern it. Saying
+          which of the two this list is costs one line and prevents the
+          wrong reading before a search is ever typed.
+        */}
         <Text style={styles.blurb}>
-          {stateName ? `Every water ${stateName} publishes rules for.` : 'Pick a state to see its waters.'}
+          {stateName
+            ? `Waters ${stateName} regulates differently from the statewide rules.`
+            : 'Pick a state to see its waters.'}
         </Text>
 
         <TextInput
@@ -174,9 +192,44 @@ export default function OtwWaters() {
         {pending ? <Text style={styles.note}>Reading the ledger…</Text> : null}
 
         {!pending && shown === 0 ? (
-          <Text style={styles.note}>
-            {query ? `Nothing matching “${query.trim()}”.` : 'No waters published for this state yet.'}
-          </Text>
+          fallback.length ? (
+            /*
+              NOT "Nothing matching". Georgia publishes statewide rules plus a
+              list of named exceptions, so a water is in the table BECAUSE it
+              differs from the default. Lake Sinclair is absent because it has
+              no exception -- and the rules below are the ones that govern it.
+              Saying "nothing matching" told the reader the opposite.
+            */
+            <>
+              <Text style={styles.note}>
+                {stateName} publishes no special rules for “{query.trim()}”.
+              </Text>
+              <Text style={styles.sectionNote}>
+                That usually means the statewide rules apply. {stateName} lists a water
+                here only when its rules differ from the state default, so a water
+                missing from this list is not a water we have skipped. Confirm the
+                name with the state before you rely on it.
+              </Text>
+              <View style={styles.card}>
+                <View style={styles.cardHead}>
+                  <View style={styles.cardHeadBody}>
+                    <Text style={styles.waterName}>Statewide</Text>
+                    <Text style={styles.waterSub}>Applies wherever you are in {stateName}</Text>
+                  </View>
+                  <Text style={styles.count}>{fallback.length} rules</Text>
+                </View>
+                <View style={styles.rules}>
+                  {fallback.map((rule) => (
+                    <RuleLine key={rule.id} rule={rule} today={today} />
+                  ))}
+                </View>
+              </View>
+            </>
+          ) : (
+            <Text style={styles.note}>
+              {query ? `Nothing matching “${query.trim()}”.` : 'No waters published for this state yet.'}
+            </Text>
+          )
         ) : null}
 
         {!pending && list.statewide.length ? (

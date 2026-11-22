@@ -126,6 +126,43 @@ export function filterWatersList(list: WatersList, query: string): WatersList {
   };
 }
 
+/**
+ * The statewide rules, when a search found no water and they ARE the answer.
+ *
+ * ---------------------------------------------------------------------------
+ * WHY AN EMPTY SEARCH RESULT IS USUALLY A WRONG ANSWER HERE
+ *
+ * Georgia's regulations are statewide rules plus a list of named exceptions.
+ * The source says so outright: "There are no minimum length limits on
+ * freshwater game fish unless they are listed below." A water appears in
+ * `waters` BECAUSE it differs from the default, not because it is fishable.
+ *
+ * So Lake Sinclair -- one of the most-fished reservoirs in the state -- is
+ * absent from the table, correctly, because Georgia publishes no exception
+ * for it. Searching for it returned "Nothing matching", which a reader can
+ * only take to mean the app does not cover Lake Sinclair. It does: the
+ * statewide rules already on this screen are exactly the rules that govern
+ * it. The data was right and the screen was wrong.
+ *
+ * This is the silence-reads-as-absence failure rather than the usual
+ * absence-reads-as-permission one, and it is why the fix belongs here and not
+ * in the extractor: there is nothing missing to extract.
+ *
+ * Returned ONLY when the search matched no water. When it did match one, that
+ * water's own rules are the answer and pinning the statewide list underneath
+ * would suggest the search had found those too -- the reason
+ * filterWatersList drops them in the first place.
+ */
+export function statewideFallback(
+  full: WatersList,
+  filtered: WatersList,
+  query: string,
+): FishingRuleWithRefs[] {
+  if (!query.trim()) return [];
+  if (waterCount(filtered) > 0) return [];
+  return full.statewide;
+}
+
 /** How many waters a filtered list is showing, for the empty-state copy. */
 export function waterCount(list: WatersList): number {
   return list.regulated.length + list.alsoListed.length;
