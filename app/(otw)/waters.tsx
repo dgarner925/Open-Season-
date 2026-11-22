@@ -16,9 +16,11 @@
  * chose. That is a smaller promise, kept, instead of a bigger one faked with
  * a hardcoded list.
  *
- * A water with no rules still appears, under its own heading. Filtering them
- * out would make the screen look finished at the cost of being wrong about
- * what the state regulates; see watersList.ts.
+ * A water with no rules still appears, and WHICH heading it appears under is
+ * the point: "no exception exists, the statewide rules are your answer" and
+ * "nobody has read this water's rules yet" are both a water with no rules,
+ * and only one of them is safe to act on. waters.rules_complete_at tells them
+ * apart; see watersList.ts and migration 20261213000000.
  *
  * Tapping a water expands its rules in place. There is no water detail route
  * yet, and a row that navigates nowhere is worse than one that opens.
@@ -72,6 +74,33 @@ function RuleLine({ rule, today }: { rule: FishingRuleWithRefs; today: string })
   );
 }
 
+/**
+ * A water with no rules, under either heading.
+ *
+ * `notes` is rendered here and that is load-bearing rather than decorative.
+ * It is where a fact goes when fishing_rules cannot hold its shape: Lake
+ * Seminole's closure applies to five marked refuge areas and not to the lake,
+ * and the Georgia-South Carolina aggregate of 40 game fish is a limit across
+ * every species rather than one of them. Neither can be a rule row without
+ * saying something false. If this screen did not print them, they would be
+ * regulations we had written down and hidden -- which is worse than not
+ * holding them, because nobody would go looking.
+ */
+function PlainWaterRow({ water }: { water: WaterRow }) {
+  const subtitle = waterSubtitle(water);
+  return (
+    <View style={styles.plainRow}>
+      <Text style={styles.plainName}>{water.name}</Text>
+      {subtitle ? (
+        <Text style={styles.plainSub} numberOfLines={1}>
+          {subtitle}
+        </Text>
+      ) : null}
+      {water.notes ? <Text style={styles.plainNote}>{water.notes}</Text> : null}
+    </View>
+  );
+}
+
 function WaterCard({ entry, today }: { entry: WaterWithRules; today: string }) {
   const [open, setOpen] = useState(false);
   const subtitle = waterSubtitle(entry.water);
@@ -101,6 +130,12 @@ function WaterCard({ entry, today }: { entry: WaterWithRules; today: string }) {
 
       {open ? (
         <View style={styles.rules}>
+          {/* Before the rules, not after: on a border water the note says
+              which state's agreement governs here, and that frames every
+              number underneath it. */}
+          {entry.water.notes ? (
+            <Text style={styles.cardNote}>{entry.water.notes}</Text>
+          ) : null}
           {entry.rules.map((rule) => (
             <RuleLine key={rule.id} rule={rule} today={today} />
           ))}
@@ -149,16 +184,20 @@ export default function OtwWaters() {
         <Text style={styles.label}>ON THE WATER</Text>
         <Text style={styles.title}>Waters</Text>
         {/*
-          "Every water Georgia publishes rules for" was literally true and
-          read as "every water". A reader who did not find Lake Sinclair
-          concluded the app did not cover it; in fact Georgia publishes no
-          exception for Sinclair, so the statewide rules govern it. Saying
-          which of the two this list is costs one line and prevents the
-          wrong reading before a search is ever typed.
+          This line has been wrong twice, in opposite directions, and both
+          times because it described the table rather than what the table now
+          holds.
+
+          "Every water Georgia publishes rules for" read as "every water", so
+          a reader who could not find Lake Sinclair concluded we did not cover
+          it. Replacing it with "waters Georgia regulates differently" was
+          true of an exceptions table and stopped being true the moment the
+          agency's own list of major lakes and rivers was added -- most of
+          which it does NOT regulate differently.
         */}
         <Text style={styles.blurb}>
           {stateName
-            ? `Waters ${stateName} regulates differently from the statewide rules.`
+            ? `${stateName}'s major lakes and rivers, and every water it regulates differently.`
             : 'Pick a state to see its waters.'}
         </Text>
 
@@ -182,12 +221,18 @@ export default function OtwWaters() {
 
           `waters` and `fishing_rules` are separate queries. When waters
           resolved first, buildWatersList had every water and no rules, so all
-          63 fell into `alsoListed` -- under the heading "We have not
+          63 fell out as unregulated -- under the heading "We have not
           transcribed rules for them yet, so check the regulations before you
           fish one." That sentence was false for 47 of them, and it is exactly
           the failure class where a default reads as data: a water whose rules
           are still in flight must not look like a water whose rules we do not
           have.
+
+          Splitting that heading in two did not remove the need for this gate.
+          It made it sharper: a regulated water arriving before its rules now
+          lands in whichever of the two groups its rules_complete_at points
+          at, and for a water we HAVE cleared that is "no exception exists" --
+          a positive claim, made against rules that simply had not loaded.
         */}
         {pending ? <Text style={styles.note}>Reading the ledger…</Text> : null}
 
@@ -260,23 +305,41 @@ export default function OtwWaters() {
           </>
         ) : null}
 
-        {!pending && list.alsoListed.length ? (
+        {/*
+          TWO HEADINGS, BECAUSE THE TWO GROUPS WANT OPPOSITE THINGS FROM THE
+          READER. One says "stop reading, you already have the rules". The
+          other says "go and check". A single heading had to pick one, and
+          whichever it picked was wrong about the other half.
+        */}
+        {!pending && list.noExceptions.length ? (
           <>
             <WavyRule tone="river" style={styles.rule} />
-            <Text style={styles.sectionHead}>Also listed · {list.alsoListed.length}</Text>
-            <Text style={styles.sectionNote}>
-              {stateName} names these waters. We have not transcribed rules for them yet, so
-              check the regulations before you fish one.
+            <Text style={styles.sectionHead}>
+              Statewide rules apply · {list.noExceptions.length}
             </Text>
-            {list.alsoListed.map((water) => (
-              <View key={water.id} style={styles.plainRow}>
-                <Text style={styles.plainName}>{water.name}</Text>
-                {waterSubtitle(water) ? (
-                  <Text style={styles.plainSub} numberOfLines={1}>
-                    {waterSubtitle(water)}
-                  </Text>
-                ) : null}
-              </View>
+            <Text style={styles.sectionNote}>
+              {stateName} publishes no special rules for these waters, so the statewide rules
+              above are the ones that govern them. That is a checked answer, not a gap.
+            </Text>
+            {list.noExceptions.map((water) => (
+              <PlainWaterRow key={water.id} water={water} />
+            ))}
+          </>
+        ) : null}
+
+        {!pending && list.notTranscribed.length ? (
+          <>
+            <WavyRule tone="river" style={styles.rule} />
+            <Text style={styles.sectionHead}>
+              Not read yet · {list.notTranscribed.length}
+            </Text>
+            <Text style={styles.sectionNote}>
+              {stateName} names these waters and we have not read their rules. There may be
+              limits here that differ from the statewide ones, so check the regulations before
+              you fish one.
+            </Text>
+            {list.notTranscribed.map((water) => (
+              <PlainWaterRow key={water.id} water={water} />
             ))}
           </>
         ) : null}
@@ -410,6 +473,22 @@ const styles = StyleSheet.create({
   },
   plainName: { fontFamily: type.uiMedium, fontSize: 14.5, color: color.ink },
   plainSub: { fontFamily: type.ui, fontSize: 12, color: color.dim },
+  plainNote: {
+    fontFamily: type.ui,
+    fontSize: 12.5,
+    lineHeight: 18,
+    color: color.muted,
+    marginTop: 3,
+  },
+  cardNote: {
+    fontFamily: type.ui,
+    fontSize: 12.5,
+    lineHeight: 18,
+    color: color.muted,
+    paddingBottom: space.x8,
+    borderBottomWidth: 1,
+    borderBottomColor: color.hair,
+  },
 
   footnote: {
     fontFamily: type.ui,

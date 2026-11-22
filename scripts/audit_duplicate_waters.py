@@ -81,6 +81,43 @@ KEY = env['EXPO_PUBLIC_SUPABASE_ANON_KEY']
 STOP = {'the', 'a', 'an', 'and', 'of', 'to', 'from', 'at', 'on', 'in', 'its',
         'all', 'is', 'are', 'between', 'this', 'these', 'other'}
 
+# Abbreviations the agencies use interchangeably within one guide.
+#
+# WHY TOKEN OVERLAP ALONE COULD NOT FIND THESE. Georgia published the same
+# river as "Saint Mary's River" and "St. Mary's River" -- the General
+# Regulations page spells it one way, the daily-limits table and the Florida
+# agreement the other -- and we transcribed both, so the Waters tab listed the
+# river twice, once with its rule and once saying we had not read its rules.
+#
+# The detector never reported it, not even for review. "saint mary s river"
+# against "st mary s river" shares three tokens of four: Jaccard 0.50, under
+# the 0.70 gate, and containment 0.75, under the 0.90 one. It failed both and
+# was found by eye.
+#
+# No threshold fixes that, because the problem is not how much the names
+# overlap -- it is that "Saint" and "St." are the same word and no amount of
+# string comparison will discover it. That takes a table, so here is the
+# table. Folding happens before the overlap is measured, which turns that pair
+# into Jaccard 1.0 and a certainty rather than a judgement call.
+#
+# Only genuine spelling variants of the SAME word belong here. "Upper" and
+# "Lower" must never be folded together: those name different stretches, and
+# collapsing them would merge two real waters into one -- the error this whole
+# script exists to prevent, committed by the script itself.
+ALIAS = {
+    'saint': 'st',
+    'mount': 'mt',
+    'fort': 'ft',
+    'north': 'n',
+    'south': 's',
+    'east': 'e',
+    'west': 'w',
+    'creeks': 'creek',
+    'rivers': 'river',
+    'lakes': 'lake',
+    'reservoir': 'lake',
+}
+
 JACCARD_SURE = 0.70
 CONTAIN_SURE = 0.90
 
@@ -105,7 +142,7 @@ def fetch(table, select, extra=''):
 
 def tokens(text):
     words = re.sub(r'[^a-z0-9]+', ' ', (text or '').lower()).split()
-    return {w for w in words if w not in STOP}
+    return {ALIAS.get(w, w) for w in words if w not in STOP}
 
 
 def base(name):
@@ -117,13 +154,30 @@ def related(a, b):
 
     Without this every pair of trout streams carrying "and its tributaries on
     the Warwoman WMA" is a candidate, and those are two different creeks.
+
+    THIS GATE, NOT THE THRESHOLDS, IS WHAT HID "Saint Mary's River" FROM
+    "St. Mary's River". It used to compare raw strings -- equal base names, or
+    one name starting with the other's base -- so a pair that differed by an
+    abbreviation in the FIRST word was never measured at all, and widening
+    ALIAS alone changed nothing. Folding has to happen here too, before the
+    overlap is ever computed.
+
+    Comparing folded token SETS rather than string prefixes also drops the
+    accident that a prefix test cares about word order: "Chattahoochee River
+    (delayed harvest)" and "Delayed harvest Chattahoochee River" are the same
+    name to a set and unrelated to startswith.
+
+    Deliberately generous. Being related only earns a pair a measurement; the
+    Jaccard and containment gates still decide the verdict, so the cost of a
+    false candidate is a comparison and the cost of a missed one is a
+    duplicate nobody sees.
     """
     if b['parent_water_id'] == a['id'] or a['parent_water_id'] == b['id']:
         return True
-    if base(a['name']) == base(b['name']):
-        return True
-    return (b['name'].lower().startswith(base(a['name']))
-            or a['name'].lower().startswith(base(b['name'])))
+    ta, tb = tokens(base(a['name'])), tokens(base(b['name']))
+    if not ta or not tb:
+        return False
+    return ta == tb or ta <= tb or tb <= ta
 
 
 def main():
@@ -168,8 +222,46 @@ def main():
         for i in range(len(ws)):
             for j in range(i + 1, len(ws)):
                 a, b = ws[i], ws[j]
-                ta, tb = tokens(a['extent_note']), tokens(b['extent_note'])
-                if not ta or not tb or not related(a, b):
+                if not related(a, b):
+                    continue
+
+                ea, eb = tokens(a['extent_note']), tokens(b['extent_note'])
+                kin = (b['parent_water_id'] == a['id']
+                       or a['parent_water_id'] == b['id'])
+
+                if ea and eb:
+                    basis, ta, tb = 'extent', ea, eb
+                elif kin:
+                    # A parent and its own child. Somebody stated that these
+                    # are different rows on purpose, and with fewer than two
+                    # extents there is nothing to contradict them with.
+                    continue
+                else:
+                    # ONE OF THEM STATES NO EXTENT, WHICH USED TO END THE
+                    # COMPARISON RIGHT HERE: `if not ta or not tb: continue`.
+                    #
+                    # That is how "St. Mary's River" sat beside "Saint Mary's
+                    # River" in Georgia for as long as it did. The second row
+                    # had no extent, so no amount of name similarity could
+                    # reach the thresholds -- the pair was never measured at
+                    # all, and widening the abbreviation table would not have
+                    # helped either.
+                    #
+                    # A missing extent is not a rare shape. It is precisely
+                    # what a thin second transcription looks like, so the
+                    # detector was blindest exactly where duplicates are most
+                    # likely to be.
+                    #
+                    # Names are still not evidence of a shared stretch; that
+                    # lesson stands, and it is why a name-only pair can never
+                    # reach the merge list however well the names match. But
+                    # "we cannot measure this" and "these are different
+                    # waters" are different answers, and only one of them was
+                    # being given.
+                    basis = 'name only'
+                    ta, tb = tokens(base(a['name'])), tokens(base(b['name']))
+
+                if not ta or not tb:
                     continue
 
                 inter = len(ta & tb)
@@ -180,15 +272,20 @@ def main():
 
                 same_rules = (sig.get(a['id']) == sig.get(b['id'])
                               and sig.get(a['id']) is not None)
-                verdict = (jaccard >= JACCARD_SURE
-                           or (contain >= CONTAIN_SURE and same_rules))
+                # A name-only pair is ALWAYS review, never a merge
+                # instruction. The thresholds were calibrated on extents, and
+                # two waters can share a name to the letter and still be
+                # different stretches of it.
+                verdict = basis == 'extent' and (
+                    jaccard >= JACCARD_SURE
+                    or (contain >= CONTAIN_SURE and same_rules))
 
                 entry = (states.get(state_id, '??'), jaccard, contain,
-                         same_rules, a, b)
+                         same_rules, basis, a, b)
                 (sure if verdict else review).append(entry)
 
     if slugs_only:
-        for _, _, _, _, a, b in sure:
+        for _, _, _, _, _, a, b in sure:
             print('%s\t%s' % (a['slug'], b['slug']))
         return 1 if sure else 0
 
@@ -196,9 +293,10 @@ def main():
         if not entries:
             return
         print('\n%s\n%s' % (heading, '-' * len(heading)))
-        for st, jac, con, same, a, b in sorted(entries, key=lambda e: (e[0], -e[1])):
-            print('[%s] jaccard=%.2f containment=%.2f identical_rules=%s'
-                  % (st, jac, con, same))
+        for st, jac, con, same, basis, a, b in sorted(entries,
+                                                       key=lambda e: (e[0], -e[1])):
+            print('[%s] jaccard=%.2f containment=%.2f identical_rules=%s  (%s)'
+                  % (st, jac, con, same, basis))
             for w in (a, b):
                 print('   rules=%-2d %s' % (rule_count.get(w['id'], 0), w['name']))
                 print('            {%s}' % w['slug'])

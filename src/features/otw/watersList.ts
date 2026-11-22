@@ -2,28 +2,45 @@
  * The Waters tab's shape, as pure data.
  *
  * ---------------------------------------------------------------------------
- * WHY THE LIST IS IN THREE PARTS AND NOT ONE
+ * WHY THE LIST IS IN FOUR PARTS AND NOT ONE
  *
- * Georgia's published set, measured 2026-11-21: 76 waters, of which 60 carry
- * at least one rule and 16 carry none, plus 17 rules that are statewide and
- * attach to no water at all.
+ *   statewide        rules that apply wherever you are in the state. They
+ *                    have no water to sit under, so a water-shaped list would
+ *                    simply lose them.
+ *   regulated        a water and the rules read off the agency's pages for it.
+ *   noExceptions     a water the state publishes no special rule for. The
+ *                    statewide rules above are its complete answer.
+ *   notTranscribed   a water the state names and whose rules nobody has read
+ *                    yet. There may be rules we do not hold.
  *
- * One flat alphabetical list would bury two different problems in it. A water
- * with no rules is a dead end -- you tap it and nothing opens -- and a
- * statewide rule has nowhere to live, so it would simply be missing from a
- * screen that looks like it lists everything. Both are facts about the data
- * rather than gaps to hide:
+ * ---------------------------------------------------------------------------
+ * THE LAST TWO USED TO BE ONE PART, AND THAT WAS A LIE ABOUT HALF OF THEM
  *
- *   statewide     rules that apply wherever you are in the state.
- *   regulated     a water and the rules read off the agency's pages for it.
- *   alsoListed    waters the agency names but for which we hold no rule yet.
- *                 Shown, not dropped: "we know this water exists and have not
- *                 transcribed its rules" is more useful than silence, and
- *                 dropping them would make the list quietly incomplete.
+ * `waters` began as an EXCEPTIONS table. A row existed because the state
+ * published something unusual there, so a water with no rules could only mean
+ * "named but not yet read", and one heading covered it: "we have not
+ * transcribed rules for them yet, so check the regulations before you fish
+ * one."
  *
- * `alsoListed` is also the honest counter to a tempting shortcut -- filtering
- * waters down to those that already have rules would make the screen look
- * finished at the cost of being wrong about what Georgia regulates.
+ * Georgia DNR's own list of major lakes and rivers is now in the table too,
+ * so a water with no rules has two possible meanings that pull opposite ways:
+ *
+ *   Lake Sinclair    Checked against all six of Georgia's exception lists and
+ *                    on none of them. The statewide rules ARE its rules, and
+ *                    saying so is the most useful thing this screen can do.
+ *   Ocmulgee PFA     Largemouth bass are catch-and-release there, published on
+ *                    the Public Fishing Areas page, and we hold no rule for
+ *                    it. A reader told "the statewide rules apply" would be
+ *                    told they may keep five.
+ *
+ * `waters.rules_complete_at` is what separates them -- see migration
+ * 20261213000000 -- and this module's only job is to not throw that
+ * distinction away on the way to the screen. A null is the cautious value: a
+ * water we are unsure about is listed as unread, never as cleared.
+ *
+ * Neither group is ever dropped. Filtering waters down to those that already
+ * have rules would make the screen look finished at the cost of being wrong
+ * about what the state regulates.
  */
 import type { WaterRow } from '@/lib/database.types';
 import type { FishingRuleWithRefs } from './queries';
@@ -38,8 +55,16 @@ export type WatersList = {
   statewide: FishingRuleWithRefs[];
   /** Waters we hold rules for, alphabetical. */
   regulated: WaterWithRules[];
-  /** Waters the state names, with no rule transcribed yet. Alphabetical. */
-  alsoListed: WaterRow[];
+  /**
+   * Waters with no rules, where the state's exception lists HAVE been read and
+   * it is on none of them. The statewide rules are the whole answer.
+   */
+  noExceptions: WaterRow[];
+  /**
+   * Waters with no rules and no completeness claim. We do not know what the
+   * state publishes for them. Alphabetical.
+   */
+  notTranscribed: WaterRow[];
 };
 
 /**
@@ -91,14 +116,24 @@ export function buildWatersList(
     normalise(a.name).localeCompare(normalise(b.name));
 
   const regulated: WaterWithRules[] = [];
-  const alsoListed: WaterRow[] = [];
+  const noExceptions: WaterRow[] = [];
+  const notTranscribed: WaterRow[] = [];
   for (const water of [...waters].sort(byName)) {
     const held = rulesBySlug.get(water.slug);
-    if (held && held.length) regulated.push({ water, rules: held });
-    else alsoListed.push(water);
+    if (held && held.length) {
+      regulated.push({ water, rules: held });
+    } else if (water.rules_complete_at) {
+      // Somebody read the state's exception lists for this water and it was on
+      // none of them. Zero rules is the finding, not the gap.
+      noExceptions.push(water);
+    } else {
+      // No claim either way. The cautious branch, and the default: an
+      // unrecognised or missing value lands here, never in noExceptions.
+      notTranscribed.push(water);
+    }
   }
 
-  return { statewide, regulated, alsoListed };
+  return { statewide, regulated, noExceptions, notTranscribed };
 }
 
 /**
@@ -122,7 +157,8 @@ export function filterWatersList(list: WatersList, query: string): WatersList {
   return {
     statewide: [],
     regulated: list.regulated.filter((r) => hit(r.water)),
-    alsoListed: list.alsoListed.filter(hit),
+    noExceptions: list.noExceptions.filter(hit),
+    notTranscribed: list.notTranscribed.filter(hit),
   };
 }
 
@@ -134,15 +170,23 @@ export function filterWatersList(list: WatersList, query: string): WatersList {
  *
  * Georgia's regulations are statewide rules plus a list of named exceptions.
  * The source says so outright: "There are no minimum length limits on
- * freshwater game fish unless they are listed below." A water appears in
- * `waters` BECAUSE it differs from the default, not because it is fishable.
+ * freshwater game fish unless they are listed below." A water earns a row in
+ * `waters` by differing from the default, or by being on the agency's own
+ * list of major waters -- never by being fishable, of which Georgia has
+ * 500,000 acres.
  *
- * So Lake Sinclair -- one of the most-fished reservoirs in the state -- is
- * absent from the table, correctly, because Georgia publishes no exception
- * for it. Searching for it returned "Nothing matching", which a reader can
- * only take to mean the app does not cover Lake Sinclair. It does: the
- * statewide rules already on this screen are exactly the rules that govern
- * it. The data was right and the screen was wrong.
+ * Lake Sinclair was the case that proved it. Absent from the table, correctly,
+ * because Georgia publishes no exception for it; a search returned "Nothing
+ * matching", which a reader can only take to mean the app does not cover Lake
+ * Sinclair. It does -- the statewide rules already on this screen are exactly
+ * the rules that govern it. The data was right and the screen was wrong.
+ *
+ * Sinclair now has a row of its own, under "Statewide rules apply", so it is
+ * no longer the example. This function still earns its place and always will:
+ * the agency's list runs to 32 reservoirs and 19 rivers, and Georgia has
+ * thousands of farm ponds, creeks and backwaters that will never be on any
+ * list. A search for one of those must land on the rules that govern it, not
+ * on a dead end.
  *
  * This is the silence-reads-as-absence failure rather than the usual
  * absence-reads-as-permission one, and it is why the fix belongs here and not
@@ -165,7 +209,7 @@ export function statewideFallback(
 
 /** How many waters a filtered list is showing, for the empty-state copy. */
 export function waterCount(list: WatersList): number {
-  return list.regulated.length + list.alsoListed.length;
+  return list.regulated.length + list.noExceptions.length + list.notTranscribed.length;
 }
 
 /** "River · White County" -- whatever of the two is known. */

@@ -406,7 +406,34 @@ export type WaterRow = Timestamps & {
   parent_water_id: string | null;
   source_id: string | null;
   last_verified_at: string | null;
+  /**
+   * Free text about the water that is not a rule and has no field of its own:
+   * which state it is shared with, a closure that applies to marked areas
+   * rather than the whole lake, an aggregate limit the schema cannot hold.
+   *
+   * Rendered on the Waters tab. That matters -- notes is where facts go when
+   * fishing_rules cannot express their shape, so a note nobody displays is a
+   * regulation we have written down and hidden.
+   */
+  notes: string | null;
   status: ContentStatus;
+  /**
+   * When the state's exception lists were last read END TO END for this water,
+   * and what we hold was confirmed to be everything the state publishes for
+   * it, as rules or in notes.
+   *
+   * NULL is not "incomplete", it is "no such claim has been made" -- there may
+   * be rules we do not hold. Zero rules PLUS a date is a finding: the state
+   * publishes no exception here, so the statewide rules are the complete
+   * answer.
+   *
+   * Distinct from last_verified_at, which records only when the row itself was
+   * extracted. All 220 waters have that set, Lake Seminole included, and
+   * Seminole has a published seasonal closure we did not hold -- which is why
+   * reusing it would have put a false "statewide rules apply" over a closed
+   * area. See migration 20261213000000.
+   */
+  rules_complete_at: string | null;
   /**
    * The USGS gauge that reads this water, 8 to 15 digits. A fact about the
    * water, constrained in the database, and null for most of them: there is
@@ -559,15 +586,18 @@ export type Database = {
       species: Table<SpeciesRow, Omit<SpeciesRow, 'id' | 'created_at'> & { id?: string }>;
       zones: Table<ZoneRow, Omit<ZoneRow, Gen> & { id?: string }>;
       seasons: Table<SeasonRow, Omit<SeasonRow, Gen> & { id?: string }>;
-      // usgs_site_no and wadeable_cfs_max are optional on insert: both default
-      // to null in the database, and a water is published long before anyone
-      // knows which gauge reads it.
+      // usgs_site_no, wadeable_cfs_max, notes and rules_complete_at are
+      // optional on insert: all four default to null in the database, and a
+      // water is published long before anyone knows which gauge reads it or
+      // has read every exception list for it.
       waters: Table<
         WaterRow,
-        Omit<WaterRow, Gen | 'usgs_site_no' | 'wadeable_cfs_max'> & {
+        Omit<WaterRow, Gen | 'usgs_site_no' | 'wadeable_cfs_max' | 'notes' | 'rules_complete_at'> & {
           id?: string;
           usgs_site_no?: string | null;
           wadeable_cfs_max?: number | null;
+          notes?: string | null;
+          rules_complete_at?: string | null;
         }
       >;
       fishing_rules: Table<FishingRuleRow, Omit<FishingRuleRow, Gen> & { id?: string }>;
