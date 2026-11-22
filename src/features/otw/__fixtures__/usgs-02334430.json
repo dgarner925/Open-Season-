@@ -1,0 +1,343 @@
+{
+ "name": "ns1:timeSeriesResponseType",
+ "declaredType": "org.cuahsi.waterml.TimeSeriesResponseType",
+ "scope": "javax.xml.bind.JAXBElement$GlobalScope",
+ "value": {
+  "queryInfo": {
+   "note": [
+    "TRIMMED FIXTURE - last 8 points of each series"
+   ]
+  },
+  "timeSeries": [
+   {
+    "sourceInfo": {
+     "siteName": "CHATTAHOOCHEE RIVER AT BUFORD DAM, NEAR BUFORD, GA",
+     "siteCode": [
+      {
+       "value": "02334430",
+       "network": "NWIS",
+       "agencyCode": "USGS"
+      }
+     ],
+     "timeZoneInfo": {
+      "defaultTimeZone": {
+       "zoneOffset": "-05:00",
+       "zoneAbbreviation": "EST"
+      },
+      "daylightSavingsTimeZone": {
+       "zoneOffset": "-04:00",
+       "zoneAbbreviation": "EDT"
+      },
+      "siteUsesDaylightSavingsTime": true
+     },
+     "geoLocation": {
+      "geogLocation": {
+       "srs": "EPSG:4326",
+       "latitude": 34.156667,
+       "longitude": -84.078417
+      },
+      "localSiteXY": []
+     },
+     "note": [],
+     "siteType": [],
+     "siteProperty": [
+      {
+       "value": "ST",
+       "name": "siteTypeCd"
+      },
+      {
+       "value": "03130001",
+       "name": "hucCd"
+      },
+      {
+       "value": "13",
+       "name": "stateCd"
+      },
+      {
+       "value": "13135",
+       "name": "countyCd"
+      }
+     ]
+    },
+    "variable": {
+     "variableCode": [
+      {
+       "value": "00010",
+       "network": "NWIS",
+       "vocabulary": "NWIS:UnitValues",
+       "variableID": 45807042,
+       "default": true
+      }
+     ],
+     "variableName": "Temperature, water, &#176;C",
+     "variableDescription": "Temperature, water, degrees Celsius",
+     "valueType": "Derived Value",
+     "unit": {
+      "unitCode": "deg C"
+     },
+     "options": {
+      "option": [
+       {
+        "name": "Statistic",
+        "optionCode": "00000"
+       }
+      ]
+     },
+     "note": [],
+     "noDataValue": -999999.0,
+     "variableProperty": [],
+     "oid": "45807042"
+    },
+    "values": [
+     {
+      "value": [
+       {
+        "value": "11.2",
+        "qualifiers": [
+         "P"
+        ],
+        "dateTime": "2026-11-21T19:15:00.000-05:00"
+       },
+       {
+        "value": "11.2",
+        "qualifiers": [
+         "P"
+        ],
+        "dateTime": "2026-11-21T19:30:00.000-05:00"
+       },
+       {
+        "value": "11.2",
+        "qualifiers": [
+         "P"
+        ],
+        "dateTime": "2026-11-21T19:45:00.000-05:00"
+       },
+       {
+        "value": "11.2",
+        "qualifiers": [
+         "P"
+        ],
+        "dateTime": "2026-11-21T20:00:00.000-05:00"
+       },
+       {
+        "value": "11.2",
+        "qualifiers": [
+         "P"
+        ],
+        "dateTime": "2026-11-21T20:15:00.000-05:00"
+       },
+       {
+        "value": "11.2",
+        "qualifiers": [
+         "P"
+        ],
+        "dateTime": "2026-11-21T20:30:00.000-05:00"
+       },
+       {
+        "value": "11.2",
+        "qualifiers": [
+         "P"
+        ],
+        "dateTime": "2026-11-21T20:45:00.000-05:00"
+       },
+       {
+        "value": "11.2",
+        "qualifiers": [
+         "P"
+        ],
+        "dateTime": "2026-11-21T21:00:00.000-05:00"
+       }
+      ],
+      "qualifier": [
+       {
+        "qualifierCode": "P",
+        "qualifierDescription": "Provisional data subject to revision.",
+        "qualifierID": 0,
+        "network": "NWIS",
+        "vocabulary": "uv_rmk_cd"
+       }
+      ],
+      "qualityControlLevel": [],
+      "method": [
+       {
+        "methodDescription": "",
+        "methodID": 39461
+       }
+      ],
+      "source": [],
+      "offset": [],
+      "sample": [],
+      "censorCode": []
+     }
+    ],
+    "name": "USGS:02334430:00010:00000"
+   },
+   {
+    "sourceInfo": {
+     "siteName": "CHATTAHOOCHEE RIVER AT BUFORD DAM, NEAR BUFORD, GA",
+     "siteCode": [
+      {
+       "value": "02334430",
+       "network": "NWIS",
+       "agencyCode": "USGS"
+      }
+     ],
+     "timeZoneInfo": {
+      "defaultTimeZone": {
+       "zoneOffset": "-05:00",
+       "zoneAbbreviation": "EST"
+      },
+      "daylightSavingsTimeZone": {
+       "zoneOffset": "-04:00",
+       "zoneAbbreviation": "EDT"
+      },
+      "siteUsesDaylightSavingsTime": true
+     },
+     "geoLocation": {
+      "geogLocation": {
+       "srs": "EPSG:4326",
+       "latitude": 34.156667,
+       "longitude": -84.078417
+      },
+      "localSiteXY": []
+     },
+     "note": [],
+     "siteType": [],
+     "siteProperty": [
+      {
+       "value": "ST",
+       "name": "siteTypeCd"
+      },
+      {
+       "value": "03130001",
+       "name": "hucCd"
+      },
+      {
+       "value": "13",
+       "name": "stateCd"
+      },
+      {
+       "value": "13135",
+       "name": "countyCd"
+      }
+     ]
+    },
+    "variable": {
+     "variableCode": [
+      {
+       "value": "00060",
+       "network": "NWIS",
+       "vocabulary": "NWIS:UnitValues",
+       "variableID": 45807197,
+       "default": true
+      }
+     ],
+     "variableName": "Streamflow, ft&#179;/s",
+     "variableDescription": "Discharge, cubic feet per second",
+     "valueType": "Derived Value",
+     "unit": {
+      "unitCode": "ft3/s"
+     },
+     "options": {
+      "option": [
+       {
+        "name": "Statistic",
+        "optionCode": "00000"
+       }
+      ]
+     },
+     "note": [],
+     "noDataValue": -999999.0,
+     "variableProperty": [],
+     "oid": "45807197"
+    },
+    "values": [
+     {
+      "value": [
+       {
+        "value": "613",
+        "qualifiers": [
+         "P"
+        ],
+        "dateTime": "2026-11-21T19:15:00.000-05:00"
+       },
+       {
+        "value": "613",
+        "qualifiers": [
+         "P"
+        ],
+        "dateTime": "2026-11-21T19:30:00.000-05:00"
+       },
+       {
+        "value": "613",
+        "qualifiers": [
+         "P"
+        ],
+        "dateTime": "2026-11-21T19:45:00.000-05:00"
+       },
+       {
+        "value": "613",
+        "qualifiers": [
+         "P"
+        ],
+        "dateTime": "2026-11-21T20:00:00.000-05:00"
+       },
+       {
+        "value": "613",
+        "qualifiers": [
+         "P"
+        ],
+        "dateTime": "2026-11-21T20:15:00.000-05:00"
+       },
+       {
+        "value": "613",
+        "qualifiers": [
+         "P"
+        ],
+        "dateTime": "2026-11-21T20:30:00.000-05:00"
+       },
+       {
+        "value": "613",
+        "qualifiers": [
+         "P"
+        ],
+        "dateTime": "2026-11-21T20:45:00.000-05:00"
+       },
+       {
+        "value": "613",
+        "qualifiers": [
+         "P"
+        ],
+        "dateTime": "2026-11-21T21:00:00.000-05:00"
+       }
+      ],
+      "qualifier": [
+       {
+        "qualifierCode": "P",
+        "qualifierDescription": "Provisional data subject to revision.",
+        "qualifierID": 0,
+        "network": "NWIS",
+        "vocabulary": "uv_rmk_cd"
+       }
+      ],
+      "qualityControlLevel": [],
+      "method": [
+       {
+        "methodDescription": "",
+        "methodID": 39462
+       }
+      ],
+      "source": [],
+      "offset": [],
+      "sample": [],
+      "censorCode": []
+     }
+    ],
+    "name": "USGS:02334430:00060:00000"
+   }
+  ]
+ },
+ "nil": false,
+ "globalScope": true,
+ "typeSubstituted": false
+}
