@@ -102,6 +102,49 @@ export function statesLimit(rule: FishingRuleWithRefs): boolean {
 }
 
 /**
+ * Which of two size rules on the same tier should govern.
+ *
+ * ---------------------------------------------------------------------------
+ * WHY THIS EXISTS: THE WINNER USED TO BE WHATEVER POSTGRES RETURNED FIRST
+ *
+ * Size has one winner, and it was taken as `waterSize[0]` -- the first
+ * matching rule in query order. When a water carries two rules that both
+ * state a size, that made the answer arbitrary, and the loser vanished
+ * entirely: `supersededSize` held only statewide rules, so a displaced water
+ * rule was not shown as displaced. It was shown as nothing.
+ *
+ * Lake Lindsay Grace is the live case. Georgia gives it two rules:
+ *
+ *   slot_release 15-22   "Bass between 15 and 22 inches must be released"
+ *   see_notes            "Only one bass may be greater than 22 inches"
+ *
+ * The second states no length at all -- its content is a trophy allowance.
+ * Half the time it won, and the screen said "special size rule" while the
+ * numbers that tell you which fish to put back were dropped on the floor.
+ *
+ * So: a rule carrying an actual length beats one that does not, and where
+ * two rules both carry lengths the more restrictive reading wins. Ties keep
+ * query order, because Array.prototype.sort is stable.
+ */
+function sizeRank(rule: FishingRuleWithRefs): number {
+  if (rule.minLengthInches !== null || rule.maxLengthInches !== null) return 0;
+  // `none` is a statement -- "there is no size limit here" -- and it is the
+  // whole content of the rules that cancel Georgia's statewide 12-inch
+  // minimum on Burton, Blue Ridge and Juliette. It ranks behind a real
+  // length only because a water holding both is contradictory data, and
+  // between a stated limit and no limit the restrictive reading is the one
+  // that cannot get a reader cited.
+  if (rule.sizeRule === 'none') return 1;
+  // `see_notes` with no numbers. Last, because it is the only one of the
+  // three that tells the reader nothing they can act on.
+  return 2;
+}
+
+function bySize(rules: readonly FishingRuleWithRefs[]): FishingRuleWithRefs[] {
+  return [...rules].sort((a, b) => sizeRank(a) - sizeRank(b));
+}
+
+/**
  * Does this rule name this species?
  *
  * Exported because the water screen needs the same question answered when it
@@ -137,11 +180,17 @@ export function resolveSpeciesAtWater(
   const tag = (rules: readonly FishingRuleWithRefs[], origin: RuleOrigin): ApplicableRule[] =>
     rules.map((rule) => ({ rule, origin }));
 
-  // SIZE -- one winner, water first.
-  const waterSize = tag(wr.filter(statesSize), 'water');
-  const stateSize = tag(sw.filter(statesSize), 'statewide');
+  // SIZE -- one winner, water first, and within a tier the rule that
+  // actually carries a length. See sizeRank.
+  const waterSize = tag(bySize(wr.filter(statesSize)), 'water');
+  const stateSize = tag(bySize(sw.filter(statesSize)), 'statewide');
   const governingSize = waterSize[0] ?? stateSize[0] ?? null;
-  const supersededSize = waterSize.length ? stateSize : [];
+  // Every loser, not only the statewide ones. A second size rule on the same
+  // water used to disappear without trace; now it reads as displaced, which
+  // is what it is.
+  const supersededSize = waterSize.length
+    ? [...waterSize.slice(1), ...stateSize]
+    : stateSize.slice(1);
 
   // LIMITS -- a water limit replaces all statewide limits; otherwise keep
   // every statewide limit, because nested limits are two real numbers.

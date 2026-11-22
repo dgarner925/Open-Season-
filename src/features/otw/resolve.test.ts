@@ -240,3 +240,72 @@ describe('speciesCovered', () => {
     expect(speciesCovered([], [])).toEqual([]);
   });
 });
+
+/**
+ * Lake Lindsay Grace: two size rules on one water, and only one of them
+ * carries numbers. Read out of production 2026-11-22.
+ */
+const GRACE_SLOT = rule({
+  id: 'grace-slot',
+  waterSlug: 'lake-lindsay-grace',
+  speciesNames: ['Largemouth bass'],
+  sizeRule: 'slot_release',
+  minLengthInches: 15,
+  maxLengthInches: 22,
+});
+const GRACE_TROPHY = rule({
+  id: 'grace-trophy',
+  waterSlug: 'lake-lindsay-grace',
+  speciesNames: ['Largemouth bass'],
+  sizeRule: 'see_notes',
+  trophyAllowance: 1,
+  trophyMinLengthInches: 22,
+});
+
+describe('two size rules on one water', () => {
+  it('LETS THE RULE WITH NUMBERS GOVERN, WHICHEVER ORDER THEY ARRIVE IN', () => {
+    // This was arbitrary: governingSize was waterSize[0], so the winner was
+    // whatever Postgres returned first. Half the time Lake Lindsay Grace
+    // read "special size rule" and the 15-22 inch slot -- the part that
+    // tells a reader which fish to put back -- was gone from the screen.
+    for (const order of [
+      [GRACE_SLOT, GRACE_TROPHY],
+      [GRACE_TROPHY, GRACE_SLOT],
+    ]) {
+      const out = resolveSpeciesAtWater('Largemouth bass', STATEWIDE, order);
+      expect(out.governingSize?.rule.id).toBe('grace-slot');
+      expect(out.governingSize?.origin).toBe('water');
+    }
+  });
+
+  it('SHOWS THE LOSER AS DISPLACED RATHER THAN DROPPING IT', () => {
+    // supersededSize used to hold statewide rules only, so a water rule that
+    // lost on size vanished without trace -- no heading, no "superseded",
+    // nothing. A reader could not tell the app held it.
+    const out = resolveSpeciesAtWater('Largemouth bass', STATEWIDE, [GRACE_SLOT, GRACE_TROPHY]);
+    const ids = out.supersededSize.map((a) => a.rule.id);
+    expect(ids).toContain('grace-trophy');
+    expect(ids).toContain('sw-size');
+  });
+
+  it('keeps a water rule that says "no size limit" ahead of nothing at all', () => {
+    // `none` is a statement and must still beat see_notes-with-no-numbers.
+    const noLimit = rule({
+      id: 'grace-none',
+      waterSlug: 'lake-lindsay-grace',
+      speciesNames: ['Largemouth bass'],
+      sizeRule: 'none',
+    });
+    const out = resolveSpeciesAtWater('Largemouth bass', STATEWIDE, [GRACE_TROPHY, noLimit]);
+    expect(out.governingSize?.rule.id).toBe('grace-none');
+  });
+
+  it('does not reorder a single water rule, or an empty set', () => {
+    expect(
+      resolveSpeciesAtWater('Largemouth bass', STATEWIDE, [GRACE_TROPHY]).governingSize?.rule.id,
+    ).toBe('grace-trophy');
+    expect(
+      resolveSpeciesAtWater('Largemouth bass', STATEWIDE, []).governingSize?.rule.id,
+    ).toBe('sw-size');
+  });
+});
