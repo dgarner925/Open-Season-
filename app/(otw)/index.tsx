@@ -41,9 +41,9 @@ import { useFishingRules } from '@/features/otw/queries';
 import { ruleInForce, ruleSubtitle, speciesPhrase, windowPhrase } from '@/features/otw/format';
 import {
   PLACEHOLDER_LEDGER,
-  PLACEHOLDER_LICENSE,
   PLACEHOLDER_PLATES,
 } from '@/features/otw/placeholder';
+import { useOtwLicence } from '@/features/otw/useOtwLicence';
 import { sublineFor } from '@/features/otw/conditions';
 import { useGaugeConditions, useOtwAlmanac } from '@/features/otw/useGaugeConditions';
 import { useGaugeSiteNo } from '@/lib/otwGauge';
@@ -80,6 +80,9 @@ export default function OtwHome() {
   const stateCode =
     states.find((st) => st.id === profile?.resident_state_id)?.code ?? browseCode ?? null;
   const stateName = states.find((st) => st.code === stateCode)?.name ?? stateCode ?? '';
+  // The row, not just the code: states.license_url is the angler's own
+  // renewal page, and the banner used to hardcode Georgia's for all 50.
+  const stateRow = states.find((st) => st.code === stateCode) ?? null;
 
   const { data: ruleData } = useFishingRules(stateCode);
 
@@ -101,14 +104,17 @@ export default function OtwHome() {
   const regsAreReal = !!realRows;
 
   /**
-   * What on this screen is still invented, in the order it appears. The
-   * conditions came off the list in Phase 2; the licence banner has no model
-   * behind it and "Your species" implies a follow model fishing does not have.
+   * What on this screen is still invented, in the order it appears.
+   *
+   * Conditions came off in Phase 2 and the licence came off here: it now
+   * reads user_licenses and shows nothing when there is nothing to show, so
+   * naming it as a placeholder source would itself be the inaccuracy. Only
+   * the plates are left -- "Your species" implies a follow model that exists
+   * in the schema (user_waters) but has no way to add anything to it yet.
    */
   const stillExample = useMemo(() => {
     const parts = [
       ...(regsAreReal ? [] : ['seasons']),
-      'licence',
       'plates',
     ];
     const last = parts.pop()!;
@@ -117,6 +123,10 @@ export default function OtwHome() {
 
   // Live conditions: USGS for the flow, NWS at the gauge's own coordinates
   // for air and sky, suncalc on-device for the sun and the moon.
+  // Null for everyone until somebody records an expiry, which is why the
+  // banner is simply absent rather than showing a number nobody gave us.
+  const licence = useOtwLicence(stateRow);
+
   const { siteNo } = useGaugeSiteNo();
   const { conditions, isPending } = useGaugeConditions(siteNo);
   const almanac = useOtwAlmanac(conditions?.gauge ?? null);
@@ -181,7 +191,7 @@ export default function OtwHome() {
           {conditions ? <Text style={styles.subline}>{sublineFor(conditions)}</Text> : null}
         </View>
 
-        <OtwLicenseBanner daysLeft={PLACEHOLDER_LICENSE.daysLeft} renewUrl={PLACEHOLDER_LICENSE.renewUrl} />
+        <OtwLicenseBanner daysLeft={licence.daysLeft} renewUrl={licence.renewUrl} />
 
         {conditions && almanac ? (
           <TodayOnTheWaterCard

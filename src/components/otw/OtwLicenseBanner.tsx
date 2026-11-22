@@ -5,11 +5,16 @@
  * months left -- a banner that is always there is wallpaper, and stops being
  * read on the day it matters.
  *
- * Phase 1 reads a placeholder. There is no licence model in the app today:
- * src/components/LicenseRow.tsx is an outbound link to states.license_url,
- * and the only licence field in the schema is that URL. An expiry date has to
- * come from somewhere new, which is a Phase 3 decision (device-local, or a
- * user_licenses table).
+ * The date is real as of Phase 3: useOtwLicence reads `user_licenses` for the
+ * signed-in angler in their own state, and `renewUrl` is that state's
+ * `license_url` rather than Georgia's for everybody.
+ *
+ * The `daysLeft === null` branch below is the load-bearing one and always has
+ * been. `user_licenses` is empty for every user today, so this component
+ * renders nothing for every user today. That is the honest reading of "we
+ * have not been told when your licence expires" -- and it is why replacing
+ * the placeholder needed no change here: the component was already willing to
+ * say nothing, it was the caller that was inventing a number.
  */
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Pressable, StyleSheet, Text, View } from 'react-native';

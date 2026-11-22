@@ -10,9 +10,16 @@
 //   seasons      REAL when the species gate is open -- the published
 //                fishing_rules for Georgia, read by useFishingRules. The
 //                ledger below is the fallback for when it is not.
-//   licence      STILL PLACEHOLDER. There is no licence-expiry model.
-//   plates       STILL PLACEHOLDER. "Your species" implies a follow model
-//                that fishing does not have.
+//   licence      GONE. It reads `user_licenses` for the signed-in angler and
+//                their own state, via useOtwLicence. The banner is absent
+//                when no expiry has been recorded, which is everyone today
+//                -- the honest answer, and the reason this entry could be
+//                deleted rather than merely improved. The renewal link now
+//                comes from states.license_url instead of being Georgia's
+//                for all 50 states.
+//   plates       STILL PLACEHOLDER. "Your species" implies a follow model.
+//                `user_waters` exists in the schema as of 20261209000000 but
+//                nothing can add a row to it yet, so the plates stay.
 //
 // Nothing remaining here has been checked against Georgia DNR, and nothing
 // here may be presented as though it had been: the OTW Home names whichever
@@ -20,18 +27,6 @@
 //
 // What IS real, because it is a fact rather than a regulation: the Latin
 // names on the species plates.
-
-export type PlaceholderLicense = {
-  /** Days until it expires. The banner hides itself above 60. */
-  daysLeft: number;
-  /** Where "Renew" goes. The states table already carries a licence URL. */
-  renewUrl: string;
-};
-
-export const PLACEHOLDER_LICENSE: PlaceholderLicense = {
-  daysLeft: 23,
-  renewUrl: 'https://georgiawildlife.com/licenses-permits-passes',
-};
 
 export type LedgerKind = 'rule' | 'stocking' | 'season';
 
