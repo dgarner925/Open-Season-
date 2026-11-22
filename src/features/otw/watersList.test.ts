@@ -108,6 +108,23 @@ describe('buildWatersList', () => {
     ]);
   });
 
+  it('puts every water in alsoListed when no rules are passed, which is why the caller must wait', () => {
+    // This is CORRECT for the function and a trap for its caller. `waters`
+    // and `fishing_rules` are separate queries; when waters resolved first,
+    // the Waters tab rendered all 63 Georgia waters under "We have not
+    // transcribed rules for them yet, so check the regulations before you
+    // fish one" -- false for 47 of them.
+    //
+    // The function cannot tell "no rules exist" from "rules have not arrived"
+    // and must not try: an empty array is an empty array. The screen is what
+    // knows, so app/(otw)/waters.tsx renders nothing until both queries land.
+    // This test pins the behaviour that makes that gate necessary.
+    const list = buildWatersList([HOOCH, SMITH, LANIER], []);
+    expect(list.alsoListed).toHaveLength(3);
+    expect(list.regulated).toHaveLength(0);
+    expect(list.statewide).toHaveLength(0);
+  });
+
   it('handles an empty state without throwing', () => {
     const list = buildWatersList([], []);
     expect(list).toEqual({ statewide: [], regulated: [], alsoListed: [] });

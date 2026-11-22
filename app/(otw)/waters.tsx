@@ -158,6 +158,19 @@ export default function OtwWaters() {
 
         <WavyRule tone="brass" style={styles.rule} />
 
+        {/*
+          Nothing below renders until BOTH queries have landed, and that is
+          load-bearing rather than tidy.
+
+          `waters` and `fishing_rules` are separate queries. When waters
+          resolved first, buildWatersList had every water and no rules, so all
+          63 fell into `alsoListed` -- under the heading "We have not
+          transcribed rules for them yet, so check the regulations before you
+          fish one." That sentence was false for 47 of them, and it is exactly
+          the failure class where a default reads as data: a water whose rules
+          are still in flight must not look like a water whose rules we do not
+          have.
+        */}
         {pending ? <Text style={styles.note}>Reading the ledger…</Text> : null}
 
         {!pending && shown === 0 ? (
@@ -166,7 +179,7 @@ export default function OtwWaters() {
           </Text>
         ) : null}
 
-        {list.statewide.length ? (
+        {!pending && list.statewide.length ? (
           <View style={styles.card}>
             <View style={styles.cardHead}>
               <View style={styles.cardHeadBody}>
@@ -183,7 +196,7 @@ export default function OtwWaters() {
           </View>
         ) : null}
 
-        {list.regulated.length ? (
+        {!pending && list.regulated.length ? (
           <>
             <Text style={styles.sectionHead}>
               Regulated waters · {list.regulated.length}
@@ -194,7 +207,7 @@ export default function OtwWaters() {
           </>
         ) : null}
 
-        {list.alsoListed.length ? (
+        {!pending && list.alsoListed.length ? (
           <>
             <WavyRule tone="river" style={styles.rule} />
             <Text style={styles.sectionHead}>Also listed · {list.alsoListed.length}</Text>
