@@ -115,7 +115,12 @@ export const GAUGES: Gauge[] = [
     // number did not silently change meaning when the data became real.
     wadeableMax: 1000,
     note: 'Chattahoochee River at Buford Dam, below Lake Lanier',
-    servesWaters: ['chattahoochee-river-buford-tailwater'],
+    // Was 'chattahoochee-river-buford-tailwater', which no longer exists:
+    // migration 20261210000000 merged it into the row below, because the two
+    // were the same reach entered twice. This is the surviving slug, and this
+    // gauge is the one the reach keeps -- on a tailwater the dam release is
+    // what decides whether you can wade it.
+    servesWaters: ['chattahoochee-river-buford-dam-to-peachtree-creek'],
   },
   {
     siteNo: '02335000',
@@ -125,11 +130,15 @@ export const GAUGES: Gauge[] = [
     lng: -84.2019444,
     reportsWaterTemp: true,
     wadeableMax: null,
-    note: 'Chattahoochee River near Norcross, below the tailwater',
-    // Norcross sits inside this regulated reach, so it is the nearest reading
-    // for it -- though the gauge is intermittent: it returned nothing on one
-    // of two probes today.
-    servesWaters: ['chattahoochee-river-buford-dam-to-peachtree-creek'],
+    note: 'Chattahoochee River near Norcross, inside the Buford Dam reach',
+    // Deliberately serves no water now. Norcross sits INSIDE the Buford Dam
+    // to Peachtree Creek reach -- the same reach 02334430 serves -- so this
+    // gauge and that one were never two reaches, which is what the duplicate
+    // water rows made it look like. It stays in the picker as a second
+    // reading on the same water (someone fishing down by Norcross may want
+    // it), but it is not the reach's canonical gauge: it is intermittent and
+    // returned nothing on one of two probes on 2026-11-21.
+    servesWaters: [],
   },
   {
     siteNo: '02335815',
