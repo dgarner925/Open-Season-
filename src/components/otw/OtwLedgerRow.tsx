@@ -48,7 +48,9 @@ export function OtwLedgerRow({
         <Text style={styles.title} numberOfLines={1}>
           {title}
         </Text>
-        <Text style={styles.subtitle} numberOfLines={1}>
+        {/* TWO LINES. The subtitle carries the water AND the rule, and a
+            long water name ate both on one line -- see the Home row below. */}
+        <Text style={styles.subtitle} numberOfLines={2}>
           {subtitle}
         </Text>
       </View>

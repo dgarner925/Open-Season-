@@ -211,10 +211,23 @@ export default function OtwHome() {
                 <OtwLedgerRow
                   key={r.id}
                   kind={r.waterName ? 'rule' : 'season'}
-                  title={[r.waterName ?? 'Statewide', speciesPhrase(r.speciesNames)]
-                    .filter(Boolean)
-                    .join(' · ')}
-                  subtitle={ruleSubtitle(r) || r.extentNote || 'See the regulations'}
+                  /*
+                   * SPECIES FIRST, water second.
+                   *
+                   * This read `waterName · species` on one truncated line, and
+                   * "Clarks Hill Lake (J. Strom Thurmond)" is 36 characters, so
+                   * the species never rendered: three Clarks Hill rules came out
+                   * as three identical titles differing only in a creel number.
+                   * The species is what the row is about -- it is the title on
+                   * the Waters screen for the same reason -- and the water is
+                   * context, so it moves down to the (now two-line) subtitle.
+                   */
+                  title={speciesPhrase(r.speciesNames)}
+                  subtitle={
+                    [r.waterName, ruleSubtitle(r) || r.extentNote]
+                      .filter(Boolean)
+                      .join(' · ') || 'See the regulations'
+                  }
                   status={
                     inForce
                       ? { text: 'In force', tone: 'open' }
