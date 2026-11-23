@@ -8,7 +8,11 @@
  */
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import type { LedgerKind } from '@/features/otw/placeholder';
+/**
+ * Moved here from features/otw/placeholder.ts when that file was deleted --
+ * it was never placeholder, it is this component's own prop type.
+ */
+export type LedgerKind = 'rule' | 'stocking' | 'season';
 import { otwLang } from '@/theme/otwTokens';
 
 const { color, space, type } = otwLang;

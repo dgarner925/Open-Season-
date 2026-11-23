@@ -28,7 +28,6 @@ import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Monogram } from '@/components/system';
 import { ModeToggle } from '@/components/ModeToggle';
-import { FlyPlateCard } from '@/components/otw/FlyPlateCard';
 import { OtwLedgerRow } from '@/components/otw/OtwLedgerRow';
 import { OtwLicenseBanner } from '@/components/otw/OtwLicenseBanner';
 import { TodayOnTheWaterCard } from '@/components/otw/TodayOnTheWaterCard';
@@ -39,7 +38,6 @@ import { useBrowseStateCode } from '@/lib/browseState';
 import { useActiveStates } from '@/features/reference/queries';
 import { useFishingRules } from '@/features/otw/queries';
 import { ruleInForce, ruleSubtitle, speciesPhrase, windowPhrase } from '@/features/otw/format';
-import { PLACEHOLDER_PLATES } from '@/features/otw/placeholder';
 import { useOtwLicence } from '@/features/otw/useOtwLicence';
 import { sublineFor } from '@/features/otw/conditions';
 import { useGaugeConditions, useOtwAlmanac } from '@/features/otw/useGaugeConditions';
@@ -98,23 +96,6 @@ export default function OtwHome() {
     return [...usable].sort((a, b) => rank(a) - rank(b)).slice(0, 3);
   }, [ruleData, todayISO]);
 
-  /**
-   * What on this screen is still invented.
-   *
-   * Just the plates. Conditions came off in Phase 2; the licence came off
-   * next, reading user_licenses and showing nothing when there is nothing to
-   * show; and the seasons came off here -- a state with no published rules
-   * now says so instead of borrowing three invented ones, so "seasons" can
-   * no longer appear in this marker because there are no example seasons
-   * left to mark.
-   *
-   * "Your species" is the last of it: the heading implies a follow model
-   * that exists in the schema (user_waters, 20261209000000) but has nothing
-   * to write a row with yet, so every angler sees the same three fish.
-   * Whether that section ships or waits is a design call, not this file's.
-   */
-  const stillExample = 'PLATES';
-
   // Live conditions: USGS for the flow, NWS at the gauge's own coordinates
   // for air and sky, suncalc on-device for the sun and the moon.
   // Null for everyone until somebody records an expiry, which is why the
@@ -147,15 +128,21 @@ export default function OtwHome() {
           <ModeToggle />
         </View>
 
-        {/* Names what is STILL example, which as of Phase 2 is no longer the
-            conditions. A blanket "EXAMPLE DATA" over a card now showing a real
-            USGS reading would be false in the other direction, and a marker
-            that is wrong either way stops being read. */}
-        {stillExample ? (
-          <View style={styles.notice}>
-            <Text style={styles.noticeText}>EXAMPLE {stillExample}</Text>
-          </View>
-        ) : null}
+        {/*
+          NO EXAMPLE MARKER, because there is nothing left to mark.
+
+          This banner named whatever on the screen was still invented, and it
+          shrank as the screen got real: conditions came off in Phase 2 when
+          the Today card started reading a verified USGS gauge, the licence
+          came off when it started reading user_licenses, the seasons came
+          off when a state with no rules began saying so, and the plates came
+          off with the section above.
+
+          Deleted rather than left computing an empty string: a marker that
+          renders nothing is a marker nobody maintains, and the next
+          placeholder to arrive deserves a deliberate decision rather than an
+          inherited banner.
+        */}
 
         <View style={styles.hero}>
           <Text style={styles.micro}>
@@ -261,26 +248,21 @@ export default function OtwHome() {
                   : 'Pick a state to see its fishing regulations.'}
             </Text>}
 
-        <WavyRule tone="river" style={styles.rule} />
+        {/*
+          "YOUR SPECIES" IS GONE, with its three plates.
 
-        <View style={styles.sectionHead}>
-          <Text style={styles.sectionTitle}>Your species</Text>
-          <Text style={styles.sectionLink} onPress={() => router.push('/(otw)/regs')}>
-            Field plates ›
-          </Text>
-        </View>
-        <View style={styles.plates}>
-          {PLACEHOLDER_PLATES.map((p) => (
-            <FlyPlateCard
-              key={p.artKey}
-              artKey={p.artKey}
-              plate={p.plate}
-              commonName={p.commonName}
-              latinName={p.latinName}
-            />
-          ))}
-        </View>
+          The heading promised a follow model: `user_waters` exists in the
+          schema (20261209000000) and nothing can write a row to it, so the
+          section showed the same three fish -- rainbow trout, striped bass,
+          spotted bass -- to every angler in every state, and "Field plates
+          ›" led to the Regs placeholder. Decoration that claims to be
+          personal is worse than no section, because the reader cannot tell
+          which parts of the screen are about them.
 
+          It returns when there is something to follow and art to draw: three
+          FishArtKey engravings exist against seventy-two species, which is
+          the real blocker. FlyPlateCard is kept for that.
+        */}
         <Text style={styles.disclaimer}>{OTW_DISCLAIMER}</Text>
       </ScrollView>
     </SafeAreaView>
@@ -337,8 +319,6 @@ const styles = StyleSheet.create({
   },
   sectionTitle: { fontFamily: type.otwDisplay, fontSize: 21, color: color.ink },
   sectionLink: { fontFamily: type.uiMedium, fontSize: 13, color: color.brassText },
-
-  plates: { flexDirection: 'row', gap: space.x8, marginTop: space.x12 },
 
   /* Sits where the ledger rows would be, so the section never collapses to
      a bare heading with nothing under it. */
