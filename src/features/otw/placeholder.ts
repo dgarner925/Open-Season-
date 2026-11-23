@@ -7,9 +7,15 @@
 //                usgs.ts, conditions.ts and useGaugeConditions.ts. Sunrise,
 //                sunset and the moon are computed on-device from the gauge's
 //                latitude and longitude.
-//   seasons      REAL when the species gate is open -- the published
-//                fishing_rules for Georgia, read by useFishingRules. The
-//                ledger below is the fallback for when it is not.
+//   seasons      GONE. The Home reads published fishing_rules through
+//                useFishingRules, and a state with none now says so. The
+//                three invented rows that used to stand in -- a Chattahoochee
+//                delayed-harvest rule, a stocking date and a Lanier striper
+//                season -- are deleted rather than left unused: forty-three
+//                states have no fishing rules, so that fallback was the
+//                first thing most anglers would have read on this screen,
+//                and a plausible season nobody published is the worst thing
+//                this app can say. An unused export is an invitation.
 //   licence      GONE. It reads `user_licenses` for the signed-in angler and
 //                their own state, via useOtwLicence. The banner is absent
 //                when no expiry has been recorded, which is everyone today
@@ -28,40 +34,12 @@
 // What IS real, because it is a fact rather than a regulation: the Latin
 // names on the species plates.
 
+/**
+ * NOT placeholder, despite the file. OtwLedgerRow -- which renders the real
+ * published rules -- takes this as its `kind` prop. Move it before deleting
+ * this file, which is the goal once the plates are resolved.
+ */
 export type LedgerKind = 'rule' | 'stocking' | 'season';
-
-export type PlaceholderLedgerRow = {
-  id: string;
-  kind: LedgerKind;
-  title: string;
-  subtitle: string;
-  /** Moss when the water is open, brass when it is a date. */
-  status: { text: string; tone: 'open' | 'date' };
-};
-
-export const PLACEHOLDER_LEDGER: PlaceholderLedgerRow[] = [
-  {
-    id: 'hooch-dh',
-    kind: 'rule',
-    title: 'Chattahoochee · Delayed Harvest',
-    subtitle: 'Catch & release · single-hook artificials',
-    status: { text: 'Open', tone: 'open' },
-  },
-  {
-    id: 'stocked',
-    kind: 'stocking',
-    title: 'Stocked this week',
-    subtitle: 'Rainbows · Hooch DH · Smith Creek DH',
-    status: { text: 'Tue 18', tone: 'date' },
-  },
-  {
-    id: 'lanier-stripers',
-    kind: 'season',
-    title: 'Lake Lanier · stripers',
-    subtitle: 'Year-round · 15/day, 2 over 22"',
-    status: { text: 'Open', tone: 'open' },
-  },
-];
 
 export type PlaceholderPlate = {
   /** The art key, so a real engraving can replace the line drawing later. */

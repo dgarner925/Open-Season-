@@ -39,10 +39,7 @@ import { useBrowseStateCode } from '@/lib/browseState';
 import { useActiveStates } from '@/features/reference/queries';
 import { useFishingRules } from '@/features/otw/queries';
 import { ruleInForce, ruleSubtitle, speciesPhrase, windowPhrase } from '@/features/otw/format';
-import {
-  PLACEHOLDER_LEDGER,
-  PLACEHOLDER_PLATES,
-} from '@/features/otw/placeholder';
+import { PLACEHOLDER_PLATES } from '@/features/otw/placeholder';
 import { useOtwLicence } from '@/features/otw/useOtwLicence';
 import { sublineFor } from '@/features/otw/conditions';
 import { useGaugeConditions, useOtwAlmanac } from '@/features/otw/useGaugeConditions';
@@ -84,7 +81,7 @@ export default function OtwHome() {
   // renewal page, and the banner used to hardcode Georgia's for all 50.
   const stateRow = states.find((st) => st.code === stateCode) ?? null;
 
-  const { data: ruleData } = useFishingRules(stateCode);
+  const { data: ruleData, isPending: rulesPending } = useFishingRules(stateCode);
 
   /**
    * The three rules worth leading with: a named water before statewide, and a
@@ -101,25 +98,22 @@ export default function OtwHome() {
     return [...usable].sort((a, b) => rank(a) - rank(b)).slice(0, 3);
   }, [ruleData, todayISO]);
 
-  const regsAreReal = !!realRows;
-
   /**
-   * What on this screen is still invented, in the order it appears.
+   * What on this screen is still invented.
    *
-   * Conditions came off in Phase 2 and the licence came off here: it now
-   * reads user_licenses and shows nothing when there is nothing to show, so
-   * naming it as a placeholder source would itself be the inaccuracy. Only
-   * the plates are left -- "Your species" implies a follow model that exists
-   * in the schema (user_waters) but has no way to add anything to it yet.
+   * Just the plates. Conditions came off in Phase 2; the licence came off
+   * next, reading user_licenses and showing nothing when there is nothing to
+   * show; and the seasons came off here -- a state with no published rules
+   * now says so instead of borrowing three invented ones, so "seasons" can
+   * no longer appear in this marker because there are no example seasons
+   * left to mark.
+   *
+   * "Your species" is the last of it: the heading implies a follow model
+   * that exists in the schema (user_waters, 20261209000000) but has nothing
+   * to write a row with yet, so every angler sees the same three fish.
+   * Whether that section ships or waits is a design call, not this file's.
    */
-  const stillExample = useMemo(() => {
-    const parts = [
-      ...(regsAreReal ? [] : ['seasons']),
-      'plates',
-    ];
-    const last = parts.pop()!;
-    return (parts.length ? `${parts.join(', ')} & ${last}` : last).toUpperCase();
-  }, [regsAreReal]);
+  const stillExample = 'PLATES';
 
   // Live conditions: USGS for the flow, NWS at the gauge's own coordinates
   // for air and sky, suncalc on-device for the sun and the moon.
@@ -243,16 +237,29 @@ export default function OtwHome() {
                 />
               );
             })
-          : PLACEHOLDER_LEDGER.map((row, i) => (
-              <OtwLedgerRow
-                key={row.id}
-                kind={row.kind}
-                title={row.title}
-                subtitle={row.subtitle}
-                status={row.status}
-                first={i === 0}
-              />
-            ))}
+          : /* Nothing invented here any more.
+             *
+             * This branch used to render PLACEHOLDER_LEDGER -- three made-up
+             * seasons -- under an "EXAMPLE SEASONS" marker. Georgia and five
+             * of its neighbours have real rules; the other forty-three
+             * states have none, so every angler outside the Southeast met
+             * invented regulations on the first screen of the fishing side.
+             * A marker makes that honest, not harmless: it is still a
+             * season-shaped sentence where the app has no season, and it is
+             * the one thing this project cannot ship (see the span-row and
+             * swallowed-failure classes).
+             *
+             * It also showed WHILE LOADING, because realRows returns null
+             * for "no data yet" and "no data at all" alike -- the same
+             * defect 8a58017 fixed in the waters list. Hence `pending`
+             * first: a slow network must not look like an empty state. */
+            <Text style={styles.ledgerNote}>
+              {rulesPending
+                ? 'Reading the ledger…'
+                : stateName
+                  ? `No fishing regulations published for ${stateName} yet. The hunting side is unaffected.`
+                  : 'Pick a state to see its fishing regulations.'}
+            </Text>}
 
         <WavyRule tone="river" style={styles.rule} />
 
@@ -332,6 +339,16 @@ const styles = StyleSheet.create({
   sectionLink: { fontFamily: type.uiMedium, fontSize: 13, color: color.brassText },
 
   plates: { flexDirection: 'row', gap: space.x8, marginTop: space.x12 },
+
+  /* Sits where the ledger rows would be, so the section never collapses to
+     a bare heading with nothing under it. */
+  ledgerNote: {
+    fontFamily: type.ui,
+    fontSize: 13.5,
+    lineHeight: 20,
+    color: color.dim,
+    marginTop: space.x12,
+  },
 
   disclaimer: {
     fontFamily: type.ui,
