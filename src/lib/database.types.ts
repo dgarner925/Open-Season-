@@ -107,6 +107,14 @@ export type StateRow = Timestamps & {
   agency_name: string | null;
   is_active: boolean;
   license_url: string | null;
+  /**
+   * Has On the Water launched here. An editorial judgement, not a row count
+   * -- North Carolina holds three published fishing rules and would pass any
+   * count-based test while answering almost nothing. Gates whether the app
+   * OFFERS fishing; published rules stay world-readable in every state.
+   * See migration 20261222000000 and useEffectiveMode.
+   */
+  otw_launched: boolean;
 };
 
 export type ApplicationStatus = 'planned' | 'applied' | 'successful' | 'unsuccessful' | 'purchased';

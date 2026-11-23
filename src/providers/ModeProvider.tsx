@@ -19,7 +19,11 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 
-export type Mode = 'hunt' | 'otw';
+// Defined in src/lib/effectiveMode.ts, which has no react-native in its
+// import graph so the routing decision can be tested. Re-exported here
+// because this is where the rest of the app already imports Mode from.
+export type { Mode } from '@/lib/effectiveMode';
+import type { Mode } from '@/lib/effectiveMode';
 
 const KEY = 'os.mode.v1';
 const DEFAULT: Mode = 'hunt';

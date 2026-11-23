@@ -31,6 +31,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { MODE_LABEL } from '@/content/brand';
 import { useMode, type Mode } from '@/providers/ModeProvider';
+import { useEffectiveMode } from '@/hooks/useEffectiveMode';
 import { lang } from '@/theme/tokens';
 import { otwLang } from '@/theme/otwTokens';
 
@@ -107,10 +108,35 @@ function Segment({
 }
 
 export function ModeToggle() {
-  const { mode, setMode } = useMode();
+  const { setMode } = useMode();
+  // The EFFECTIVE mode, so the control shows the segment the app is actually
+  // rendering. Reading the stored mode here would light "Water" for someone
+  // the layout has already sent to the woods because their state has no
+  // fishing launched.
+  const { mode, otwAvailable, ready } = useEffectiveMode();
   const { width } = useWindowDimensions();
   const palette = PALETTE[mode];
   const showLabel = width >= LABELS_FIT_ABOVE;
+
+  /*
+   * NO TOGGLE WHERE THERE IS NOTHING TO TOGGLE TO.
+   *
+   * On the Water has launched in six states. Offering the control in the
+   * other forty-four invites a reader into a section with no rules for their
+   * state -- and a control that leads somewhere empty is worse than an
+   * absent feature, because it reads as the app being broken rather than the
+   * feature not being there yet.
+   *
+   * Hidden until `ready` rather than shown and then withdrawn. A toggle that
+   * appears and vanishes can be tapped in between, and the states query is
+   * cached after the first load, so this costs one frame on a cold start and
+   * nothing after.
+   *
+   * Returning null is safe in both call sites: this is the only child of its
+   * header row in the woods, and on the water a reader who got there has a
+   * launched state by construction.
+   */
+  if (!ready || !otwAvailable) return null;
 
   return (
     <View style={[styles.track, { backgroundColor: palette.track }]}>

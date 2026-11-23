@@ -4,7 +4,7 @@ import { useEffect } from 'react';
 import { ActivityIndicator, StyleSheet, View, type ColorValue } from 'react-native';
 import { useAuth } from '@/providers/AuthProvider';
 import { useAppGate } from '@/hooks/useAppGate';
-import { useMode } from '@/providers/ModeProvider';
+import { useEffectiveMode } from '@/hooks/useEffectiveMode';
 import { pushPermissionState, syncPushToken } from '@/lib/push';
 import { useFollows } from '@/features/follows/queries';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -19,7 +19,7 @@ function icon(base: keyof typeof Ionicons.glyphMap) {
 export default function TabsLayout() {
   const { session } = useAuth();
   const gate = useAppGate();
-  const { mode, ready } = useMode();
+  const { mode, ready } = useEffectiveMode();
 
   const router = useRouter();
   const { data: follows = [] } = useFollows();
@@ -71,10 +71,14 @@ export default function TabsLayout() {
 
   if (gate.status === 'redirect') return <Redirect href={gate.href} />;
 
-  // The persisted mode decides which group you land in on launch. Inert for
-  // every hunting user -- 'hunt' is the default and the only value until the
-  // toggle ships -- and the mirror of this lives in (otw)/_layout.tsx. The
-  // two conditions are exact opposites, so they cannot ping-pong.
+  // The EFFECTIVE mode decides which group you land in: the stored
+  // preference, narrowed to the states On the Water has launched in. A
+  // reader who chose Water in Georgia and then switched to Ohio lands here,
+  // because Ohio has no fishing rules to show them.
+  //
+  // The mirror of this lives in (otw)/_layout.tsx and both read the same
+  // hook, so the two conditions stay exact opposites and cannot ping-pong --
+  // which is the whole reason the gate is not written out by hand twice.
   //
   // Deep links and push notifications are unaffected: routeForNotification
   // pushes /season/[id], /window/[id] and /leftover/[id], which are root

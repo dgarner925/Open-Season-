@@ -16,7 +16,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Redirect, Tabs } from 'expo-router';
 import { ActivityIndicator, StyleSheet, View, type ColorValue } from 'react-native';
 import { useAppGate } from '@/hooks/useAppGate';
-import { useMode } from '@/providers/ModeProvider';
+import { useEffectiveMode } from '@/hooks/useEffectiveMode';
 import { otwLang } from '@/theme/otwTokens';
 
 const { color, type } = otwLang;
@@ -33,11 +33,12 @@ function icon(base: keyof typeof Ionicons.glyphMap) {
 
 export default function OtwTabsLayout() {
   const gate = useAppGate();
-  const { mode, ready } = useMode();
+  const { mode, ready } = useEffectiveMode();
 
   // `ready` is folded in here rather than handled separately: the gate is
   // already waiting on auth, browse state and setup, all of which are slower
-  // than one AsyncStorage read, so this costs no extra frame.
+  // than one AsyncStorage read and the states query, so this costs no extra
+  // frame.
   if (gate.status === 'loading' || !ready) {
     return (
       <View style={styles.gate}>
@@ -48,8 +49,12 @@ export default function OtwTabsLayout() {
 
   if (gate.status === 'redirect') return <Redirect href={gate.href} />;
 
-  // Someone who switched back to the woods, or who deep-linked in here while
-  // the mode says hunting. The mirror of this lives in (tabs)/_layout.tsx;
+  // Someone who switched back to the woods, who deep-linked in here while
+  // the mode says hunting, or whose browse state has no fishing launched --
+  // useEffectiveMode folds that last one in, so a reader cannot be stranded
+  // in a fishing section their state has no rules for.
+  //
+  // The mirror of this lives in (tabs)/_layout.tsx and reads the same hook;
   // the two conditions are exact opposites, so they cannot ping-pong.
   if (mode !== 'otw') return <Redirect href="/(tabs)" />;
 
