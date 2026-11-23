@@ -95,11 +95,21 @@ export default function OtwTabsLayout() {
       */}
       <Tabs.Screen name="stocking" options={{ href: null }} />
       <Tabs.Screen name="profile" options={{ href: null }} />
-      {/* Placeholder too. Left on the bar only because the Home screen links
-          to it; under the State -> Water -> Fish model the Waters tab IS the
-          regulations browser, so this slot is the one to re-use rather than
-          fill. */}
-      <Tabs.Screen name="regs" options={{ title: 'Regs', tabBarIcon: icon('document-text') }} />
+      {/*
+        REGS COMES OFF THE BAR TOO, for the reason its own note gave.
+
+        It is an OtwPlaceholder -- a title and a blurb saying what Phase 3
+        will read -- and it was holding a third of the tab bar to say so. The
+        note argued it stayed "only because the Home screen links to it",
+        which `href: null` preserves: the route and the link both still work.
+
+        Under State -> Water -> Fish the Waters tab IS the regulations
+        browser, so there was never a second thing for this slot to become.
+        Two tabs that both answer something beat three where one is a promise
+        -- and a placeholder screen on the tab bar of a store build is the
+        kind of thing App Review rejects under App Completeness.
+      */}
+      <Tabs.Screen name="regs" options={{ href: null }} />
     </Tabs>
   );
 }
