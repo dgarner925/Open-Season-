@@ -43,6 +43,7 @@
 import { useActiveStates } from '@/features/reference/queries';
 import { resolveEffectiveMode, type Mode } from '@/lib/effectiveMode';
 import { useBrowseStateCode } from '@/lib/browseState';
+import { useAuth } from '@/providers/AuthProvider';
 import { useMode } from '@/providers/ModeProvider';
 
 export type EffectiveMode = {
@@ -50,23 +51,46 @@ export type EffectiveMode = {
   mode: Mode;
   /** The stored preference, regardless of availability. */
   stored: Mode;
-  /** Has On the Water launched in the state being browsed. */
+  /** Has On the Water launched in the reader's state. */
   otwAvailable: boolean;
-  /** False until the stored mode AND the states list have both landed. */
+  /** The state that answer was about: resident first, else browsed. */
+  code: string | null;
+  /** False until the mode, the profile and the states list have all landed. */
   ready: boolean;
 };
 
 export function useEffectiveMode(): EffectiveMode {
   const { mode: stored, ready: modeReady } = useMode();
-  const { code, loading: codeLoading } = useBrowseStateCode();
+  const { code: browseCode, loading: codeLoading } = useBrowseStateCode();
   const { data: states, isPending: statesPending } = useActiveStates();
+  /*
+   * THE PROFILE, which this hook used to do without.
+   *
+   * Reading only the browse code hid On the Water from every onboarded
+   * reader -- the browse code is a guest's convenience and stays null once
+   * you have told the app where you live. See viewerStateCode.
+   *
+   * `loading` has to join `ready` for the same reason the states query did:
+   * judged on a profile that has not arrived, a Georgia angler with a stored
+   * 'otw' is un-launched for a frame, (otw)/_layout bounces them to the
+   * woods, the profile lands, and (tabs)/_layout bounces them back. That
+   * ping-pong is the exact failure the single-decision design exists to
+   * prevent, and it would only ever show up on a cold start on a slow phone.
+   */
+  const { profile, loading: authLoading } = useAuth();
 
-  const { mode, otwAvailable } = resolveEffectiveMode({ stored, code, states });
+  const { mode, otwAvailable, code } = resolveEffectiveMode({
+    stored,
+    residentStateId: profile?.resident_state_id ?? null,
+    browseCode,
+    states,
+  });
 
   return {
     mode,
     stored,
     otwAvailable,
-    ready: modeReady && !codeLoading && !statesPending,
+    code,
+    ready: modeReady && !codeLoading && !statesPending && !authLoading,
   };
 }

@@ -39,14 +39,53 @@
 /** The two halves of the app. The canonical definition; ModeProvider re-exports it. */
 export type Mode = 'hunt' | 'otw';
 
-/** Just enough of a state row to answer the question. */
-export type ModeStateRow = { code: string; otw_launched: boolean };
+/**
+ * Just enough of a state row to answer the question.
+ *
+ * `id` is here because the reader's state is not simply the one they are
+ * browsing -- see viewerStateCode.
+ */
+export type ModeStateRow = { id: string; code: string; otw_launched: boolean };
+
+/**
+ * WHICH STATE THE READER IS IN. The bug that shipped in 1.4.8 (build 115).
+ *
+ * There are two ways the app knows a reader's state and they are not
+ * interchangeable:
+ *
+ *   profiles.resident_state_id   where they said they live, set at onboarding
+ *   browseStateCode              a device-local browsing convenience, and
+ *                                explicitly NOT a statement about where they
+ *                                hunt (see lib/browseState.ts)
+ *
+ * Both Home screens resolve resident FIRST and fall back to browse. The mode
+ * gate read browseStateCode on its own -- so for every reader who finished
+ * onboarding and never picked a browse state, the code was null, no state
+ * matched, otwAvailable was false, and ModeToggle returned null. On the Water
+ * was in the binary and unreachable by exactly the users who had completed
+ * setup. It looked like the feature had not shipped.
+ *
+ * One resolution, shared, so the gate and the screens cannot drift again.
+ */
+export function viewerStateCode(input: {
+  residentStateId: string | null | undefined;
+  browseCode: string | null;
+  states: readonly ModeStateRow[] | undefined;
+}): string | null {
+  const resident = input.residentStateId
+    ? (input.states?.find((s) => s.id === input.residentStateId)?.code ?? null)
+    : null;
+  return resident ?? input.browseCode ?? null;
+}
 
 export function resolveEffectiveMode(input: {
   stored: Mode;
-  code: string | null;
+  residentStateId: string | null | undefined;
+  browseCode: string | null;
   states: readonly ModeStateRow[] | undefined;
-}): { mode: Mode; otwAvailable: boolean } {
+}): { mode: Mode; otwAvailable: boolean; code: string | null } {
+  const code = viewerStateCode(input);
+
   // No state chosen yet means nothing to look up, which is NOT the same as a
   // state that has not launched -- but either way there is no fishing to
   // offer, so the effective mode is the woods. The sign-in and state-picker
@@ -59,11 +98,11 @@ export function resolveEffectiveMode(input: {
   // "not loaded yet" as "not launched" is the swallowed-failure shape -- a
   // default standing in for an answer -- and `ready` is what keeps it from
   // reaching the reader.
-  const otwAvailable =
-    !!input.code && !!input.states?.some((s) => s.code === input.code && s.otw_launched);
+  const otwAvailable = !!code && !!input.states?.some((s) => s.code === code && s.otw_launched);
 
   return {
     mode: input.stored === 'otw' && otwAvailable ? 'otw' : 'hunt',
     otwAvailable,
+    code,
   };
 }
