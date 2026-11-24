@@ -2,7 +2,7 @@
   "expo": {
     "name": "Open Season",
     "slug": "openseason",
-    "version": "1.4.8",
+    "version": "1.4.9",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "scheme": "openseason",
@@ -29,7 +29,7 @@
           "group.com.openseason.shared"
         ]
       },
-      "buildNumber": "115"
+      "buildNumber": "116"
     },
     "android": {
       "package": "com.osdatesanddraws.app",
