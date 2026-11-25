@@ -54,7 +54,7 @@ import type { ApplicableRule } from '@/features/otw/resolve';
 import { useAuth } from '@/providers/AuthProvider';
 import { useBrowseStateCode } from '@/lib/browseState';
 import type { WaterRow } from '@/lib/database.types';
-import { otwLang } from '@/theme/otwTokens';
+import { otwLang, OTW_DISCLAIMER } from '@/theme/otwTokens';
 
 const { color, space, type } = otwLang;
 
@@ -351,10 +351,10 @@ export default function OtwWaterDetail() {
           </>
         )}
 
-        <Text style={styles.footnote}>
-          Informational only. Always confirm seasons, limits and special regulations with the
-          state agency before fishing.
-        </Text>
+        {/* The constant, not a copy. These two screens each carried their
+            own wording, so the compliance sentence would have reached four
+            screens and missed these. */}
+        <Text style={styles.footnote}>{OTW_DISCLAIMER}</Text>
       </ScrollView>
     </SafeAreaView>
   );

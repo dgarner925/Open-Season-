@@ -205,8 +205,12 @@ export const otwTheme = {
   },
 } as const;
 
-/** The fishing mode's disclaimer, matching DISCLAIMER in src/theme/index.ts. */
+/**
+ * The fishing mode's disclaimer, matching DISCLAIMER in src/theme/index.ts --
+ * including its first sentence, which is there to satisfy Google Play's
+ * Misleading Claims policy. See the note on DISCLAIMER before editing either.
+ */
 export const OTW_DISCLAIMER =
-  'Informational only. Always confirm seasons, limits and special regulations with the official state regulations before fishing.';
+  'Open Season is not a government agency and is not affiliated with any state wildlife agency. Informational only — always confirm seasons, limits and special regulations with the official state regulations before fishing.';
 
 export type OtwLang = typeof otwLang;
